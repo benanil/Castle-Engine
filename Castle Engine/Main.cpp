@@ -5,8 +5,8 @@
 #pragma comment(lib, "d3dx10.lib")
 
 #include <windows.h>
-#include <d3d11.h>
 #include <d3dx11.h>
+#include "helper.hpp"
 #include <D3DX10.h>
 #include <xnamath.h>
 #include <cassert>
@@ -16,34 +16,31 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 
 #include <glm/glm.hpp>
-#include "helper.hpp"
 #include <array>
 #include <vector>
-#include "imgui.h"
-#include "imgui_impl_sdl.h"
-#include "imgui_impl_dx11.h"
 #include <SDL.h>
 #include <SDL_syswm.h>
-
-// #include <SDL.h>
+#include "Editor/Editor.hpp"
 
 //Global Declarations - Interfaces//
 IDXGISwapChain* SwapChain;
-ID3D11Device* d3d11Device;
-ID3D11DeviceContext* d3d11DevCon;
-ID3D11RenderTargetView* renderTargetView;
+DXDevice* d3d11Device;
+DXDeviceContext* d3d11DevCon;
+DXRenderTargetView* renderTargetView;
 
 ID3D11DepthStencilView* depthStencilView;
-ID3D11Texture2D* depthStencilBuffer;
+DXTexture2D* depthStencilBuffer;
 
-ID3D11Buffer* triangleVertBuffer;
-ID3D11Buffer* indexBuffer;
-ID3D11Buffer* constantBuffer;
+DXBuffer* triangleVertBuffer;
+DXBuffer* indexBuffer;
+DXBuffer* constantBuffer;
 
 ID3D11RasterizerState* wireFrame;
 
-///
+DXTextureView* cubeTextureView;
+DXTexSampler* cubeTexSampler;
 
+///
 XMMATRIX cube1World;
 XMMATRIX cube2World;
 
@@ -52,9 +49,7 @@ XMMATRIX Scale;
 XMMATRIX Translation;
 float rot = 0.01f;
 
-
 // constant buffer
-
 XMMATRIX MVP;
 XMMATRIX World;
 XMMATRIX camView;
@@ -75,8 +70,8 @@ ID3D10Blob* VS_Buffer;
 ID3D10Blob* PS_Buffer;
 ID3D11InputLayout* vertLayout;
 
-
 //Global Declarations - Others//
+SDL_Window* window;
 LPCTSTR WndClassName = L"firstwindow";
 HWND hwnd = NULL;
 HRESULT hr;
@@ -93,35 +88,48 @@ bool InitScene();
 void UpdateScene();
 void DrawScene();
 
-bool InitializeWindow(HINSTANCE hInstance,
-    int ShowWnd,
-    int width, int height,
-    bool windowed);
+static void DX_CHECK(const HRESULT& hr)
+{ 
+    if (FAILED(hr)) 
+    { 
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", "UNKNOWN", window);
+        assert(1);
+    }
+}
 
-static inline void DX_CHECK(HRESULT hr) { if (FAILED(hr)) { MessageBox(hwnd, TEXT("directx error"), TEXT("directx error"), 0);  assert(1); } }
-static inline void DX_CHECK(HRESULT hr, const char* message) { if (FAILED(hr)) { MessageBox(hwnd, (const wchar_t*)message, TEXT("directx error"), 0);  assert(1); } }
+static void DX_CHECK(const HRESULT& hr, const char* message) 
+{
+    if (FAILED(hr))
+    { 
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", message, window);
+        assert(1); 
+    }
+}
 
 //Vertex Structure and Vertex Layout (Input Layout)//
 struct Vertex    //Overloaded Vertex Structure
 {
     glm::vec3 pos;
-    glm::vec4 col;
+    glm::vec2 texCoord;
 
     Vertex() {}
-    Vertex(const glm::vec3& _pos, const glm::vec4& color)
-        : pos(_pos), col(color)
+    Vertex(const glm::vec3& _pos, const glm::vec2& _texCoord)
+        : pos(_pos), texCoord(_texCoord)
     {}
 };
 
-D3D11_INPUT_ELEMENT_DESC layout[] =
+void MainWindow()
 {
-    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-};
-UINT numElements = ARRAYSIZE(layout);
+    ImGui::Begin("SA IMGUI");
 
+    static char gir[128];
 
-SDL_Window* window;
+    ImGui::InputText("gir", gir, 128);
+
+    ImGui::End();
+
+    ImGui::Render();
+}
 
 int main(int, char**)
 {
@@ -143,14 +151,10 @@ int main(int, char**)
     InitScene();    //Initialize our scene
 
     // init imgui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    Editor::Initialize(window, d3d11Device, d3d11DevCon);
+    Editor::DarkTheme();
 
-    ImGui_ImplSDL2_InitForD3D(window);
-    ImGui_ImplDX11_Init(d3d11Device, d3d11DevCon);
-    ImGui::StyleColorsDark();
+    Editor::AddOnEditor(MainWindow);
 
     // Main loop
     bool done = false;
@@ -255,9 +259,7 @@ bool InitializeDirect3d11App()
 void CleanUp()
 {
     //Release the COM Objects we created
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
+    Editor::Clear();
     SwapChain->Release();
     d3d11Device->Release();
     d3d11DevCon->Release();
@@ -290,34 +292,54 @@ bool InitScene()
         "FragShader Compiling error"
     );
 
+
     //Create the Shader Objects
-    hr = d3d11Device->CreateVertexShader(VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), NULL, &VS);
-    hr = d3d11Device->CreatePixelShader(PS_Buffer->GetBufferPointer(), PS_Buffer->GetBufferSize(), NULL, &PS);
+    DX_CHECK(
+        d3d11Device->CreateVertexShader(VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), NULL, &VS),
+        "VertexShader Compiling error"
+    );
+
+    DX_CHECK(
+        d3d11Device->CreatePixelShader(PS_Buffer->GetBufferPointer(), PS_Buffer->GetBufferSize(), NULL, &PS),
+        "FragShader Compiling error"
+    );
 
     //Set Vertex and Pixel Shaders
     d3d11DevCon->VSSetShader(VS, 0, 0);
     d3d11DevCon->PSSetShader(PS, 0, 0);
 
+    D3D11_INPUT_ELEMENT_DESC layout[] =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+    };
+    UINT numElements = ARRAYSIZE(layout);
+
     // create Index Buffer
     std::vector<uint32_t> indices{
-        // front face
-        0, 1, 2,
-        0, 2, 3,
-        // back face
-        4, 6, 5,
-        4, 7, 6,
-        // left face
-        4, 5, 1,
-        4, 1, 0,
-        // right face
-        3, 2, 6,
-        3, 6, 7,
-        // top face
-        1, 5, 6,
-        1, 6, 2,
-        // bottom face
-        4, 0, 3,
-        4, 3, 7
+        // Front Face
+        0,  1,  2,
+        0,  2,  3,
+
+        // Back Face
+        4,  5,  6,
+        4,  6,  7,
+
+        // Top Face
+        8,  9, 10,
+        8, 10, 11,
+
+        // Bottom Face
+        12, 13, 14,
+        12, 14, 15,
+
+        // Left Face
+        16, 17, 18,
+        16, 18, 19,
+
+        // Right Face
+        20, 21, 22,
+        20, 22, 23
     };
 
     D3D11_BUFFER_DESC indexDesc = DX_CREATE<D3D11_BUFFER_DESC>();
@@ -359,17 +381,32 @@ bool InitScene()
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     // Create the vertex buffer
-    std::array<Vertex, 8> vertices =
+    std::array<Vertex, 24> vertices =
     {
-        Vertex({-1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}),
-        Vertex({-1.0f, +1.0f, -1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}),
-        Vertex({+1.0f, +1.0f, -1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}),
-        Vertex({+1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 0.0f, 1.0f}),
-
-        Vertex({-1.0f, -1.0f, +1.0f}, {0.0f, 1.0f, 1.0f, 1.0f}),
-        Vertex({-1.0f, +1.0f, +1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}),
-        Vertex({+1.0f, +1.0f, +1.0f}, {1.0f, 0.0f, 1.0f, 1.0f}),
-        Vertex({+1.0f, -1.0f, +1.0f}, {1.0f, 0.0f, 0.0f, 1.0f})
+        Vertex({-1.0f, -1.0f, -1.0f}, { 0.0f, 1.0f }),
+        Vertex({-1.0f,  1.0f, -1.0f}, { 0.0f, 0.0f }),
+        Vertex({1.0f,   1.0f, -1.0f}, { 1.0f, 0.0f }),
+        Vertex({1.0f,  -1.0f, -1.0f}, { 1.0f, 1.0f }),
+        Vertex({-1.0f, -1.0f,  1.0f}, { 1.0f, 1.0f }),
+        Vertex({ 1.0f, -1.0f,  1.0f}, { 0.0f, 1.0f }),
+        Vertex({ 1.0f,  1.0f,  1.0f}, { 0.0f, 0.0f }),
+        Vertex({-1.0f,  1.0f,  1.0f}, { 1.0f, 0.0f }),
+        Vertex({-1.0f, 1.0f,  -1.0f}, { 0.0f, 1.0f }),
+        Vertex({-1.0f, 1.0f,   1.0f}, { 0.0f, 0.0f }),
+        Vertex({ 1.0f, 1.0f,   1.0f}, { 1.0f, 0.0f }),
+        Vertex({ 1.0f, 1.0f,  -1.0f}, { 1.0f, 1.0f }),
+        Vertex({-1.0f, -1.0f, -1.0f}, { 1.0f, 1.0f }),
+        Vertex({ 1.0f, -1.0f, -1.0f}, { 0.0f, 1.0f }),
+        Vertex({ 1.0f, -1.0f,  1.0f}, { 0.0f, 0.0f }),
+        Vertex({-1.0f, -1.0f,  1.0f}, { 1.0f, 0.0f }),
+        Vertex({-1.0f, -1.0f,  1.0f}, { 0.0f, 1.0f }),
+        Vertex({-1.0f,  1.0f,  1.0f}, { 0.0f, 0.0f }),
+        Vertex({-1.0f,  1.0f, -1.0f}, { 1.0f, 0.0f }),
+        Vertex({-1.0f, -1.0f, -1.0f}, { 1.0f, 1.0f }),
+        Vertex({1.0f, -1.0f,  -1.0f}, { 0.0f, 1.0f }),
+        Vertex({1.0f,  1.0f,  -1.0f}, { 0.0f, 0.0f }),
+        Vertex({1.0f,  1.0f,   1.0f}, { 1.0f, 0.0f }),
+        Vertex({1.0f, -1.0f,   1.0f}, { 1.0f, 1.0f })
     };
 
     D3D11_BUFFER_DESC vertexBufferDesc = DX_CREATE<D3D11_BUFFER_DESC>();
@@ -409,7 +446,7 @@ bool InitScene()
         d3d11Device->CreateRasterizerState(&rasterizerDesc, &wireFrame), "rasterizer creation failed"
     );
 
-    d3d11DevCon->RSSetState(wireFrame);
+    d3d11DevCon->RSSetState(NULL);
 
     //Create the Viewport
     D3D11_VIEWPORT viewport = DX_CREATE<D3D11_VIEWPORT>();
@@ -424,6 +461,22 @@ bool InitScene()
 
     //Set the Viewport
     d3d11DevCon->RSSetViewports(1, &viewport);
+
+    // create texture
+    hr = D3DX11CreateShaderResourceViewFromFile(d3d11Device, L"braynzar.jpg",
+        NULL, NULL, &cubeTextureView, NULL);
+
+    D3D11_SAMPLER_DESC sampDesc;
+    ZeroMemory(&sampDesc, sizeof(sampDesc));
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    hr = d3d11Device->CreateSamplerState(&sampDesc, &cubeTexSampler);
 
     return true;
 }
@@ -469,7 +522,9 @@ void DrawScene()
     d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    d3d11DevCon->RSSetState(wireFrame);
+    ///////////////**************new**************////////////////////
+    d3d11DevCon->PSSetShaderResources(0, 1, &cubeTextureView);
+    d3d11DevCon->PSSetSamplers(0, 1, &cubeTexSampler);
 
     //Draw first cube
     d3d11DevCon->DrawIndexed(36, 0, 0);
@@ -479,27 +534,11 @@ void DrawScene()
     d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    d3d11DevCon->RSSetState(NULL);
-
     //Draw second cube
     d3d11DevCon->DrawIndexed(36, 0, 0);
 
-    // Start the Dear ImGui frame
-    ImGui_ImplDX11_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::Begin("SA IMGUI");
-
-    static char gir[128];
-
-    ImGui::InputText("gir", gir, 128);
-
-    ImGui::End();
-
-    ImGui::Render();
-
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    // Draw Imgui
+    Editor::Render();
 
     //Present the backbuffer to the screen
     SwapChain->Present(0, 0);
