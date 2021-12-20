@@ -43,7 +43,6 @@ DXTexSampler* cubeTexSampler;
 
 ///
 XMMATRIX cube1World;
-XMMATRIX cube2World;
 
 XMMATRIX Rotation;
 XMMATRIX Scale;
@@ -51,8 +50,7 @@ XMMATRIX Translation;
 float rot = 0.01f;
 
 // constant buffer
-XMMATRIX MVP;
-XMMATRIX World;
+XMMATRIX ViewProjection;
 XMMATRIX camView;
 XMMATRIX camProjection;
 
@@ -62,7 +60,8 @@ XMVECTOR camTarget;
 
 struct cbPerObject
 {
-    XMMATRIX  WVP;
+    XMMATRIX  MVP;
+	XMMATRIX  Model;
 } cbPerObj;
 
 ID3D11VertexShader* VS;
@@ -95,7 +94,7 @@ void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
 {
     if (FAILED(hr))
     {
-        std::string description = std::string("UNKNOWN ERROR!") + " at: " + std::to_string(line) + std::string(file);
+        std::string description = std::string("UNKNOWN ERROR!\n") + std::string(file) + " at line: " + std::to_string(line);
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
     }
@@ -105,7 +104,7 @@ void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line
 {
     if (FAILED(hr))
     {
-        std::string description = std::string(message) + " at: " + std::to_string(line) + std::string(file);
+        std::string description = std::string(message) + std::string(file) + " at line: " + std::to_string(line);
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
     }
@@ -115,8 +114,8 @@ DXDevice* Engine::GetDevice() { return d3d11Device; }
 DXDeviceContext* Engine::GetDeviceContext() { return d3d11DevCon; }
 const SDL_Window* Engine::GetWindow() { return window; };
 
-glm::vec3 axis {1, 0, 0};
-glm::vec3 cameraPos {0, 0, 0};
+glm::vec3 axis { 1.57, 1.57, 0};
+glm::vec3 cameraPos {500, 140, 0};
 float angle = -1.57f;
 
 void MainWindow()
@@ -220,7 +219,7 @@ void CreateRenderTarget()
     //Set our Render Target
     d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
-    camProjection = XMMatrixPerspectiveFovLH(0.5f * 3.14f, (float)depthDesc.Width / depthDesc.Height, 1.0f, 1000.0f);
+    camProjection = XMMatrixPerspectiveFovLH(0.33f * 3.14f, (float)depthDesc.Width / depthDesc.Height, 1.0f, 1000.0f);
 	
 	//Update the Viewport
 	D3D11_VIEWPORT viewport = DX_CREATE<D3D11_VIEWPORT>();
@@ -303,24 +302,23 @@ bool InitScene()
     //Compile Shaders from shader file
     DX_CHECK(
         D3DX11CompileFromFile(L"First.hlsl", 0, 0, "VS", "vs_4_0", 0, 0, 0, &VS_Buffer, 0, 0),
-        "VertexShader Compiling error"
+        "VertexShader Compiling error! \n"
     );
 
     DX_CHECK(
         D3DX11CompileFromFile(L"First.hlsl", 0, 0, "PS", "ps_4_0", 0, 0, 0, &PS_Buffer, 0, 0),
-        "FragShader Compiling error"
+        "FragShader Compiling error! \n"
     );
-
 
     //Create the Shader Objects
     DX_CHECK(
         d3d11Device->CreateVertexShader(VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), NULL, &VS),
-        "VertexShader Compiling error"
+        "VertexShader Compiling error! \n"
     );
 
     DX_CHECK(
         d3d11Device->CreatePixelShader(PS_Buffer->GetBufferPointer(), PS_Buffer->GetBufferSize(), NULL, &PS),
-        "FragShader Compiling error"
+        "FragShader Compiling error! \n"
     );
 
     //Set Vertex and Pixel Shaders
@@ -345,19 +343,19 @@ bool InitScene()
     camView = XMMatrixLookAtLH(camPosition, camTarget, camUp);
     camProjection = XMMatrixPerspectiveFovLH(0.4f * 3.14f, (float)Width / Height, 1.0f, 1000.0f);
 
-    World = XMMatrixIdentity();
-
-    MVP = World * camView * camProjection;
-    cbPerObj.WVP = XMMatrixTranspose(MVP);
-
+    ViewProjection = XMMatrixIdentity() * camView * camProjection;
+    cbPerObj.MVP = XMMatrixTranspose(ViewProjection);
+	cbPerObj.Model          = XMMatrixTranspose(XMMatrixIdentity());
+	
     d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     //Create the Input Layout
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
 	UINT numElements = ARRAYSIZE(layout);
 
@@ -436,7 +434,7 @@ void UpdateScene()
 
     //Define cube1's world space matrix
     Rotation    = XMMatrixRotationRollPitchYaw(axis.x, axis.y, axis.z);
-    Translation = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+    Translation = XMMatrixIdentity();
 
     //Set cube1's world space using the transformations
 	cube1World = Translation * Rotation;
@@ -450,9 +448,10 @@ void DrawScene()
     d3d11DevCon->ClearRenderTargetView(renderTargetView, bgColor);
     d3d11DevCon->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-    MVP = cube1World * camView * camProjection;
-    cbPerObj.WVP = XMMatrixTranspose(MVP);
-    d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    ViewProjection = cube1World * camView * camProjection;
+    cbPerObj.MVP = XMMatrixTranspose(ViewProjection);
+	cbPerObj.Model = XMMatrixTranspose(cube1World);
+	d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     ///////////////**************new**************////////////////////
