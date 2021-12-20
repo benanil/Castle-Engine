@@ -1,4 +1,3 @@
-
 //Include and link appropriate libraries and headers//
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dx11.lib")
@@ -21,6 +20,10 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include "Editor/Editor.hpp"
+#include "Engine.hpp"
+#include <format>
+#include <string>
+#include "Rendering/Mesh.hpp"
 
 //Global Declarations - Interfaces//
 IDXGISwapChain* SwapChain;
@@ -31,8 +34,6 @@ DXRenderTargetView* renderTargetView;
 ID3D11DepthStencilView* depthStencilView;
 DXTexture2D* depthStencilBuffer;
 
-DXBuffer* triangleVertBuffer;
-DXBuffer* indexBuffer;
 DXBuffer* constantBuffer;
 
 ID3D11RasterizerState* wireFrame;
@@ -88,35 +89,35 @@ bool InitScene();
 void UpdateScene();
 void DrawScene();
 
-static void DX_CHECK(const HRESULT& hr)
-{ 
-    if (FAILED(hr)) 
-    { 
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", "UNKNOWN", window);
+Mesh* mesh;
+
+void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
+{
+    if (FAILED(hr))
+    {
+        std::string description = std::string("UNKNOWN ERROR!") + " at: " + std::to_string(line) + std::string(file);
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
     }
 }
 
-static void DX_CHECK(const HRESULT& hr, const char* message) 
+void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line, const char* file)
 {
     if (FAILED(hr))
-    { 
-        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", message, window);
-        assert(1); 
+    {
+        std::string description = std::string(message) + " at: " + std::to_string(line) + std::string(file);
+        SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
+        assert(1);
     }
 }
 
-//Vertex Structure and Vertex Layout (Input Layout)//
-struct Vertex    //Overloaded Vertex Structure
-{
-    glm::vec3 pos;
-    glm::vec2 texCoord;
+DXDevice* Engine::GetDevice() { return d3d11Device; }
+DXDeviceContext* Engine::GetDeviceContext() { return d3d11DevCon; }
+const SDL_Window* Engine::GetWindow() { return window; };
 
-    Vertex() {}
-    Vertex(const glm::vec3& _pos, const glm::vec2& _texCoord)
-        : pos(_pos), texCoord(_texCoord)
-    {}
-};
+glm::vec3 axis {1, 0, 0};
+glm::vec3 cameraPos {0, 0, 0};
+float angle = -1.57f;
 
 void MainWindow()
 {
@@ -126,6 +127,10 @@ void MainWindow()
 
     ImGui::InputText("gir", gir, 128);
 
+	ImGui::DragFloat3("axis", &axis.x, 0.1f);
+	ImGui::DragFloat3("cameraPos", &cameraPos.x, 0.1f);
+    ImGui::DragFloat("angle", &angle, 0.1f);
+    
     ImGui::End();
 
     ImGui::Render();
@@ -161,7 +166,7 @@ int main(int, char**)
     while (!done)
     {
         SDL_Event event;
-        while(SDL_PollEvent(&event))
+        while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
             if (event.type == SDL_QUIT)
@@ -214,6 +219,21 @@ void CreateRenderTarget()
 
     //Set our Render Target
     d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+
+    camProjection = XMMatrixPerspectiveFovLH(0.5f * 3.14f, (float)depthDesc.Width / depthDesc.Height, 1.0f, 1000.0f);
+	
+	//Update the Viewport
+	D3D11_VIEWPORT viewport = DX_CREATE<D3D11_VIEWPORT>();
+	
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = depthDesc.Width ;
+	viewport.Height = depthDesc.Height;
+	
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	
+	d3d11DevCon->RSSetViewports(1, &viewport);
 }
 
 void CleanupRenderTarget()
@@ -260,14 +280,13 @@ void CleanUp()
 {
     //Release the COM Objects we created
     Editor::Clear();
+    mesh->Dispose();
     SwapChain->Release();
     d3d11Device->Release();
     d3d11DevCon->Release();
     renderTargetView->Release();
     depthStencilView->Release();
     depthStencilBuffer->Release();
-    indexBuffer->Release();
-    triangleVertBuffer->Release();
     constantBuffer->Release();
     VS->Release();
     PS->Release();
@@ -308,52 +327,6 @@ bool InitScene()
     d3d11DevCon->VSSetShader(VS, 0, 0);
     d3d11DevCon->PSSetShader(PS, 0, 0);
 
-    D3D11_INPUT_ELEMENT_DESC layout[] =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-    };
-    UINT numElements = ARRAYSIZE(layout);
-
-    // create Index Buffer
-    std::vector<uint32_t> indices{
-        // Front Face
-        0,  1,  2,
-        0,  2,  3,
-
-        // Back Face
-        4,  5,  6,
-        4,  6,  7,
-
-        // Top Face
-        8,  9, 10,
-        8, 10, 11,
-
-        // Bottom Face
-        12, 13, 14,
-        12, 14, 15,
-
-        // Left Face
-        16, 17, 18,
-        16, 18, 19,
-
-        // Right Face
-        20, 21, 22,
-        20, 22, 23
-    };
-
-    D3D11_BUFFER_DESC indexDesc = DX_CREATE<D3D11_BUFFER_DESC>();
-    indexDesc.Usage = D3D11_USAGE_DEFAULT;
-    indexDesc.ByteWidth = sizeof(uint32_t) * indices.size();
-    indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    indexDesc.CPUAccessFlags = 0;
-    indexDesc.MiscFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA initData;
-    initData.pSysMem = indices.data();
-    d3d11Device->CreateBuffer(&indexDesc, &initData, &indexBuffer);
-    d3d11DevCon->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
     // Create Constant Buffer
 
     D3D11_BUFFER_DESC cbDesc = DX_CREATE<D3D11_BUFFER_DESC>();
@@ -365,8 +338,8 @@ bool InitScene()
 
     d3d11Device->CreateBuffer(&cbDesc, NULL, &constantBuffer);
 
-    camPosition = XMVectorSet(0.0f, 3.0f, -8.0f, 0.0f);
-    camTarget = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+    camPosition = XMVectorSet(0.0f, 0.0f, -30.0f, -30.0f);
+    camTarget = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
     camUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     camView = XMMatrixLookAtLH(camPosition, camTarget, camUp);
@@ -380,54 +353,14 @@ bool InitScene()
     d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    // Create the vertex buffer
-    std::array<Vertex, 24> vertices =
-    {
-        Vertex({-1.0f, -1.0f, -1.0f}, { 0.0f, 1.0f }),
-        Vertex({-1.0f,  1.0f, -1.0f}, { 0.0f, 0.0f }),
-        Vertex({1.0f,   1.0f, -1.0f}, { 1.0f, 0.0f }),
-        Vertex({1.0f,  -1.0f, -1.0f}, { 1.0f, 1.0f }),
-        Vertex({-1.0f, -1.0f,  1.0f}, { 1.0f, 1.0f }),
-        Vertex({ 1.0f, -1.0f,  1.0f}, { 0.0f, 1.0f }),
-        Vertex({ 1.0f,  1.0f,  1.0f}, { 0.0f, 0.0f }),
-        Vertex({-1.0f,  1.0f,  1.0f}, { 1.0f, 0.0f }),
-        Vertex({-1.0f, 1.0f,  -1.0f}, { 0.0f, 1.0f }),
-        Vertex({-1.0f, 1.0f,   1.0f}, { 0.0f, 0.0f }),
-        Vertex({ 1.0f, 1.0f,   1.0f}, { 1.0f, 0.0f }),
-        Vertex({ 1.0f, 1.0f,  -1.0f}, { 1.0f, 1.0f }),
-        Vertex({-1.0f, -1.0f, -1.0f}, { 1.0f, 1.0f }),
-        Vertex({ 1.0f, -1.0f, -1.0f}, { 0.0f, 1.0f }),
-        Vertex({ 1.0f, -1.0f,  1.0f}, { 0.0f, 0.0f }),
-        Vertex({-1.0f, -1.0f,  1.0f}, { 1.0f, 0.0f }),
-        Vertex({-1.0f, -1.0f,  1.0f}, { 0.0f, 1.0f }),
-        Vertex({-1.0f,  1.0f,  1.0f}, { 0.0f, 0.0f }),
-        Vertex({-1.0f,  1.0f, -1.0f}, { 1.0f, 0.0f }),
-        Vertex({-1.0f, -1.0f, -1.0f}, { 1.0f, 1.0f }),
-        Vertex({1.0f, -1.0f,  -1.0f}, { 0.0f, 1.0f }),
-        Vertex({1.0f,  1.0f,  -1.0f}, { 0.0f, 0.0f }),
-        Vertex({1.0f,  1.0f,   1.0f}, { 1.0f, 0.0f }),
-        Vertex({1.0f, -1.0f,   1.0f}, { 1.0f, 1.0f })
-    };
-
-    D3D11_BUFFER_DESC vertexBufferDesc = DX_CREATE<D3D11_BUFFER_DESC>();
-
-    vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertices.size();
-    vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    vertexBufferDesc.CPUAccessFlags = 0;
-    vertexBufferDesc.MiscFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA vertexBufferData = DX_CREATE<D3D11_SUBRESOURCE_DATA>();
-
-    vertexBufferData.pSysMem = vertices.data();
-    hr = d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &triangleVertBuffer);
-
-    //Set the vertex buffer
-    UINT stride = sizeof(Vertex);
-    UINT offset = 0;
-    d3d11DevCon->IASetVertexBuffers(0, 1, &triangleVertBuffer, &stride, &offset);
-
     //Create the Input Layout
+	D3D11_INPUT_ELEMENT_DESC layout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	UINT numElements = ARRAYSIZE(layout);
+
     d3d11Device->CreateInputLayout(layout, numElements, VS_Buffer->GetBufferPointer(),
         VS_Buffer->GetBufferSize(), &vertLayout);
 
@@ -463,8 +396,10 @@ bool InitScene()
     d3d11DevCon->RSSetViewports(1, &viewport);
 
     // create texture
-    hr = D3DX11CreateShaderResourceViewFromFile(d3d11Device, L"braynzar.jpg",
-        NULL, NULL, &cubeTextureView, NULL);
+	DX_CHECK(
+		D3DX11CreateShaderResourceViewFromFile(d3d11Device, L"Textures/map_Base_Colorenyeni.png",
+		NULL, NULL, &cubeTextureView, NULL), "Textures/map_Base_Colorenyeni.png Texture Creation Failed!"
+	)
 
     D3D11_SAMPLER_DESC sampDesc;
     ZeroMemory(&sampDesc, sizeof(sampDesc));
@@ -478,6 +413,8 @@ bool InitScene()
 
     hr = d3d11Device->CreateSamplerState(&sampDesc, &cubeTexSampler);
 
+    mesh = MeshLoader::LoadMesh("Models/map.fbx");
+
     return true;
 }
 
@@ -488,27 +425,23 @@ void UpdateScene()
     if (rot > 6.28f)
         rot = 0.0f;
 
+    camPosition = XMVectorSet(cameraPos.x, cameraPos.y, cameraPos.z, 0.0f);
+    camTarget = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+    camUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+    camView = XMMatrixLookAtLH(camPosition, camTarget, camUp);
+
     //Reset cube1World
     cube1World = XMMatrixIdentity();
 
     //Define cube1's world space matrix
-    XMVECTOR rotaxis = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-    Rotation = XMMatrixRotationAxis(rotaxis, rot);
-    Translation = XMMatrixTranslation(0.0f, 0.0f, 4.0f);
+    Rotation    = XMMatrixRotationRollPitchYaw(axis.x, axis.y, axis.z);
+    Translation = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 
     //Set cube1's world space using the transformations
-    cube1World = Translation * Rotation;
-
-    //Reset cube2World
-    cube2World = XMMatrixIdentity();
-
-    //Define cube2's world space matrix
-    Rotation = XMMatrixRotationAxis(rotaxis, -rot);
-    Scale = XMMatrixScaling(1.3f, 1.3f, 1.3f);
-
-    //Set cube2's world space matrix
-    cube2World = Rotation * Scale;
+	cube1World = Translation * Rotation;
 }
+
 
 void DrawScene()
 {
@@ -527,15 +460,7 @@ void DrawScene()
     d3d11DevCon->PSSetSamplers(0, 1, &cubeTexSampler);
 
     //Draw first cube
-    d3d11DevCon->DrawIndexed(36, 0, 0);
-
-    MVP = cube2World * camView * camProjection;
-    cbPerObj.WVP = XMMatrixTranspose(MVP);
-    d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-    d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
-
-    //Draw second cube
-    d3d11DevCon->DrawIndexed(36, 0, 0);
+	mesh->Draw(d3d11DevCon);
 
     // Draw Imgui
     Editor::Render();
@@ -543,4 +468,3 @@ void DrawScene()
     //Present the backbuffer to the screen
     SwapChain->Present(0, 0);
 }
-

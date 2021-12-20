@@ -1,5 +1,4 @@
 // Directx Helper
-
 #pragma once
 #include <cstring>
 #include <d3d11.h>
@@ -13,6 +12,7 @@ typedef ID3D11Buffer              DXBuffer;
 typedef ID3D11Texture2D           DXTexture2D;
 typedef ID3D11ShaderResourceView  DXTextureView;
 typedef ID3D11SamplerState        DXTexSampler;
+typedef ID3D11InputLayout         DXInputLayout;
 
 // const char* to wchar_t*
 static const wchar_t* GetWC(const char* c)

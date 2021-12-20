@@ -1,5 +1,4 @@
 
-
 cbuffer cbPerObject
 {
     float4x4 MVP;
