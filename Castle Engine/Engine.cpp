@@ -7,7 +7,6 @@
 #include <d3dx11.h>
 #include "helper.hpp"
 #include <D3DX10.h>
-#include <xnamath.h>
 #include <cassert>
 
 #include <algorithm>
@@ -17,6 +16,7 @@
 #include <glm/glm.hpp>
 #include <array>
 #include <vector>
+#undef SDL_HAS_VULKAN 
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include "Editor/Editor.hpp"
@@ -24,6 +24,10 @@
 #include <format>
 #include <string>
 #include "Rendering/Mesh.hpp"
+#include "ECS/ECS.hpp"
+#include "Transform.hpp"
+
+using namespace ECS;
 
 //Global Declarations - Interfaces//
 IDXGISwapChain* SwapChain;
@@ -89,6 +93,7 @@ void UpdateScene();
 void DrawScene();
 
 Mesh* mesh;
+Entity* firstEntity;
 
 void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
 {
@@ -114,22 +119,20 @@ DXDevice* Engine::GetDevice() { return d3d11Device; }
 DXDeviceContext* Engine::GetDeviceContext() { return d3d11DevCon; }
 const SDL_Window* Engine::GetWindow() { return window; };
 
-glm::vec3 axis { 1.57, 1.57, 0};
-glm::vec3 cameraPos {500, 140, 0};
+xmVector axis { 1.57, 1.57, 0, 0};
+xmVector cameraPos {500, 140, 0, 0};
 float angle = -1.57f;
 
 void MainWindow()
 {
     ImGui::Begin("SA IMGUI");
 
-    static char gir[128];
+	// ImGui::DragFloat3("axis", XMPTR(axis), 0.1f);
+    // ImGui::DragFloat("angle", &angle, 0.1f);
+	ImGui::DragFloat3("cameraPos", XMPTR(cameraPos), 0.1f);
 
-    ImGui::InputText("gir", gir, 128);
+	firstEntity->transform->OnEditor();
 
-	ImGui::DragFloat3("axis", &axis.x, 0.1f);
-	ImGui::DragFloat3("cameraPos", &cameraPos.x, 0.1f);
-    ImGui::DragFloat("angle", &angle, 0.1f);
-    
     ImGui::End();
 
     ImGui::Render();
@@ -160,7 +163,14 @@ int main(int, char**)
 
     Editor::AddOnEditor(MainWindow);
 
-    // Main loop
+	SceneManager::LoadNewScene();
+	
+	firstEntity = new Entity();
+	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
+		
+	firstEntity->transform->SetEulerDegree({90, 90, 0});
+
+	// Main loop
     bool done = false;
     while (!done)
     {
@@ -180,6 +190,8 @@ int main(int, char**)
                 CreateRenderTarget();
             }
         }
+
+		SceneManager::GetCurrentScene()->Update();
 
         UpdateScene();
         DrawScene();
@@ -210,10 +222,10 @@ void CreateRenderTarget()
 
     //Create our BackBuffer
     ID3D11Texture2D* BackBuffer;
-    hr = SwapChain->GetBuffer(0, IID_PPV_ARGS(&BackBuffer));
+    SwapChain->GetBuffer(0, IID_PPV_ARGS(&BackBuffer));
 
     //Create our Render Target
-    hr = d3d11Device->CreateRenderTargetView(BackBuffer, NULL, &renderTargetView);
+    d3d11Device->CreateRenderTargetView(BackBuffer, NULL, &renderTargetView);
     BackBuffer->Release();
 
     //Set our Render Target
@@ -423,7 +435,7 @@ void UpdateScene()
     if (rot > 6.28f)
         rot = 0.0f;
 
-    camPosition = XMVectorSet(cameraPos.x, cameraPos.y, cameraPos.z, 0.0f);
+    camPosition = XMVectorSet(XMGETX(cameraPos), XMGETY(cameraPos), XMGETZ(cameraPos), 0.0f);
     camTarget = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
     camUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
@@ -433,11 +445,12 @@ void UpdateScene()
     cube1World = XMMatrixIdentity();
 
     //Define cube1's world space matrix
-    Rotation    = XMMatrixRotationRollPitchYaw(axis.x, axis.y, axis.z);
-    Translation = XMMatrixIdentity();
+    // Rotation    = XMMatrixRotationRollPitchYaw(XMGETX(axis), XMGETY(axis), XMGETZ(axis));
+    // Translation = XMMatrixIdentity();
 
     //Set cube1's world space using the transformations
-	cube1World = Translation * Rotation;
+	// cube1World = Translation * Rotation;
+	cube1World = firstEntity->transform->GetMatrix();
 }
 
 
@@ -454,7 +467,6 @@ void DrawScene()
 	d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    ///////////////**************new**************////////////////////
     d3d11DevCon->PSSetShaderResources(0, 1, &cubeTextureView);
     d3d11DevCon->PSSetSamplers(0, 1, &cubeTexSampler);
 
