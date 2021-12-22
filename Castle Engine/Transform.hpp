@@ -34,10 +34,10 @@ namespace ECS
 		void OnEditor();
 		void UpdateTransform();
 
-		const glm::vec3& GetPosition()     const NELAMBDAR(position)
-		const glm::vec3& GetScale()        const NELAMBDAR(scale)
-		const glm::vec3& GetEulerDegree()  const NELAMBDAR(GLM_RadToDeg(euler))
-		const glm::vec3& GetEulerRadians() const NELAMBDAR(euler)
-		const xmMatrix& GetMatrix()        const NELAMBDAR(matrix)
+		const glm::vec3& GetPosition()     const noexcept LAMBDAR(position)
+		const glm::vec3& GetScale()        const noexcept LAMBDAR(scale)
+		const glm::vec3& GetEulerDegree()  const noexcept LAMBDAR(GLM_RadToDeg(euler))
+		const glm::vec3& GetEulerRadians() const noexcept LAMBDAR(euler)
+		const xmMatrix& GetMatrix()        const noexcept LAMBDAR(matrix)
 	};
 }

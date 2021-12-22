@@ -154,6 +154,8 @@
     <ClCompile Include="ECS\Entity.cpp" />
     <ClCompile Include="ECS\Scene.cpp" />
     <ClCompile Include="Editor\Editor.cpp" />
+    <ClCompile Include="Editor\HierarchyWindow.cpp" />
+    <ClCompile Include="Editor\ResourcesWindow.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
     <ClCompile Include="ImGui\imgui_demo.cpp" />
     <ClCompile Include="ImGui\imgui_draw.cpp" />
@@ -165,6 +167,9 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Main\Event.cpp" />
     <ClCompile Include="Editor\GUI.cpp" />
+    <ClCompile Include="Rendering\Pipeline.cpp" />
+    <ClCompile Include="Rendering\AssetManager.cpp" />
+    <ClCompile Include="Rendering\RenderTexture.cpp" />
     <ClCompile Include="Transform.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -176,10 +181,17 @@
     <ClInclude Include="ECS\Entity.hpp" />
     <ClInclude Include="ECS\Scene.hpp" />
     <ClInclude Include="Editor\Editor.hpp" />
+    <ClInclude Include="FreeCamera.hpp" />
     <ClInclude Include="Helper.hpp" />
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
+    <ClInclude Include="Rendering\Pipeline.hpp" />
+    <ClInclude Include="Rendering\AssetManager.hpp" />
     <ClInclude Include="Rendering\Mesh.hpp" />
+    <ClInclude Include="Rendering\MeshRenderer.hpp" />
+    <ClInclude Include="Rendering\Shader.hpp" />
+    <ClInclude Include="Rendering\Texture.hpp" />
+    <ClInclude Include="Rendering\RenderTexture.hpp" />
     <ClInclude Include="Transform.hpp" />
   </ItemGroup>
   <ItemGroup>

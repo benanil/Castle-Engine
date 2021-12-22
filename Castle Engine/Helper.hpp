@@ -11,11 +11,19 @@
 typedef ID3D11Device              DXDevice;
 typedef ID3D11DeviceContext       DXDeviceContext;
 typedef ID3D11RenderTargetView    DXRenderTargetView;
+typedef ID3D11DepthStencilView    DXDepthStencilView;
 typedef ID3D11Buffer              DXBuffer;
 typedef ID3D11Texture2D           DXTexture2D;
-typedef ID3D11ShaderResourceView  DXTextureView;
+typedef ID3D11ShaderResourceView  DXShaderResourceView; // texture view
 typedef ID3D11SamplerState        DXTexSampler;
 typedef ID3D11InputLayout         DXInputLayout;
+typedef ID3D10Blob                DXBlob;
+typedef ID3D11VertexShader		  DXVertexShader;
+typedef ID3D11PixelShader		  DXPixelShader;
+typedef ID3D11RasterizerState     DXRasterizerState;
+typedef ID3D11BlendState          DXBlendState;
+
+#define DX_RELEASE(x) if (x) { x->Release(); x = nullptr ; }
 
 // const char* to wchar_t*
 static const wchar_t* GetWC(const char* c)
@@ -25,20 +33,16 @@ static const wchar_t* GetWC(const char* c)
     mbstowcs(wc, c, cSize);
     return wc;
 }
+#define DX_CREATE(_type, name) _type name{}; memset(&name, 0,sizeof(_type));
 
-template<typename T>
-inline static T DX_CREATE()
-{
-	T object{};
-	std::memset(&object, 0, sizeof(T));
-
-	return object;
-}
+#define LAMBDA(x) { x; }
+#define LAMBDAR(x) { return x;  }
 
 //math helpers
 
-#define XM_GET_XYZ(x) XMGETX(x), XMGETY(x), XMGETZ(x) 
-#define LAMBDAR(x) { return x;  }
+#define XM_GET_XYZ(x) XMGETX(x), XMGETY(x), XMGETZ(x)
+
+// NE means no except
 #define NELAMBDA(x) noexcept { x;  }
 #define NELAMBDAR(x) noexcept { return x;  }
 
@@ -57,13 +61,18 @@ DX_INLINE float* XMPTR(xmVector& vector)
 	return reinterpret_cast<float*>(&vector);
 }
 
+DX_INLINE float* XMPTR(xmMatrix& vector)
+{
+	return &vector._11;
+}
+
 DX_INLINE const float& XMGETX(const xmVector& vector) LAMBDAR(vector.f[0])
 DX_INLINE const float& XMGETY(const xmVector& vector) LAMBDAR(vector.f[1])
 DX_INLINE const float& XMGETZ(const xmVector& vector) LAMBDAR(vector.f[2])
 DX_INLINE const float& XMGETW(const xmVector& vector) LAMBDAR(vector.f[3])
 
 DX_INLINE float XM_RadToDeg(const float& radians) NELAMBDAR(radians * DX_RAD_TO_DEG)
-DX_INLINE float XM_DegToRad(const float& radians) NELAMBDAR(radians * DX_DEG_TO_RAD)
+DX_INLINE float XM_DegToRad(const float& degree)  NELAMBDAR(degree * DX_DEG_TO_RAD)
 
 // xmath euler
 DX_INLINE void XM_DegToRad(const xmVector& radians, xmVector& degree) noexcept
@@ -131,3 +140,6 @@ DX_INLINE glm::vec3 GLM_DegToRad(const glm::vec3& radians) noexcept
 	degree.z = radians.z * DX_DEG_TO_RAD;
 	return std::move(degree);
 }
+
+#undef NELAMBDAR
+#undef NELAMBDA

@@ -19,6 +19,24 @@ struct Vertex
 	glm::vec3 normal;
 	glm::vec2 texCoord;
 
+	static ID3D11InputLayout* GetLayout(DXBlob* VS_Buffer)
+	{
+		ID3D11InputLayout* vertLayout;
+
+		D3D11_INPUT_ELEMENT_DESC layout[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		};
+
+		auto device = Engine::GetDevice();
+		device->CreateInputLayout(layout, 3, VS_Buffer->GetBufferPointer(),
+			VS_Buffer->GetBufferSize(), &vertLayout);
+		
+		return vertLayout;
+	}
+
 	Vertex() {}
     Vertex(const glm::vec3& _pos, const glm::vec2& _texCoord)
 		:
@@ -62,14 +80,15 @@ struct SubMesh
 		DXDeviceContext* d3d11DevCon = Engine::GetDeviceContext();
 
 		// create vertex buffer		
-		D3D11_BUFFER_DESC vertexBufferDesc = DX_CREATE<D3D11_BUFFER_DESC>();
+		DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
+
 		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 		vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexCount;
 		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		vertexBufferDesc.CPUAccessFlags = 0;
 		vertexBufferDesc.MiscFlags = 0;
 		
-		D3D11_SUBRESOURCE_DATA vertexBufferData = DX_CREATE<D3D11_SUBRESOURCE_DATA>();
+		DX_CREATE(D3D11_SUBRESOURCE_DATA, vertexBufferData);
 		
 		vertexBufferData.pSysMem = vertices;
 		DX_CHECK(
@@ -84,7 +103,7 @@ struct SubMesh
         }
 
 		// create index buffer
-		D3D11_BUFFER_DESC indexDesc = DX_CREATE<D3D11_BUFFER_DESC>();
+		DX_CREATE(D3D11_BUFFER_DESC, indexDesc);
 		indexDesc.Usage = D3D11_USAGE_DEFAULT;
 		indexDesc.ByteWidth = sizeof(uint32_t) * indexCount;
 		indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;

@@ -17,7 +17,7 @@ namespace Engine
 {
 	DXDevice* GetDevice();
 	DXDeviceContext* GetDeviceContext();
-	const SDL_Window* GetWindow();
+	SDL_Window* GetWindow();
 	void DirectXCheck(const HRESULT& hr, const int line, const char* file);
 	void DirectXCheck(const HRESULT& hr, const char* message, const int line, const char* file);
 }

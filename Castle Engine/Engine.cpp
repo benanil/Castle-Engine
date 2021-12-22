@@ -24,8 +24,12 @@
 #include <format>
 #include <string>
 #include "Rendering/Mesh.hpp"
+#include "Rendering/Texture.hpp"
+#include "Rendering/Shader.hpp"
+#include "Rendering/Pipeline.hpp"
 #include "ECS/ECS.hpp"
 #include "Transform.hpp"
+#include "FreeCamera.hpp"
 
 using namespace ECS;
 
@@ -33,46 +37,21 @@ using namespace ECS;
 IDXGISwapChain* SwapChain;
 DXDevice* d3d11Device;
 DXDeviceContext* d3d11DevCon;
+
+// pipeline
 DXRenderTargetView* renderTargetView;
-
-ID3D11DepthStencilView* depthStencilView;
+DXDepthStencilView* depthStencilView;
 DXTexture2D* depthStencilBuffer;
-
 DXBuffer* constantBuffer;
-
-ID3D11RasterizerState* wireFrame;
-
-DXTextureView* cubeTextureView;
-DXTexSampler* cubeTexSampler;
-
-///
-XMMATRIX cube1World;
-
-XMMATRIX Rotation;
-XMMATRIX Scale;
-XMMATRIX Translation;
-float rot = 0.01f;
+DXRasterizerState* rasterizerState;
+DXInputLayout* vertLayout;
 
 // constant buffer
-XMMATRIX ViewProjection;
-XMMATRIX camView;
-XMMATRIX camProjection;
-
-XMVECTOR camPosition;
-XMVECTOR camUp;
-XMVECTOR camTarget;
-
 struct cbPerObject
 {
     XMMATRIX  MVP;
 	XMMATRIX  Model;
 } cbPerObj;
-
-ID3D11VertexShader* VS;
-ID3D11PixelShader* PS;
-ID3D10Blob* VS_Buffer;
-ID3D10Blob* PS_Buffer;
-ID3D11InputLayout* vertLayout;
 
 //Global Declarations - Others//
 SDL_Window* window;
@@ -94,6 +73,10 @@ void DrawScene();
 
 Mesh* mesh;
 Entity* firstEntity;
+Texture* firstTexture;
+FreeCamera* freeCamera;
+Shader* shader;
+Pipeline* ScreenPipeline;
 
 void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
 {
@@ -117,21 +100,16 @@ void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line
 
 DXDevice* Engine::GetDevice() { return d3d11Device; }
 DXDeviceContext* Engine::GetDeviceContext() { return d3d11DevCon; }
-const SDL_Window* Engine::GetWindow() { return window; };
-
-xmVector axis { 1.57, 1.57, 0, 0};
-xmVector cameraPos {500, 140, 0, 0};
-float angle = -1.57f;
+SDL_Window* Engine::GetWindow() { return window; };
 
 void MainWindow()
 {
     ImGui::Begin("SA IMGUI");
 
-	// ImGui::DragFloat3("axis", XMPTR(axis), 0.1f);
-    // ImGui::DragFloat("angle", &angle, 0.1f);
-	ImGui::DragFloat3("cameraPos", XMPTR(cameraPos), 0.1f);
-
 	firstEntity->transform->OnEditor();
+	freeCamera->EditorUpdate();
+
+	ImGui::Image(firstTexture->resourceView, {50, 50});
 
     ImGui::End();
 
@@ -169,6 +147,14 @@ int main(int, char**)
 	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
 		
 	firstEntity->transform->SetEulerDegree({90, 90, 0});
+
+	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 3000.0f);
+	
+	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
+	cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
+
+	//Shader* screenShader = new Shader(L"PostProcessing.hlsl", L"PostProcessing.hlsl");
+	// ScreenPipeline = new Pipeline(screenShader, 500, 500);
 
 	// Main loop
     bool done = false;
@@ -221,7 +207,7 @@ void CreateRenderTarget()
     d3d11Device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
 
     //Create our BackBuffer
-    ID3D11Texture2D* BackBuffer;
+    DXTexture2D* BackBuffer;
     SwapChain->GetBuffer(0, IID_PPV_ARGS(&BackBuffer));
 
     //Create our Render Target
@@ -231,10 +217,11 @@ void CreateRenderTarget()
     //Set our Render Target
     d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
-    camProjection = XMMatrixPerspectiveFovLH(0.33f * 3.14f, (float)depthDesc.Width / depthDesc.Height, 1.0f, 1000.0f);
-	
+	if(freeCamera)
+	freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
+
 	//Update the Viewport
-	D3D11_VIEWPORT viewport = DX_CREATE<D3D11_VIEWPORT>();
+	DX_CREATE(D3D11_VIEWPORT, viewport)
 	
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
@@ -249,14 +236,15 @@ void CreateRenderTarget()
 
 void CleanupRenderTarget()
 {
-    if (renderTargetView) { renderTargetView->Release(); renderTargetView = NULL; }
-    if (depthStencilBuffer) { depthStencilBuffer->Release(); depthStencilView->Release(); }
+	DX_RELEASE(renderTargetView)
+	DX_RELEASE(depthStencilBuffer) 
+	DX_RELEASE(depthStencilView)
 }
 
 bool InitializeDirect3d11App()
 {
     //Describe our Buffer
-    DXGI_MODE_DESC bufferDesc = DX_CREATE<DXGI_MODE_DESC>();
+    DX_CREATE(DXGI_MODE_DESC, bufferDesc);
 
     bufferDesc.Width = 0;
     bufferDesc.Height = 0;
@@ -267,7 +255,7 @@ bool InitializeDirect3d11App()
     bufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
     //Describe our SwapChain
-    DXGI_SWAP_CHAIN_DESC swapChainDesc = DX_CREATE<DXGI_SWAP_CHAIN_DESC>();
+	DX_CREATE(DXGI_SWAP_CHAIN_DESC, swapChainDesc)
 
     swapChainDesc.BufferDesc = bufferDesc;
     swapChainDesc.SampleDesc.Count = 1;
@@ -299,11 +287,6 @@ void CleanUp()
     depthStencilView->Release();
     depthStencilBuffer->Release();
     constantBuffer->Release();
-    VS->Release();
-    PS->Release();
-    VS_Buffer->Release();
-    PS_Buffer->Release();
-    vertLayout->Release();
 
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -312,34 +295,15 @@ void CleanUp()
 bool InitScene()
 {
     //Compile Shaders from shader file
-    DX_CHECK(
-        D3DX11CompileFromFile(L"First.hlsl", 0, 0, "VS", "vs_4_0", 0, 0, 0, &VS_Buffer, 0, 0),
-        "VertexShader Compiling error! \n"
-    );
+	shader = new Shader(L"First.hlsl", L"First.hlsl");
 
-    DX_CHECK(
-        D3DX11CompileFromFile(L"First.hlsl", 0, 0, "PS", "ps_4_0", 0, 0, 0, &PS_Buffer, 0, 0),
-        "FragShader Compiling error! \n"
-    );
-
-    //Create the Shader Objects
-    DX_CHECK(
-        d3d11Device->CreateVertexShader(VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), NULL, &VS),
-        "VertexShader Compiling error! \n"
-    );
-
-    DX_CHECK(
-        d3d11Device->CreatePixelShader(PS_Buffer->GetBufferPointer(), PS_Buffer->GetBufferSize(), NULL, &PS),
-        "FragShader Compiling error! \n"
-    );
-
-    //Set Vertex and Pixel Shaders
-    d3d11DevCon->VSSetShader(VS, 0, 0);
-    d3d11DevCon->PSSetShader(PS, 0, 0);
+	//Set Vertex and Pixel Shaders
+    d3d11DevCon->VSSetShader(shader->VS, 0, 0);
+    d3d11DevCon->PSSetShader(shader->PS, 0, 0);
 
     // Create Constant Buffer
 
-    D3D11_BUFFER_DESC cbDesc = DX_CREATE<D3D11_BUFFER_DESC>();
+	DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.ByteWidth = sizeof(cbPerObject);
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -347,52 +311,32 @@ bool InitScene()
     cbDesc.MiscFlags = 0;
 
     d3d11Device->CreateBuffer(&cbDesc, NULL, &constantBuffer);
-
-    camPosition = XMVectorSet(0.0f, 0.0f, -30.0f, -30.0f);
-    camTarget = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-    camUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-    camView = XMMatrixLookAtLH(camPosition, camTarget, camUp);
-    camProjection = XMMatrixPerspectiveFovLH(0.4f * 3.14f, (float)Width / Height, 1.0f, 1000.0f);
-
-    ViewProjection = XMMatrixIdentity() * camView * camProjection;
-    cbPerObj.MVP = XMMatrixTranspose(ViewProjection);
-	cbPerObj.Model          = XMMatrixTranspose(XMMatrixIdentity());
 	
     d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     //Create the Input Layout
-	D3D11_INPUT_ELEMENT_DESC layout[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-	};
-	UINT numElements = ARRAYSIZE(layout);
-
-    d3d11Device->CreateInputLayout(layout, numElements, VS_Buffer->GetBufferPointer(),
-        VS_Buffer->GetBufferSize(), &vertLayout);
-
+	
     //Set the Input Layout
+	vertLayout = Vertex::GetLayout(shader->VS_Buffer);
     d3d11DevCon->IASetInputLayout(vertLayout);
 
     //Set Primitive Topology
     d3d11DevCon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Create Rasterizer 
-    D3D11_RASTERIZER_DESC rasterizerDesc = DX_CREATE<D3D11_RASTERIZER_DESC>();
+	DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc)
     rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
     rasterizerDesc.CullMode = D3D11_CULL_BACK;
 
     DX_CHECK(
-        d3d11Device->CreateRasterizerState(&rasterizerDesc, &wireFrame), "rasterizer creation failed"
+        d3d11Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed"
     );
 
     d3d11DevCon->RSSetState(NULL);
 
     //Create the Viewport
-    D3D11_VIEWPORT viewport = DX_CREATE<D3D11_VIEWPORT>();
+	DX_CREATE(D3D11_VIEWPORT, viewport);
 
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
@@ -405,23 +349,7 @@ bool InitScene()
     //Set the Viewport
     d3d11DevCon->RSSetViewports(1, &viewport);
 
-    // create texture
-	DX_CHECK(
-		D3DX11CreateShaderResourceViewFromFile(d3d11Device, L"Textures/map_Base_Colorenyeni.png",
-		NULL, NULL, &cubeTextureView, NULL), "Textures/map_Base_Colorenyeni.png Texture Creation Failed!"
-	)
-
-    D3D11_SAMPLER_DESC sampDesc;
-    ZeroMemory(&sampDesc, sizeof(sampDesc));
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-
-    hr = d3d11Device->CreateSamplerState(&sampDesc, &cubeTexSampler);
+	firstTexture = new Texture(L"Textures/map_Base_Colorenyeni.png");
 
     mesh = MeshLoader::LoadMesh("Models/map.fbx");
 
@@ -430,29 +358,8 @@ bool InitScene()
 
 void UpdateScene()
 {
-    //Keep the cubes rotating
-    rot += .0005f;
-    if (rot > 6.28f)
-        rot = 0.0f;
-
-    camPosition = XMVectorSet(XMGETX(cameraPos), XMGETY(cameraPos), XMGETZ(cameraPos), 0.0f);
-    camTarget = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-    camUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-    camView = XMMatrixLookAtLH(camPosition, camTarget, camUp);
-
-    //Reset cube1World
-    cube1World = XMMatrixIdentity();
-
-    //Define cube1's world space matrix
-    // Rotation    = XMMatrixRotationRollPitchYaw(XMGETX(axis), XMGETY(axis), XMGETZ(axis));
-    // Translation = XMMatrixIdentity();
-
-    //Set cube1's world space using the transformations
-	// cube1World = Translation * Rotation;
-	cube1World = firstEntity->transform->GetMatrix();
+	freeCamera->Update(0.00001f);
 }
-
 
 void DrawScene()
 {
@@ -461,21 +368,23 @@ void DrawScene()
     d3d11DevCon->ClearRenderTargetView(renderTargetView, bgColor);
     d3d11DevCon->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-    ViewProjection = cube1World * camView * camProjection;
-    cbPerObj.MVP = XMMatrixTranspose(ViewProjection);
-	cbPerObj.Model = XMMatrixTranspose(cube1World);
+    const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
+    cbPerObj.MVP = XMMatrixTranspose(MVP);
+	cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
 	d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    d3d11DevCon->PSSetShaderResources(0, 1, &cubeTextureView);
-    d3d11DevCon->PSSetSamplers(0, 1, &cubeTexSampler);
+    d3d11DevCon->PSSetShaderResources(0, 1, &firstTexture->resourceView);
+    d3d11DevCon->PSSetSamplers(0, 1, &firstTexture->textureSampler);
 
     //Draw first cube
 	mesh->Draw(d3d11DevCon);
+	
 
-    // Draw Imgui
+
+	// Draw Imgui
     Editor::Render();
 
     //Present the backbuffer to the screen
-    SwapChain->Present(0, 0);
+    SwapChain->Present(1, 0);
 }
