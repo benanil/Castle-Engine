@@ -7,6 +7,8 @@
 #include "../Main/Event.hpp"
 #include <iostream>
 #include <functional>
+#include <glm/glm.hpp>
+#include "../Helper.hpp"
 
 typedef void(*FileCallback)(const char* ptr);
 
@@ -48,5 +50,18 @@ namespace Editor
 		bool DragUIElement(const char* file, const T& type, const unsigned int& texture);
 		template<typename T>
 		void DropUIElement(const char* type, const std::function<T>& callback);
-	};
+	}
+
+	namespace GameViewWindow
+	{
+		void Draw();
+
+		bool GetHovered();
+		bool GetFocused();
+
+		ImVec2 GetPanelScale();
+		ImVec2 GetPanelPosition();
+
+		void SetTexture(DXShaderResourceView* _texture);
+	}
 }

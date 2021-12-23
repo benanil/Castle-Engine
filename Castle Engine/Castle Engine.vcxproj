@@ -119,7 +119,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Include;$(SolutionDir)CastleEngine\;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\Castle Engine\libs;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
@@ -139,7 +139,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Include;$(SolutionDir)CastleEngine\;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -154,6 +154,7 @@
     <ClCompile Include="ECS\Entity.cpp" />
     <ClCompile Include="ECS\Scene.cpp" />
     <ClCompile Include="Editor\Editor.cpp" />
+    <ClCompile Include="Editor\GameViewWindow.cpp" />
     <ClCompile Include="Editor\HierarchyWindow.cpp" />
     <ClCompile Include="Editor\ResourcesWindow.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />

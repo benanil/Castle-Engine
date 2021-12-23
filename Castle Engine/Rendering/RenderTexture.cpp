@@ -22,7 +22,7 @@ void RenderTexture::ClearRenderTarget(const float* colour)
 	// Clear the back buffer.
 	deviceContext->ClearRenderTargetView(renderTargetView, colour);
 	// clear depth buffer
-	if (depthStencilView)
+	if (depth)
 	deviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
 }
 
@@ -36,7 +36,7 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	textureDesc.Height = height;
 	textureDesc.MipLevels = 1;
 	textureDesc.ArraySize = 1;
-	textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	textureDesc.SampleDesc.Count = 1;
 	textureDesc.Usage = D3D11_USAGE_DEFAULT;
 	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
@@ -82,6 +82,8 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 		device->CreateTexture2D(&depthDesc, NULL, &depthStencilBuffer);
 		device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
 	}
+
+	OnSizeChanged();
 }
 
 void RenderTexture::Release()

@@ -1,7 +1,7 @@
 
 
-Texture2D texture;
-SamplerState sampler;
+Texture2D _texture;
+SamplerState _sampler;
 
 struct VS_Output
 {  
@@ -21,5 +21,5 @@ VS_Output VS(uint id : SV_VertexID)
 
 float4 PS(VS_Output input) : SV_TARGET
 {
-	return t_dff.Sample(ss, input.Tex);
+	return _texture.Sample(_sampler, input.Tex);
 }	

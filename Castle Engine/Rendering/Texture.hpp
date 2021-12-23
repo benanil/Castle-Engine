@@ -25,6 +25,13 @@ public:
 
 		device->CreateSamplerState(&sampDesc, &textureSampler);
 	}
+
+	void Bind(DXDeviceContext* d3d11DevCon)
+	{
+		d3d11DevCon->PSSetShaderResources(0, 1, &resourceView);
+		d3d11DevCon->PSSetSamplers(0, 1, &textureSampler);
+	}
+
 	DXShaderResourceView* resourceView;
 	DXTexSampler* textureSampler;
 };

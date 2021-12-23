@@ -35,8 +35,8 @@ using namespace ECS;
 
 //Global Declarations - Interfaces//
 IDXGISwapChain* SwapChain;
-DXDevice* d3d11Device;
-DXDeviceContext* d3d11DevCon;
+DXDevice* Device;
+DXDeviceContext* DeviceContext;
 
 // pipeline
 DXRenderTargetView* renderTargetView;
@@ -76,7 +76,8 @@ Entity* firstEntity;
 Texture* firstTexture;
 FreeCamera* freeCamera;
 Shader* shader;
-Pipeline* ScreenPipeline;
+// Pipeline* ScreenPipeline;
+RenderTexture* renderTexture;
 
 void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
 {
@@ -98,8 +99,8 @@ void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line
     }
 }
 
-DXDevice* Engine::GetDevice() { return d3d11Device; }
-DXDeviceContext* Engine::GetDeviceContext() { return d3d11DevCon; }
+DXDevice* Engine::GetDevice() { return Device; }
+DXDeviceContext* Engine::GetDeviceContext() { return DeviceContext; }
 SDL_Window* Engine::GetWindow() { return window; };
 
 void MainWindow()
@@ -109,11 +110,23 @@ void MainWindow()
 	firstEntity->transform->OnEditor();
 	freeCamera->EditorUpdate();
 
-	ImGui::Image(firstTexture->resourceView, {50, 50});
+	ImGui::Image(renderTexture->GetShaderResourceView(), {50, 50});
 
     ImGui::End();
 
-    ImGui::Render();
+    ImGui::Begin("TestWindow");
+    for (size_t i = 0; i < 10; i++)
+    {
+        ImGui::BulletText("sa ImGui::Naber_Moruk");
+    }
+    ImGui::End();
+
+    Editor::GameViewWindow::Draw();
+}
+
+void RenderTextureSizeChanged()
+{
+    Editor::GameViewWindow::SetTexture(renderTexture->textureView);
 }
 
 int main(int, char**)
@@ -136,7 +149,7 @@ int main(int, char**)
     InitScene();    //Initialize our scene
 
     // init imgui
-    Editor::Initialize(window, d3d11Device, d3d11DevCon);
+    Editor::Initialize(window, Device, DeviceContext);
     Editor::DarkTheme();
 
     Editor::AddOnEditor(MainWindow);
@@ -153,8 +166,12 @@ int main(int, char**)
 	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
 	cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
 
-	//Shader* screenShader = new Shader(L"PostProcessing.hlsl", L"PostProcessing.hlsl");
+	// Shader* screenShader = new Shader(L"PostProcessing.hlsl", L"PostProcessing.hlsl");
 	// ScreenPipeline = new Pipeline(screenShader, 500, 500);
+
+    renderTexture = new RenderTexture(Width, Height, true);
+    RenderTextureSizeChanged();
+    renderTexture->OnSizeChanged.Add(RenderTextureSizeChanged);
 
 	// Main loop
     bool done = false;
@@ -203,22 +220,25 @@ void CreateRenderTarget()
 
     SDL_GetWindowSize(window, reinterpret_cast<int*>(&depthDesc.Width), reinterpret_cast<int*>(&depthDesc.Height));
 
-    d3d11Device->CreateTexture2D(&depthDesc, NULL, &depthStencilBuffer);
-    d3d11Device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
+    Device->CreateTexture2D(&depthDesc, NULL, &depthStencilBuffer);
+    Device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
 
     //Create our BackBuffer
     DXTexture2D* BackBuffer;
     SwapChain->GetBuffer(0, IID_PPV_ARGS(&BackBuffer));
 
     //Create our Render Target
-    d3d11Device->CreateRenderTargetView(BackBuffer, NULL, &renderTargetView);
+    Device->CreateRenderTargetView(BackBuffer, NULL, &renderTargetView);
     BackBuffer->Release();
 
     //Set our Render Target
-    d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+    DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
 	if(freeCamera)
 	freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
+
+    if (renderTexture)
+    renderTexture->Invalidate(depthDesc.Width, depthDesc.Height);
 
 	//Update the Viewport
 	DX_CREATE(D3D11_VIEWPORT, viewport)
@@ -231,7 +251,18 @@ void CreateRenderTarget()
 	viewport.MinDepth = 0.0f;
 	viewport.MaxDepth = 1.0f;
 	
-	d3d11DevCon->RSSetViewports(1, &viewport);
+	DeviceContext->RSSetViewports(1, &viewport);
+    
+    static bool firstTime = true;
+
+    if (!firstTime)
+    {
+        ImGuiViewport* imViewport = ImGui::GetMainViewport();
+        imViewport->Size.x = depthDesc.Width;
+        imViewport->Size.x = depthDesc.Height;
+    }
+    
+    firstTime = false;
 }
 
 void CleanupRenderTarget()
@@ -269,7 +300,7 @@ bool InitializeDirect3d11App()
 
     //Create our SwapChain
     hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL,
-        D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &d3d11Device, NULL, &d3d11DevCon);
+        D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, NULL, &DeviceContext);
 
     CreateRenderTarget();
     return true;
@@ -281,8 +312,8 @@ void CleanUp()
     Editor::Clear();
     mesh->Dispose();
     SwapChain->Release();
-    d3d11Device->Release();
-    d3d11DevCon->Release();
+    Device->Release();
+    DeviceContext->Release();
     renderTargetView->Release();
     depthStencilView->Release();
     depthStencilBuffer->Release();
@@ -298,8 +329,8 @@ bool InitScene()
 	shader = new Shader(L"First.hlsl", L"First.hlsl");
 
 	//Set Vertex and Pixel Shaders
-    d3d11DevCon->VSSetShader(shader->VS, 0, 0);
-    d3d11DevCon->PSSetShader(shader->PS, 0, 0);
+    DeviceContext->VSSetShader(shader->VS, 0, 0);
+    DeviceContext->PSSetShader(shader->PS, 0, 0);
 
     // Create Constant Buffer
 
@@ -310,19 +341,19 @@ bool InitScene()
     cbDesc.CPUAccessFlags = 0;
     cbDesc.MiscFlags = 0;
 
-    d3d11Device->CreateBuffer(&cbDesc, NULL, &constantBuffer);
+    Device->CreateBuffer(&cbDesc, NULL, &constantBuffer);
 	
-    d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-    d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
+    DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     //Create the Input Layout
 	
     //Set the Input Layout
 	vertLayout = Vertex::GetLayout(shader->VS_Buffer);
-    d3d11DevCon->IASetInputLayout(vertLayout);
+    DeviceContext->IASetInputLayout(vertLayout);
 
     //Set Primitive Topology
-    d3d11DevCon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Create Rasterizer 
 	DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc)
@@ -330,10 +361,10 @@ bool InitScene()
     rasterizerDesc.CullMode = D3D11_CULL_BACK;
 
     DX_CHECK(
-        d3d11Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed"
+        Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed"
     );
 
-    d3d11DevCon->RSSetState(NULL);
+    DeviceContext->RSSetState(NULL);
 
     //Create the Viewport
 	DX_CREATE(D3D11_VIEWPORT, viewport);
@@ -347,7 +378,7 @@ bool InitScene()
     viewport.MaxDepth = 1.0f;
 
     //Set the Viewport
-    d3d11DevCon->RSSetViewports(1, &viewport);
+    DeviceContext->RSSetViewports(1, &viewport);
 
 	firstTexture = new Texture(L"Textures/map_Base_Colorenyeni.png");
 
@@ -365,22 +396,26 @@ void DrawScene()
 {
     //Clear our backbuffer
     float bgColor[4] = { .2f, .2f, .2f, 1.0f };
-    d3d11DevCon->ClearRenderTargetView(renderTargetView, bgColor);
-    d3d11DevCon->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);
+    DeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    // 
+    // //Draw first cube
+	//mesh->Draw(DeviceContext);
 
     const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
     cbPerObj.MVP = XMMatrixTranspose(MVP);
 	cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
-	d3d11DevCon->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-    d3d11DevCon->VSSetConstantBuffers(0, 1, &constantBuffer);
-
-    d3d11DevCon->PSSetShaderResources(0, 1, &firstTexture->resourceView);
-    d3d11DevCon->PSSetSamplers(0, 1, &firstTexture->textureSampler);
-
-    //Draw first cube
-	mesh->Draw(d3d11DevCon);
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 	
+    firstTexture->Bind(DeviceContext);
+    renderTexture->SetAsRendererTarget();
+    renderTexture->ClearRenderTarget(bgColor);
 
+    mesh->Draw(DeviceContext);
+
+    // set default render buffers again
+    DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
 	// Draw Imgui
     Editor::Render();
