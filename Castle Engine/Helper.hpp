@@ -12,6 +12,7 @@ typedef ID3D11Device              DXDevice;
 typedef ID3D11DeviceContext       DXDeviceContext;
 typedef ID3D11RenderTargetView    DXRenderTargetView;
 typedef ID3D11DepthStencilView    DXDepthStencilView;
+typedef ID3D11DepthStencilState   DXDepthStencilState;
 typedef ID3D11Buffer              DXBuffer;
 typedef ID3D11Texture2D           DXTexture2D;
 typedef ID3D11ShaderResourceView  DXShaderResourceView; // texture view

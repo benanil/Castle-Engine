@@ -16,9 +16,12 @@ namespace ECS
 	void Entity::UpdateEditor() 
 	{
 #ifndef NEDITOR
-		ImGui::CollapsingHeader(name.c_str());
+		ImGui::TextColored(HEADER_COLOR, name.c_str());
+		if (ImGui::CollapsingHeader("Transform"))
+		{
+			transform->OnEditor();
+		}
 		LOOP_COMPONENTS comp->OnEditor();
-		ImGui::End();
 #endif
 	}
 

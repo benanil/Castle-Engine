@@ -1,7 +1,1 @@
-#include "Editor.hpp"
-
-namespace HierarchyWindow
-{
-
-	
-}
+// #include "Editor.hpp"

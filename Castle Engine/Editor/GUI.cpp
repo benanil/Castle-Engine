@@ -20,15 +20,15 @@ namespace Editor
 		DropUIElementString("Texture", callback);
 	}
 
-	// void GUI::TextureField(const char* name, Texture** texture)
-	// {
-	// 	ImGui::Text(name);
-	// 	ImGui::SameLine();
-	// 	ImGui::Image((void*)(*texture)->texID, { filesize, filesize }, { 0, 1 }, { 1, 0 });
-	// 	
-	// 	FileCallback callback = [](const char* ptr){};
-	// 	DropUIElementString("Texture", callback);
-	// }
+	void GUI::TextureField(const char* name, DXShaderResourceView* texture)
+	{
+		ImGui::Text(name);
+		ImGui::SameLine();
+		ImGui::Image(texture, { filesize, filesize }, { 0, 1 }, { 1, 0 });
+		
+		FileCallback callback = [](const char* ptr){};
+		DropUIElementString("Texture", callback);
+	}
 	
 	bool GUI::ImageButton(const unsigned int& texture, const float& size)
 	{

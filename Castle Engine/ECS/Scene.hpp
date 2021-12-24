@@ -33,5 +33,6 @@ namespace ECS
 		void LoadNewScene();
 		void LoadScene(const uint8_t& index);
 		void LoadScene(const std::string& name);
+		void DrawHierarchyWindow();
 	}
 }

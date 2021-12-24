@@ -186,6 +186,7 @@
     <ClInclude Include="Helper.hpp" />
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
+    <ClInclude Include="Rendering\Maiterial.h" />
     <ClInclude Include="Rendering\Pipeline.hpp" />
     <ClInclude Include="Rendering\AssetManager.hpp" />
     <ClInclude Include="Rendering\Mesh.hpp" />

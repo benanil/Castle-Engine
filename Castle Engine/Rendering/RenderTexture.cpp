@@ -8,6 +8,19 @@ RenderTexture::RenderTexture(
 {
 	deviceContext = Engine::GetDeviceContext();
 	device        = Engine::GetDevice();
+	
+	DX_CREATE(D3D11_BLEND_DESC, blendDesc);
+	blendDesc.AlphaToCoverageEnable = true;
+	blendDesc.RenderTarget[0].BlendEnable = false;
+	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ZERO;
+	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	device->CreateBlendState(&blendDesc, &blendState);
+
 	Invalidate(textureWidth, textureHeight);
 }
 
@@ -15,6 +28,13 @@ void RenderTexture::SetAsRendererTarget()
 {
 	// Bind the render target view and depth stencil buffer to the output render pipeline.
 	deviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+	SetBlendState();
+}
+
+void RenderTexture::SetBlendState()
+{
+	const float blend_factor[4] = { 0.f, 0.f, 0.f, 0.f };
+	deviceContext->OMSetBlendState(blendState, blend_factor, 0xffffffff);
 }
 
 void RenderTexture::ClearRenderTarget(const float* colour) 
@@ -68,7 +88,9 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	
 	if (depth)
 	{
-		D3D11_TEXTURE2D_DESC depthDesc{};
+		DX_CREATE(D3D11_TEXTURE2D_DESC, depthDesc)
+		depthDesc.Width = width;
+		depthDesc.Height = height;
 		depthDesc.MipLevels = 1;
 		depthDesc.ArraySize = 1;
 		depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -79,11 +101,17 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 		depthDesc.CPUAccessFlags = 0;
 		depthDesc.MiscFlags = 0;
 		
-		device->CreateTexture2D(&depthDesc, NULL, &depthStencilBuffer);
-		device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
+		DX_CHECK(
+		device->CreateTexture2D(&depthDesc, NULL, &depthStencilBuffer), "failed to create depth texture"
+		)
+
+		DX_CHECK(
+		device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView), "Failed to Create depth stencil for render texture"
+		)
 	}
 
-	OnSizeChanged();
+	
+	OnSizeChanged(textureView);
 }
 
 void RenderTexture::Release()

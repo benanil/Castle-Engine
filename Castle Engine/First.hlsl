@@ -32,6 +32,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 	float3 L = float3(sin(0), cos(0), 0);
 	float ndl = max(dot(input.normal, L), 0.42f);
 	_texture  *= ndl;
+	clip(_texture.a - 0.25f);
 	_texture.a = 1;
 	return _texture;
 }

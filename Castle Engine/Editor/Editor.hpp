@@ -9,8 +9,11 @@
 #include <functional>
 #include <glm/glm.hpp>
 #include "../Helper.hpp"
+#include "../Main/Event.hpp"
 
 typedef void(*FileCallback)(const char* ptr);
+
+#define HEADER_COLOR { .81f, .6f, 0, 1 }
 
 namespace Editor
 {
@@ -34,7 +37,7 @@ namespace Editor
 	namespace GUI
 	{
 		void Header(const char* title);
-		// void TextureField(const char* name, WestEngine::Texture** texture);
+		void TextureField(const char* name, DXShaderResourceView* texture);
 		void TextureField(const char* name, const int& texture);
 		bool ImageButton(const unsigned int& texture, const float& size = filesize);
 
@@ -52,16 +55,22 @@ namespace Editor
 		void DropUIElement(const char* type, const std::function<T>& callback);
 	}
 
+	struct GameViewWindowData
+	{
+		ImVec2 PanelPosition;
+		ImVec2 WindowScale;
+
+		bool Hovered, Focused;
+
+		Func<Changed2f, float, float> OnScaleChanged;
+
+		DXShaderResourceView* texture;
+	};
+
 	namespace GameViewWindow
 	{
 		void Draw();
-
-		bool GetHovered();
-		bool GetFocused();
-
-		ImVec2 GetPanelScale();
-		ImVec2 GetPanelPosition();
-
-		void SetTexture(DXShaderResourceView* _texture);
+		GameViewWindowData& GetData();
 	}
+
 }

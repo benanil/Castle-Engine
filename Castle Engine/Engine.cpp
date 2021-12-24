@@ -45,6 +45,7 @@ DXTexture2D* depthStencilBuffer;
 DXBuffer* constantBuffer;
 DXRasterizerState* rasterizerState;
 DXInputLayout* vertLayout;
+D3D11_VIEWPORT ViewPort;
 
 // constant buffer
 struct cbPerObject
@@ -79,6 +80,13 @@ Shader* shader;
 // Pipeline* ScreenPipeline;
 RenderTexture* renderTexture;
 
+Event EndOfFrameEvents;
+
+void Engine::AddEndOfFrameEvent(const Action& act)
+{
+	EndOfFrameEvents.Add(act);
+}
+
 void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
 {
     if (FAILED(hr))
@@ -105,28 +113,18 @@ SDL_Window* Engine::GetWindow() { return window; };
 
 void MainWindow()
 {
-    ImGui::Begin("SA IMGUI");
+    ImGui::Begin("Camera");
 
-	firstEntity->transform->OnEditor();
 	freeCamera->EditorUpdate();
 
-	ImGui::Image(renderTexture->GetShaderResourceView(), {50, 50});
-
-    ImGui::End();
-
-    ImGui::Begin("TestWindow");
-    for (size_t i = 0; i < 10; i++)
-    {
-        ImGui::BulletText("sa ImGui::Naber_Moruk");
-    }
     ImGui::End();
 
     Editor::GameViewWindow::Draw();
-}
 
-void RenderTextureSizeChanged()
-{
-    Editor::GameViewWindow::SetTexture(renderTexture->textureView);
+    if (ECS::SceneManager::GetCurrentScene())
+    {
+        ECS::SceneManager::GetCurrentScene()->UpdateEditor();
+    }
 }
 
 int main(int, char**)
@@ -159,25 +157,37 @@ int main(int, char**)
 	firstEntity = new Entity();
 	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
 		
-	firstEntity->transform->SetEulerDegree({90, 90, 0});
+	firstEntity->transform->SetEulerDegree({0, 0, 0});
 
 	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 3000.0f);
 	
 	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
 	cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
 
-	// Shader* screenShader = new Shader(L"PostProcessing.hlsl", L"PostProcessing.hlsl");
-	// ScreenPipeline = new Pipeline(screenShader, 500, 500);
-
     renderTexture = new RenderTexture(Width, Height, true);
-    RenderTextureSizeChanged();
-    renderTexture->OnSizeChanged.Add(RenderTextureSizeChanged);
+	Editor::GameViewWindow::GetData().texture = renderTexture->textureView;
+
+    renderTexture->OnSizeChanged.Add([](DXShaderResourceView* texture)
+    {
+        Editor::GameViewWindow::GetData().texture = texture;
+    });
+    
+    auto& viewWindowdata = Editor::GameViewWindow::GetData();
+
+
+    viewWindowdata.OnScaleChanged.Add([](const float& w, const float& h)
+    {
+        freeCamera->aspectRatio = w / h;
+        freeCamera->UpdateProjection(freeCamera->aspectRatio);
+        renderTexture->Invalidate((int)w, (int)h);
+    });
 
 	// Main loop
     bool done = false;
     while (!done)
     {
         SDL_Event event;
+
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
@@ -237,21 +247,18 @@ void CreateRenderTarget()
 	if(freeCamera)
 	freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
 
-    if (renderTexture)
-    renderTexture->Invalidate(depthDesc.Width, depthDesc.Height);
-
 	//Update the Viewport
-	DX_CREATE(D3D11_VIEWPORT, viewport)
+    memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
 	
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = depthDesc.Width ;
-	viewport.Height = depthDesc.Height;
+	ViewPort.TopLeftX = 0;
+	ViewPort.TopLeftY = 0;
+	ViewPort.Width = depthDesc.Width ;
+	ViewPort.Height = depthDesc.Height;
 	
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
+	ViewPort.MinDepth = 0.0f;
+	ViewPort.MaxDepth = 1.0f;
 	
-	DeviceContext->RSSetViewports(1, &viewport);
+	DeviceContext->RSSetViewports(1, &ViewPort);
     
     static bool firstTime = true;
 
@@ -357,32 +364,31 @@ bool InitScene()
 
     // Create Rasterizer 
 	DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc)
-    rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
-    rasterizerDesc.CullMode = D3D11_CULL_BACK;
+    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerDesc.CullMode = D3D11_CULL_NONE;
 
     DX_CHECK(
         Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed"
     );
 
-    DeviceContext->RSSetState(NULL);
+    DeviceContext->RSSetState(rasterizerState);
 
     //Create the Viewport
-	DX_CREATE(D3D11_VIEWPORT, viewport);
+	memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
 
-    viewport.TopLeftX = 0;
-    viewport.TopLeftY = 0;
-    viewport.Width = Width;
-    viewport.Height = Height;
-
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+    ViewPort.TopLeftX = 0;
+    ViewPort.TopLeftY = 0;
+    ViewPort.Width = Width;
+    ViewPort.Height = Height;
+    ViewPort.MinDepth = 0.0f;
+    ViewPort.MaxDepth = 1.0f;
 
     //Set the Viewport
-    DeviceContext->RSSetViewports(1, &viewport);
+    DeviceContext->RSSetViewports(1, &ViewPort);
 
-	firstTexture = new Texture(L"Textures/map_Base_Colorenyeni.png");
+	firstTexture = new Texture("Textures/map_Base_Colorenyeni.png");
 
-    mesh = MeshLoader::LoadMesh("Models/map.fbx");
+    mesh = MeshLoader::LoadMesh("Models/sponza.obj");
 
     return true;
 }
@@ -390,36 +396,51 @@ bool InitScene()
 void UpdateScene()
 {
 	freeCamera->Update(0.00001f);
+
+    const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
+    cbPerObj.MVP = XMMatrixTranspose(MVP);
+    cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
+    DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 }
 
 void DrawScene()
 {
-    //Clear our backbuffer
-    float bgColor[4] = { .2f, .2f, .2f, 1.0f };
+    float oldViewPortW = ViewPort.Width, oldViewPortH = ViewPort.Height;
+	
+	auto& gameVindowdata = Editor::GameViewWindow::GetData();
+	ViewPort.Width = gameVindowdata.WindowScale.x;
+	ViewPort.Height = gameVindowdata.WindowScale.y;
+	
+	DeviceContext->RSSetViewports(1, &ViewPort);
+
+	//Clear our backbuffer
+    float bgColor[4] = { .2, .2, .2, 1.0f };
     DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);
     DeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-    // 
-    // //Draw first cube
-	//mesh->Draw(DeviceContext);
+	renderTexture->SetBlendState();
+	// rendering to back buffer here
+	// mesh->Draw(DeviceContext);
 
-    const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
-    cbPerObj.MVP = XMMatrixTranspose(MVP);
-	cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
-	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-    DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
-	
-    firstTexture->Bind(DeviceContext);
+	// rendering to texture Here
+	firstTexture->Bind(DeviceContext);
+	renderTexture->ClearRenderTarget(bgColor);
     renderTexture->SetAsRendererTarget();
-    renderTexture->ClearRenderTarget(bgColor);
-
+	
     mesh->Draw(DeviceContext);
 
     // set default render buffers again
     DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+
+    ViewPort.Width = oldViewPortW; ViewPort.Height = oldViewPortH;
+    DeviceContext->RSSetViewports(1, &ViewPort);
 
 	// Draw Imgui
     Editor::Render();
 
     //Present the backbuffer to the screen
     SwapChain->Present(1, 0);
+
+    EndOfFrameEvents.Invoke();
+    EndOfFrameEvents.Clear();
 }

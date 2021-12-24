@@ -1,4 +1,10 @@
 #include "Scene.hpp"
+#include "Entity.hpp"
+
+#ifndef NEDITOR
+	#include "../Editor/Editor.hpp"
+#endif
+
 #define ENTITY_LOOP for (auto& entity : entities)
 
 namespace ECS
@@ -15,7 +21,41 @@ namespace ECS
 
 	void Scene::UpdateEditor() 
 	{
-		ENTITY_LOOP entity->UpdateEditor();
+#ifndef NEDITOR
+		static int PushID = 0;
+		static Entity* currEntity = nullptr;
+
+		ImGui::Begin("Hierarchy");
+		
+		for (auto& entity : entities)
+		{
+			static auto flags = currEntity == entity ? ImGuiTreeNodeFlags_Selected : ImGuiTreeNodeFlags_OpenOnArrow;
+			ImGui::PushID(PushID++);
+			
+			if (ImGui::TreeNodeEx(entity->name.c_str(), flags))
+			{
+				ImGui::TreePop();
+			}
+			
+			if (ImGui::IsItemClicked())
+			{
+				currEntity = entity;
+			}
+			
+			ImGui::PopID();
+		}
+		
+		ImGui::End();
+
+		ImGui::Begin("Inspector");
+		
+		if (currEntity)
+		{
+			currEntity->UpdateEditor();
+		}
+
+		ImGui::End();
+#endif
 	}
 	
 	Entity* Scene::FindEntityByName(const std::string& name)
