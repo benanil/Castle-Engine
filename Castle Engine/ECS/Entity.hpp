@@ -5,6 +5,7 @@
 #include "../Main/Event.hpp"
 #include <memory>
 #include "../Transform.hpp"
+#include <SDL.h>
 
 #ifndef NEDITOR
 	#include "../Editor/Editor.hpp"
@@ -18,12 +19,14 @@ namespace ECS
 		std::string name;
 		Event OnDestroy;
 		std::unique_ptr<Transform> transform;
+		std::list<Component*> components;
 	public:
 		Entity() : name(std::string("Entity")), transform(std::make_unique<Transform>()) { };
 		Entity(const std::string& _name) { name = _name; };
 		~Entity() ;
 
-		void Update();
+		void Update(const float& deltaTime);
+		// void ProceedEvent(const SDL_Event* _event);
 		void UpdateEditor();
 
 		Component* GetComponent(const uint16_t& index);
@@ -37,8 +40,18 @@ namespace ECS
 		template<typename TComp> bool TryGetComponent(TComp** component);
 		template<typename TComp> bool HasComponent();
 		bool HasComponent(Component* component);
-		
-	private:
-		std::list<Component*> components;
+	};
+
+	class TestComponent : Component
+	{
+	public:
+		void SetEntity(Entity* _entity) { entity = _entity; }
+		Entity* GetEntity() { return entity; }
+
+		void Update(const float&) {}
+		void OnEditor()
+		{
+			ImGui::Text("Test Component");
+		}
 	};
 }

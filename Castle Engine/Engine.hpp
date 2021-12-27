@@ -22,6 +22,14 @@ namespace Engine
 
 	void AddEndOfFrameEvent(const Action& act);
 
+	bool GetKeyDown(int keycode);
+	bool GetKeyUp  (int keycode);
+	
+	bool GetMouseButtonDown(int buttonName);
+	bool GetMouseButtonUp(int buttonName);
+	void SetCursor(SDL_Cursor* cursor);
+	SDL_Cursor* GetCursor();
+
 	void DirectXCheck(const HRESULT& hr, const int line, const char* file);
 	void DirectXCheck(const HRESULT& hr, const char* message, const int line, const char* file);
 }

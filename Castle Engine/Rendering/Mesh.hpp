@@ -11,12 +11,16 @@
 #include <utility>
 #include <vector>
 #include "Texture.hpp"
+#include "../ECS/ECS.hpp"
+#include "../Editor/Editor.hpp"
+#include "AssetManager.hpp"
 
 struct Vertex
 {
 	glm::vec3 pos;
 	glm::vec3 normal;
 	glm::vec2 texCoord;
+	glm::vec3 tangent;
 
 	static ID3D11InputLayout* GetLayout(DXBlob* VS_Buffer)
 	{
@@ -26,21 +30,16 @@ struct Vertex
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
 			{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TANGENT" , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
 		auto device = Engine::GetDevice();
-		device->CreateInputLayout(layout, 3, VS_Buffer->GetBufferPointer(),
+		device->CreateInputLayout(layout, 4, VS_Buffer->GetBufferPointer(),
 			VS_Buffer->GetBufferSize(), &vertLayout);
 
 		return vertLayout;
 	}
-
-	Vertex() {}
-	Vertex(const glm::vec3& _pos, const glm::vec2& _texCoord)
-		:
-		pos(_pos), texCoord(_texCoord)
-	{}
 };
 
 struct SubMesh
@@ -56,7 +55,7 @@ struct SubMesh
 	DXBuffer* vertexBuffer;
 	DXBuffer* indexBuffer;
 
-	uint32_t materialIndex;
+	uint16_t materialIndex;
 
 	SubMesh(const aiMesh& aimesh) : name(aimesh.mName.C_Str())
 	{
@@ -68,13 +67,20 @@ struct SubMesh
 
 		for (uint32_t i = 0; i < vertexCount; ++i) // +1 iter for jumping texcoord.y
 		{
-			memcpy(&vertices[i], &aimesh.mVertices[i], sizeof(glm::vec3));
+			vertices[i].pos.x = aimesh.mVertices[i].x;
+			vertices[i].pos.y = aimesh.mVertices[i].y;
+			vertices[i].pos.z = aimesh.mVertices[i].z;
+			
 			vertices[i].normal.x = aimesh.mNormals[i].x;
 			vertices[i].normal.y = aimesh.mNormals[i].y;
 			vertices[i].normal.z = aimesh.mNormals[i].z;
 
 			vertices[i].texCoord.x = aimesh.mTextureCoords[0][i].x;
 			vertices[i].texCoord.y = aimesh.mTextureCoords[0][i].y;
+
+			vertices[i].tangent.x = aimesh.mBitangents[i].x;
+			vertices[i].tangent.y = aimesh.mBitangents[i].y;
+			vertices[i].tangent.z = aimesh.mBitangents[i].z;
 		}
 
 		DXDevice* d3d11Device = Engine::GetDevice();
@@ -133,17 +139,96 @@ struct SubMesh
 	}
 };
 
-struct Mesh
+struct MaterialCBuffer
 {
+	float shininesss = 5.0f;
+	float roughness = 0.88;
+	float metallic = 0.4f;
+	float padding = 0;        // 16 byte
+};
+
+class Material
+{
+public:
+	MaterialCBuffer cbuffer;
+	DXBuffer* materialCBuffer;
+
+	const char* name;
+	Texture* albedo, *specular, *normal;
+
+	Material() : name("material"), cbuffer(MaterialCBuffer()) { CreateMaterialBuffer(); }
+	Material(const char* _name) : name(_name), cbuffer(MaterialCBuffer()) { CreateMaterialBuffer(); }
+
+	void CreateMaterialBuffer()
+	{
+		DXDevice* device = Engine::GetDevice();
+
+		DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
+		cbDesc.Usage = D3D11_USAGE_DEFAULT;
+		cbDesc.ByteWidth = sizeof(MaterialCBuffer);
+		cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		cbDesc.CPUAccessFlags = 0;
+		cbDesc.MiscFlags = 0;
+
+		device->CreateBuffer(&cbDesc, NULL, &materialCBuffer);
+	}
+
+	void Bind()
+	{
+		DXDeviceContext* context = Engine::GetDeviceContext();
+		if (albedo)   albedo->Bind(context, 0);
+		if (specular) specular->Bind(context, 1);
+		if (normal)   normal->Bind(context, 2);
+		
+		context->UpdateSubresource(materialCBuffer, 0, NULL, &cbuffer, 0, 0);
+		context->PSSetConstantBuffers(1, 1, &materialCBuffer);
+	}
+
+	void OnEditor()
+	{
+		if (ImGui::CollapsingHeader("Material"))
+		{
+			Editor::GUI::TextureField("albedo", albedo->resourceView);
+			Editor::GUI::TextureField("specular", specular->resourceView);
+			Editor::GUI::TextureField("normal", normal->resourceView);
+
+			ImGui::DragFloat("shininess", &cbuffer.shininesss, 0.1f);
+			ImGui::DragFloat("roughness ", &cbuffer.roughness, 0.01f);
+			ImGui::DragFloat("metallic ", &cbuffer.metallic, 0.01f);
+		}
+	}
+};
+
+class MeshRenderer : ECS::Component
+{
+public:
 	SubMesh* subMeshes;
-	std::vector<Texture*> textures;
+	std::vector<Material*> materials;
 	uint16_t subMeshCount;
+
+	MeshRenderer() : ECS::Component() {}
+
+	ECS::Entity* GetEntity() { return entity; }
+	void SetEntity(ECS::Entity* _entity) { entity = _entity; }
+
+	void Update(const float& deltaTime) {}
+	void OnEditor()
+	{
+		static int pushID = 0;
+		for (uint16_t i = 0; i < materials.size(); ++i)
+		{
+			ImGui::PushID(pushID++);
+			materials[i]->OnEditor();
+			ImGui::PopID();
+		}
+		pushID = 0;
+	}
 
 	void Draw(DXDeviceContext* deviceContext)
 	{
 		for (uint16_t i = 0; i < subMeshCount; i++)
 		{
-			textures[std::min((uint32_t)textures.size()-1, subMeshes[i].materialIndex)]->Bind(deviceContext);
+			materials[std::min<uint16_t>(subMeshes[i].materialIndex, materials.size() - 1)]->Bind();
 			subMeshes[i].Draw(deviceContext);
 		}
 	}
@@ -161,56 +246,10 @@ struct Mesh
 
 namespace MeshLoader
 {
-	static inline D3D11_TEXTURE_ADDRESS_MODE AssimpToD3D11_Wrap(const aiTextureMapMode& aimode)
-	{
-		switch (aimode)
-		{
-		case aiTextureMapMode_Wrap:   return D3D11_TEXTURE_ADDRESS_WRAP;
-		case aiTextureMapMode_Clamp:  return D3D11_TEXTURE_ADDRESS_CLAMP;
-		case aiTextureMapMode_Decal:  return D3D11_TEXTURE_ADDRESS_MIRROR_ONCE;
-		case aiTextureMapMode_Mirror: return D3D11_TEXTURE_ADDRESS_MIRROR;
-		default: D3D11_TEXTURE_ADDRESS_WRAP;
-		}
-	}
-	
-	static Mesh* LoadMesh(const std::string& path)
-	{
-		Mesh* mesh = new Mesh();
+	[[nodiscard]] inline 
+		D3D11_TEXTURE_ADDRESS_MODE AssimpToD3D11_Wrap(const aiTextureMapMode& aimode);
 
-		Assimp::Importer importer;
-		static const uint32_t flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_ConvertToLeftHanded;
-		const aiScene* scene = importer.ReadFile(path, flags);
+	Texture* ImportTexture(aiMaterial* const& aiMaterial, aiTextureType textureType, Texture* defaultTexture);
 
-		if (!scene)
-		{
-			DX_CHECK(-1, (path + std::string("MESH LOADING FAILED!")).c_str());
-			return nullptr;
-		}
-
-		mesh->subMeshes = (SubMesh*)malloc(sizeof(SubMesh) * scene->mNumMeshes);
-		mesh->subMeshCount = scene->mNumMeshes;
-
-		for (uint16_t i = 0; i < scene->mNumMaterials; i++)
-		{
-			const auto& material = scene->mMaterials[i];
-			
-			aiString aiPath;
-			aiTextureMapMode aiWrapmode = aiTextureMapMode::aiTextureMapMode_Wrap;
-		
-			if (material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, 0, &aiPath, 
-				nullptr, nullptr, nullptr, nullptr, &aiWrapmode) == 0)
-			{
-				char cPath[] = "Models\\\0                                                                 ";
-				const char* cResult = strcat(cPath, aiPath.C_Str());
-				mesh->textures.push_back(new Texture(cResult, AssimpToD3D11_Wrap(aiWrapmode)));
-			}
-		}
-
-		for (uint16_t i = 0; i < scene->mNumMeshes; i++)
-		{
-			mesh->subMeshes[i] = SubMesh(*scene->mMeshes[i]);
-			mesh->subMeshes[i].materialIndex = scene->mMeshes[i]->mMaterialIndex;
-		}
-		return mesh;
-	}
+	MeshRenderer* LoadMesh(const std::string& path);
 }

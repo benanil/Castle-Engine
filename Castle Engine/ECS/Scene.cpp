@@ -14,16 +14,46 @@ namespace ECS
 		Unload();
 	}
 
-	void Scene::Update() 
+	void Scene::Update(const float& deltaTime) 
 	{
-		ENTITY_LOOP entity->Update();
+		ENTITY_LOOP entity->Update(deltaTime);
+	}
+
+	void Scene::ProceedEvent(const SDL_Event* _event)
+	{
+		// ENTITY_LOOP entity->ProceedEvent(_event);
+	}
+
+	static void Test()
+	{
+		std::cout << "Test" << std::endl;
+	}
+
+	static void NewEntity()
+	{
+		SceneManager::GetCurrentScene()->AddEntity(new Entity("NewEntity"));
+	}
+
+	static void NewCube()
+	{
+		SceneManager::GetCurrentScene()->AddEntity(new Entity("Cube"));
+	}
+
+	static Entity* currEntity = nullptr;
+	
+	static void AddComponent()
+	{
+		if (!currEntity) return;
+
+		TestComponent* testComponent = new TestComponent();
+		currEntity->AddComponent((Component*)testComponent);
+		testComponent->SetEntity(currEntity);
 	}
 
 	void Scene::UpdateEditor() 
 	{
 #ifndef NEDITOR
 		static int PushID = 0;
-		static Entity* currEntity = nullptr;
 
 		ImGui::Begin("Hierarchy");
 		
@@ -45,6 +75,15 @@ namespace ECS
 			ImGui::PopID();
 		}
 		
+		static const Editor::TitleAndAction hierarchyActions[] =
+		{
+			{ "New Entity", NewEntity},
+			{ "New Cube", NewCube },
+			{ "New Sphere", Test }
+		};
+		
+		Editor::GUI::RightClickPopUp("Add Object", hierarchyActions, 2);
+
 		ImGui::End();
 
 		ImGui::Begin("Inspector");
@@ -53,6 +92,14 @@ namespace ECS
 		{
 			currEntity->UpdateEditor();
 		}
+
+		static const Editor::TitleAndAction actions[] =
+		{
+			{ "MeshRenderer", Test },
+			{ "Component", AddComponent}
+		};
+
+		Editor::GUI::RightClickPopUp("AddComponent", actions, 2);
 
 		ImGui::End();
 #endif

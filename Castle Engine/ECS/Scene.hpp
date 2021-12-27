@@ -3,6 +3,7 @@
 #include <list>
 #include "../Main/Event.hpp"
 #include <cstdint>
+#include <SDL.h>
 
 namespace ECS
 {
@@ -15,7 +16,8 @@ namespace ECS
 		Scene() : name(std::string("New Scene")) {};
 		Scene(const std::string& _name) : name(_name) {};
 		~Scene();
-		void Update();
+		void Update(const float& deltaTime);
+		void ProceedEvent(const SDL_Event* _event);
 		void Unload();
 		void Load()   {};
 		void Start()  {};
@@ -33,6 +35,5 @@ namespace ECS
 		void LoadNewScene();
 		void LoadScene(const uint8_t& index);
 		void LoadScene(const std::string& name);
-		void DrawHierarchyWindow();
 	}
 }

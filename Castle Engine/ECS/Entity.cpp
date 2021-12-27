@@ -6,11 +6,11 @@ namespace ECS
 	Entity::~Entity() 
 	{
 		OnDestroy();
-		LOOP_COMPONENTS comp->~Component();
+		for (auto& comp : components) comp->~Component();
 	};
 
-	void Entity::Update() {
-		LOOP_COMPONENTS comp->Update();
+	void Entity::Update(const float& deltaTime) {
+		for (auto& comp : components) comp->Update(deltaTime);
 	}
 
 	void Entity::UpdateEditor() 
@@ -21,7 +21,19 @@ namespace ECS
 		{
 			transform->OnEditor();
 		}
-		LOOP_COMPONENTS comp->OnEditor();
+		static int PushID = 0;
+
+		LOOP_COMPONENTS
+		{
+			ImGui::PushID(PushID++);
+			if (ImGui::CollapsingHeader(comp->name.c_str()))
+			{
+				comp->OnEditor();
+			}
+
+			ImGui::PopID();
+		}
+		PushID = 0;
 #endif
 	}
 
@@ -50,6 +62,7 @@ namespace ECS
 		if (component == nullptr) return;
 		if (!HasComponent(component)) return;
 		components.remove(component);
+		delete component;
 	}
 
 	void Entity::RemoveComponent(const uint16_t& index)
@@ -68,6 +81,7 @@ namespace ECS
  			}
 		}
 		components.remove(component);
+		delete component;
 	}
 	
 	template<typename TComp> void Entity::RemoveComponent()
@@ -84,6 +98,7 @@ namespace ECS
 		}
 		if (component != nullptr)
 		components.remove(component);
+		delete component;
 	}
 
 	bool Entity::HasComponent(Component* component)

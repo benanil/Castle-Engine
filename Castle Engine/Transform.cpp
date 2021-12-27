@@ -18,6 +18,8 @@ namespace ECS
 		xmMatrix translation = XMMatrixTranslation(GLM_GET_XYZ(position));
 		xmMatrix scaleMat    = XMMatrixScaling(GLM_GET_XYZ(scale));
 		
+		XMQuaternionRotationRollPitchYaw(GLM_GET_XYZ(euler));
+
 		matrix = XMMatrixIdentity() * translation * rotation * scaleMat;
 		OnTransformChanged();
 	}
@@ -38,6 +40,7 @@ namespace ECS
 	{
 		eulerDegree = _euler;
 		GLM_DegToRad(_euler, euler);
+		quaternion = xmEulerToQuaternion(euler);
 		if (notify) UpdateTransform();
 	}
 	
@@ -45,12 +48,40 @@ namespace ECS
 	{
 		GLM_RadToDeg(_euler, eulerDegree);
 		euler = _euler;
+		quaternion = xmEulerToQuaternion(euler);
 		if (notify) UpdateTransform();
 	}
 	
 	void Transform::SetMatrix(const xmMatrix& _matrix, bool notify) noexcept
 	{
-		// todo finish
 		matrix = _matrix;
+		SetQuaternion(xmExtractRotation(_matrix), false);
+		scale = xmExtractScale(_matrix);
+		position = xmExtractPosition(_matrix);
+		if (notify) UpdateTransform();
 	}
+
+	void Transform::SetQuaternion(const xmQuaternion& _quat, bool notify) noexcept
+	{
+		quaternion = _quat;
+		euler = xmQuatToEulerAngles(_quat);
+		eulerDegree = GLM_RadToDeg(euler);
+		if (notify) UpdateTransform();
+	}
+
+	const glm::vec3 Transform::GetRight()  const noexcept
+	{
+		return xmVec3Transform({ 1,0,0 }, XMQuaternionConjugate(quaternion).m128_f32);
+	}
+	
+	const glm::vec3 Transform::GetUP() const noexcept
+	{
+		return xmVec3Transform({ 0,1,0 }, XMQuaternionConjugate(quaternion).m128_f32);
+	}
+	
+	const glm::vec3 Transform::GetForward() const noexcept
+	{
+		return xmVec3Transform({ 0,0,1 }, XMQuaternionConjugate(quaternion).m128_f32);
+	}
+
 }

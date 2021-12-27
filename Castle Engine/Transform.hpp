@@ -7,12 +7,14 @@ namespace ECS
 {
 	class Transform
 	{
+	public:
 		xmMatrix matrix;
+		xmQuaternion quaternion;
+
 		glm::vec3 position;
 		glm::vec3 euler;
 		glm::vec3 eulerDegree;
 		glm::vec3 scale;
-	public:
 		Event OnTransformChanged;
 	public:
 		Transform()
@@ -30,6 +32,11 @@ namespace ECS
 		void SetEulerDegree (const glm::vec3& _euler   , bool notify = true) noexcept;
 		void SetEulerRadians(const glm::vec3& _euler   , bool notify = true) noexcept;
 		void SetMatrix		(const xmMatrix& _matrix   , bool notify = true) noexcept;
+		void SetQuaternion  (const xmQuaternion& quaternion, bool notify = true) noexcept;
+
+		const glm::vec3 GetRight()   const noexcept;
+		const glm::vec3 GetUP()      const noexcept;
+		const glm::vec3 GetForward() const noexcept;
 
 		void OnEditor();
 		void UpdateTransform();

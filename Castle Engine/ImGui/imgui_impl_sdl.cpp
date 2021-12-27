@@ -79,6 +79,8 @@
 static const Uint32 SDL_WINDOW_VULKAN = 0x10000000;
 #endif
 
+#include "../Engine.hpp"
+
 // SDL Data
 struct ImGui_ImplSDL2_Data
 {
@@ -424,13 +426,21 @@ static void ImGui_ImplSDL2_UpdateMouseCursor()
         return;
     ImGui_ImplSDL2_Data* bd = ImGui_ImplSDL2_GetBackendData();
 
+	auto engineCursor = Engine::GetCursor();
+	if (engineCursor)
+	{
+		SDL_SetCursor(engineCursor);
+		SDL_ShowCursor(SDL_TRUE);
+		return;
+	}
+
     ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
     if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None)
     {
         // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
         SDL_ShowCursor(SDL_FALSE);
     }
-    else
+    else 
     {
         // Show OS mouse cursor
         SDL_SetCursor(bd->MouseCursors[imgui_cursor] ? bd->MouseCursors[imgui_cursor] : bd->MouseCursors[ImGuiMouseCursor_Arrow]);

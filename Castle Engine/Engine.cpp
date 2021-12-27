@@ -17,7 +17,6 @@
 #include <array>
 #include <vector>
 #undef SDL_HAS_VULKAN 
-#include <SDL.h>
 #include <SDL_syswm.h>
 #include "Editor/Editor.hpp"
 #include "Engine.hpp"
@@ -30,6 +29,8 @@
 #include "ECS/ECS.hpp"
 #include "Transform.hpp"
 #include "FreeCamera.hpp"
+#include <map>
+#include <iostream>
 
 using namespace ECS;
 
@@ -42,17 +43,29 @@ DXDeviceContext* DeviceContext;
 DXRenderTargetView* renderTargetView;
 DXDepthStencilView* depthStencilView;
 DXTexture2D* depthStencilBuffer;
-DXBuffer* constantBuffer;
 DXRasterizerState* rasterizerState;
 DXInputLayout* vertLayout;
 D3D11_VIEWPORT ViewPort;
 
 // constant buffer
+struct cbGlobal
+{
+	float sunAngle;
+	glm::vec3 ambientColor;  // 16
+	glm::vec3 sunColor;      
+	float fogAmount;      // 32
+    glm::vec3 viewPos;
+	float ambientStength; // 48
+} cbGlobalData;
+
 struct cbPerObject
 {
     XMMATRIX  MVP;
 	XMMATRIX  Model;
 } cbPerObj;
+
+DXBuffer* constantBuffer;
+DXBuffer* uniformGlobalBuffer;
 
 //Global Declarations - Others//
 SDL_Window* window;
@@ -72,15 +85,28 @@ bool InitScene();
 void UpdateScene();
 void DrawScene();
 
-Mesh* mesh;
+MeshRenderer* mesh;
 Entity* firstEntity;
-Texture* firstTexture;
 FreeCamera* freeCamera;
 Shader* shader;
 // Pipeline* ScreenPipeline;
 RenderTexture* renderTexture;
 
 Event EndOfFrameEvents;
+
+std::map<int, bool> keyboard;
+std::map<int, bool> mouse;
+
+bool Engine::GetKeyDown(int keycode) LAMBDAR(keyboard[keycode])
+bool Engine::GetKeyUp(int keycode) LAMBDAR(!keyboard[keycode])
+
+bool Engine::GetMouseButtonDown(int buttonName) LAMBDAR(mouse[buttonName])
+bool Engine::GetMouseButtonUp(int buttonName) LAMBDAR(mouse[buttonName])
+
+SDL_Cursor* cursor;
+
+void Engine::SetCursor(SDL_Cursor* _cursor) LAMBDA(cursor = _cursor)
+SDL_Cursor* Engine::GetCursor() LAMBDAR(cursor);
 
 void Engine::AddEndOfFrameEvent(const Action& act)
 {
@@ -101,6 +127,7 @@ void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line
 {
     if (FAILED(hr))
     {
+		std::cout << "hresult is: " << hr << std::endl;
         std::string description = std::string(message) + std::string(file) + " at line: " + std::to_string(line);
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
@@ -113,9 +140,17 @@ SDL_Window* Engine::GetWindow() { return window; };
 
 void MainWindow()
 {
-    ImGui::Begin("Camera");
+    ImGui::Begin("Settings");
 
-	freeCamera->EditorUpdate();
+    if (ImGui::CollapsingHeader("Camera")) freeCamera->EditorUpdate();
+
+    if (ImGui::CollapsingHeader("Lighting"))
+    {
+        ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
+        ImGui::ColorEdit4("sun Color", &cbGlobalData.sunColor.x);
+        ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle);
+		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
+    }
 
     ImGui::End();
 
@@ -139,6 +174,7 @@ int main(int, char**)
     SDL_SysWMinfo wmInfo{};
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(window, &wmInfo);
+    
 
     hwnd = (HWND)wmInfo.info.win.window;
 
@@ -156,11 +192,11 @@ int main(int, char**)
 	
 	firstEntity = new Entity();
 	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
-		
-	firstEntity->transform->SetEulerDegree({0, 0, 0});
+	
+    firstEntity->AddComponent((ECS::Component*)mesh);
 
 	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 3000.0f);
-	
+
 	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
 	cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
 
@@ -174,16 +210,16 @@ int main(int, char**)
     
     auto& viewWindowdata = Editor::GameViewWindow::GetData();
 
-
     viewWindowdata.OnScaleChanged.Add([](const float& w, const float& h)
     {
         freeCamera->aspectRatio = w / h;
         freeCamera->UpdateProjection(freeCamera->aspectRatio);
         renderTexture->Invalidate((int)w, (int)h);
     });
-
+    
 	// Main loop
     bool done = false;
+    float lastTime = 0, deltaTime;
     while (!done)
     {
         SDL_Event event;
@@ -191,6 +227,24 @@ int main(int, char**)
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
+			SceneManager::GetCurrentScene()->ProceedEvent(&event);
+            freeCamera->Update(deltaTime);
+
+            deltaTime = (lastTime - (float)SDL_GetTicks()) / 1000.0f;
+            lastTime = SDL_GetTicks();
+
+            switch (event.type)
+            {
+            case SDL_KEYDOWN: keyboard[event.key.keysym.sym] = true; break;
+            case SDL_KEYUP:   keyboard[event.key.keysym.sym] = false; break;
+            }
+
+            switch (event.button.type)
+            {
+            case SDL_MOUSEBUTTONDOWN: mouse[event.button.button] = true; break;
+            case SDL_MOUSEBUTTONUP:   mouse[event.button.button] = false; break;
+            }
+
             if (event.type == SDL_QUIT)
                 done = true;
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
@@ -204,10 +258,9 @@ int main(int, char**)
             }
         }
 
-		SceneManager::GetCurrentScene()->Update();
-
+		SceneManager::GetCurrentScene()->Update(deltaTime);
         UpdateScene();
-        DrawScene();
+		DrawScene();
     }
 
     CleanUp();
@@ -305,8 +358,10 @@ bool InitializeDirect3d11App()
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
+	UINT creationFlags = D3D11_CREATE_DEVICE_DEBUG;
+
     //Create our SwapChain
-    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL,
+    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL,
         D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, NULL, &DeviceContext);
 
     CreateRenderTarget();
@@ -333,12 +388,26 @@ void CleanUp()
 bool InitScene()
 {
     //Compile Shaders from shader file
-	shader = new Shader(L"First.hlsl", L"First.hlsl");
+	shader = new Shader("First.hlsl\0", "First.hlsl\0");
 
 	//Set Vertex and Pixel Shaders
     DeviceContext->VSSetShader(shader->VS, 0, 0);
     DeviceContext->PSSetShader(shader->PS, 0, 0);
 
+	// create uniform constant buffer
+    cbGlobalData.ambientColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    cbGlobalData.sunColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	cbGlobalData.ambientStength = .15f;
+
+	DX_CREATE(D3D11_BUFFER_DESC, cbUniformDesc);
+	cbUniformDesc.Usage = D3D11_USAGE_DEFAULT;
+	cbUniformDesc.ByteWidth = sizeof(cbGlobal);
+	cbUniformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbUniformDesc.CPUAccessFlags = 0;
+	cbUniformDesc.MiscFlags = 0;
+
+	Device->CreateBuffer(&cbUniformDesc, NULL, &uniformGlobalBuffer);
+	
     // Create Constant Buffer
 
 	DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
@@ -350,8 +419,14 @@ bool InitScene()
 
     Device->CreateBuffer(&cbDesc, NULL, &constantBuffer);
 	
+    // bind constant data
     DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+    
+
+    // bind Uniform data
+    DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+    DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 
     //Create the Input Layout
 	
@@ -386,9 +461,8 @@ bool InitScene()
     //Set the Viewport
     DeviceContext->RSSetViewports(1, &ViewPort);
 
-	firstTexture = new Texture("Textures/map_Base_Colorenyeni.png");
-
     mesh = MeshLoader::LoadMesh("Models/sponza.obj");
+    mesh->SetEntity(firstEntity);
 
     return true;
 }
@@ -400,8 +474,14 @@ void UpdateScene()
     const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
     cbPerObj.MVP = XMMatrixTranspose(MVP);
     cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
-    DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    
+	cbGlobalData.viewPos = freeCamera->transform.position;
+
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+	
+	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 }
 
 void DrawScene()
@@ -415,7 +495,7 @@ void DrawScene()
 	DeviceContext->RSSetViewports(1, &ViewPort);
 
 	//Clear our backbuffer
-    float bgColor[4] = { .2, .2, .2, 1.0f };
+    float bgColor[4] = { .4, .4, .7, 1.0f };
     DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);
     DeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	renderTexture->SetBlendState();
@@ -423,7 +503,6 @@ void DrawScene()
 	// mesh->Draw(DeviceContext);
 
 	// rendering to texture Here
-	firstTexture->Bind(DeviceContext);
 	renderTexture->ClearRenderTarget(bgColor);
     renderTexture->SetAsRendererTarget();
 	
