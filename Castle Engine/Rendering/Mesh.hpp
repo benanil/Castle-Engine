@@ -14,6 +14,7 @@
 #include "../ECS/ECS.hpp"
 #include "../Editor/Editor.hpp"
 #include "AssetManager.hpp"
+#include "Material.hpp"
 
 struct Vertex
 {
@@ -139,65 +140,6 @@ struct SubMesh
 	}
 };
 
-struct MaterialCBuffer
-{
-	float shininesss = 5.0f;
-	float roughness = 0.88;
-	float metallic = 0.4f;
-	float padding = 0;        // 16 byte
-};
-
-class Material
-{
-public:
-	MaterialCBuffer cbuffer;
-	DXBuffer* materialCBuffer;
-
-	const char* name;
-	Texture* albedo, *specular, *normal;
-
-	Material() : name("material"), cbuffer(MaterialCBuffer()) { CreateMaterialBuffer(); }
-	Material(const char* _name) : name(_name), cbuffer(MaterialCBuffer()) { CreateMaterialBuffer(); }
-
-	void CreateMaterialBuffer()
-	{
-		DXDevice* device = Engine::GetDevice();
-
-		DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
-		cbDesc.Usage = D3D11_USAGE_DEFAULT;
-		cbDesc.ByteWidth = sizeof(MaterialCBuffer);
-		cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		cbDesc.CPUAccessFlags = 0;
-		cbDesc.MiscFlags = 0;
-
-		device->CreateBuffer(&cbDesc, NULL, &materialCBuffer);
-	}
-
-	void Bind()
-	{
-		DXDeviceContext* context = Engine::GetDeviceContext();
-		if (albedo)   albedo->Bind(context, 0);
-		if (specular) specular->Bind(context, 1);
-		if (normal)   normal->Bind(context, 2);
-		
-		context->UpdateSubresource(materialCBuffer, 0, NULL, &cbuffer, 0, 0);
-		context->PSSetConstantBuffers(1, 1, &materialCBuffer);
-	}
-
-	void OnEditor()
-	{
-		if (ImGui::CollapsingHeader("Material"))
-		{
-			Editor::GUI::TextureField("albedo", albedo->resourceView);
-			Editor::GUI::TextureField("specular", specular->resourceView);
-			Editor::GUI::TextureField("normal", normal->resourceView);
-
-			ImGui::DragFloat("shininess", &cbuffer.shininesss, 0.1f);
-			ImGui::DragFloat("roughness ", &cbuffer.roughness, 0.01f);
-			ImGui::DragFloat("metallic ", &cbuffer.metallic, 0.01f);
-		}
-	}
-};
 
 class MeshRenderer : ECS::Component
 {

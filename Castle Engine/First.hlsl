@@ -95,9 +95,9 @@ float D_GGX(in float roughness, in float cosLh)
 // cook-torrance specular calculation                      
 float3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in float3 specular, in float roughness, in float metallic)
 {
-	// float D = min(D_blinn(roughness, NdH), 1);
+	float D = min(D_blinn(roughness, NdH), 1);
 	// float D = min(D_beckmann(roughness, NdH), 1);
-	float D = D_GGX(roughness, NdH);
+	// float D = D_GGX(roughness, NdH);
 	
 	float G = G_schlick(roughness, NdV, NdL);
 	
@@ -109,7 +109,7 @@ float3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in float3
 float4 PS(VS_OUTPUT input) : SV_TARGET
 {
 	float4 albedo = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
-	float4 specularTex = SpecularTexture.Sample(SpecularSampler, input.TexCoord) * shininess;
+	float4 specularTex = SpecularTexture.Sample(SpecularSampler, input.TexCoord) * (shininess);
 	 
 	clip(albedo.a - 0.15f);
 
@@ -144,8 +144,10 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 	float3 F0 = float3(0,0,0);
 	F0 = lerp(F0, albedo.xyz, metallic);
 
+	float newRoughness = max(roughness - (shininess / 2), 0.001f);
+
 	float3 specFresnel = fresnel_factor(F0, hdv);
-	float3 specular = cooktorrance_specular(ndl, ndv, ndh, specFresnel, max(roughness, 0.001f) , metallic) * ndl * specularTex.xyz;
+	float3 specular = cooktorrance_specular(ndl, ndv, ndh, specFresnel, newRoughness, metallic) * ndl * specularTex.xyz;
 	
 	float3 ambient = ambientColor * ambientStength;
 

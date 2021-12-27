@@ -59,7 +59,6 @@ namespace MeshLoader
 
 		mesh->subMeshes = (SubMesh*)malloc(sizeof(SubMesh) * scene->mNumMeshes);
 		mesh->subMeshCount = scene->mNumMeshes;
-
 		mesh->materials.resize(scene->mNumMaterials);
 
 		for (uint16_t i = 0; i < scene->mNumMaterials; i++)
@@ -72,23 +71,22 @@ namespace MeshLoader
 			mesh->materials[i]->specular = ImportTexture(_aiMaterial, aiTextureType::aiTextureType_SPECULAR, blackTexture);
 			mesh->materials[i]->normal = ImportTexture(_aiMaterial, aiTextureType::aiTextureType_NORMALS, flatNormalTexture);
 
-			for (uint8_t i = 0; i < _aiMaterial->mNumProperties; i++)
+			for (uint8_t j = 0; j < _aiMaterial->mNumProperties; j++)
 			{
-				if (strcmp(_aiMaterial->mProperties[i]->mKey.C_Str(), "$clr.specular"))
-				{
-					// mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast<float*>(_aiMaterial->mProperties[i]->mData));
-				}
-				else
-				{
-					std::cout << _aiMaterial->mProperties[i]->mKey.C_Str() << std::endl;
-				}
+				if (strcmp(_aiMaterial->mProperties[j]->mKey.C_Str(), "$clr.specular") == 0)
+				mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast <float*> (_aiMaterial->mProperties[j]->mData)) / 8;
+				else if (strcmp(_aiMaterial->mProperties[j]->mKey.C_Str(), "$mat.shininess") == 0)
+				mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast <float*> (_aiMaterial->mProperties[j]->mData)) / 8;
 			}
 		}
 
 		if (scene->mNumMaterials == 0)
 		{
-			mesh->materials.reserve(1);
+			mesh->materials.resize(1);
 			mesh->materials[0] = new Material();
+			mesh->materials[0]->albedo   = whiteTexture;
+			mesh->materials[0]->specular = blackTexture;
+			mesh->materials[0]->normal   = flatNormalTexture;
 		}
 
 		for (uint16_t i = 0; i < scene->mNumMeshes; i++)
