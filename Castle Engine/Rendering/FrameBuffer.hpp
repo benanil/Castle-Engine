@@ -16,6 +16,24 @@ struct FrameBuffer
 	UINT width, height;
 	UINT samples;
 
+	DXDeviceContext* deviceContext;
+	bool depth;
+
+	void SetAsRendererTarget()
+	{
+		// Bind the render target view and depth stencil buffer to the output render pipeline.
+		deviceContext->OMSetRenderTargets(1, rtv.GetAddressOf(), dsv.Get());
+	}
+
+	void ClearRenderTarget(const float* colour)
+	{
+		// Clear the back buffer.
+		deviceContext->ClearRenderTargetView(rtv.Get(), colour);
+		// clear depth buffer
+		if (depth)
+			deviceContext->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
+	}
+
 	FrameBuffer(UINT width, UINT height, UINT samples, DXGI_FORMAT colorFormat, DXGI_FORMAT depthstencilFormat) 
 	{
 		width = width;
@@ -61,6 +79,7 @@ struct FrameBuffer
 		}
 
 		if (depthstencilFormat != DXGI_FORMAT_UNKNOWN) {
+			depth = true;
 			desc.Format = depthstencilFormat;
 			desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 			if (FAILED(m_device->CreateTexture2D(&desc, nullptr, &depthStencilTexture))) {

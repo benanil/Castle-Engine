@@ -13,9 +13,9 @@ namespace ECS
 		for (auto& comp : components) comp->Update(deltaTime);
 	}
 
+#ifndef NEDITOR
 	void Entity::UpdateEditor() 
 	{
-#ifndef NEDITOR
 		ImGui::TextColored(HEADER_COLOR, name.c_str());
 		if (ImGui::CollapsingHeader("Transform"))
 		{
@@ -34,8 +34,8 @@ namespace ECS
 			ImGui::PopID();
 		}
 		PushID = 0;
-#endif
 	}
+#endif
 
 	Component* Entity::GetComponent(const uint16_t& index)
 	{

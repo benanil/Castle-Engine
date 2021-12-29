@@ -26,6 +26,8 @@ namespace ECS
 	
 		virtual ~Component() { OnDestroyed() ; };
 		virtual void Update(const float& deltaTime) = 0;
+#ifndef NEDITOR
 		virtual void OnEditor() = 0;
+#endif
 	};
 }

@@ -56,6 +56,9 @@
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 
+#ifndef IMGUI_DISABLE
+#ifndef NEDITOR
+
 // SDL
 // (the multi-viewports feature requires SDL features supported from SDL 2.0.4+. SDL 2.0.5+ is highly recommended)
 #include <SDL.h>
@@ -787,3 +790,6 @@ static void ImGui_ImplSDL2_InitPlatformInterface(SDL_Window* window, void* sdl_g
 static void ImGui_ImplSDL2_ShutdownPlatformInterface()
 {
 }
+
+#endif // #ifndef NEDITOR
+#endif // IMGUI_DISABLE

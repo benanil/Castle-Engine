@@ -27,8 +27,9 @@ namespace ECS
 
 		void Update(const float& deltaTime);
 		// void ProceedEvent(const SDL_Event* _event);
+#ifndef NEDITOR
 		void UpdateEditor();
-
+#endif
 		Component* GetComponent(const uint16_t& index);
 		template<typename TComp> TComp* GetComponent();
 
@@ -49,9 +50,11 @@ namespace ECS
 		Entity* GetEntity() { return entity; }
 
 		void Update(const float&) {}
+#ifndef NEDITOR
 		void OnEditor()
 		{
 			ImGui::Text("Test Component");
 		}
+#endif
 	};
 }

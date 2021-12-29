@@ -1,9 +1,12 @@
+
 #include "Transform.hpp"
-#include "Editor/Editor.hpp"
+#ifndef NEDITOR
+#	include "Editor/Editor.hpp"
+#endif
 
 namespace ECS
 {
-	
+#ifndef NEDITOR
 	void Transform::OnEditor()
 	{
 		ImGui::TextColored(HEADER_COLOR, "Transform");
@@ -11,7 +14,7 @@ namespace ECS
 		if (ImGui::DragFloat3("Euler Angles", glm::value_ptr(eulerDegree), 0.1f )) SetEulerDegree(eulerDegree, true); 
 		if (ImGui::DragFloat3("Scale"       , glm::value_ptr(scale)      , 0.01f)) UpdateTransform();
 	}
-
+#endif
 	void Transform::UpdateTransform()
 	{
 		xmMatrix rotation    = XMMatrixRotationRollPitchYaw(GLM_GET_XYZ(euler));

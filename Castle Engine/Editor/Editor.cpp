@@ -1,6 +1,7 @@
 #include "Editor.hpp"
 #include <iostream>
 
+#ifndef NEDITOR
 namespace Editor
 {
     Event OnEditor;
@@ -201,3 +202,5 @@ namespace Editor
     #endif
     }
 }
+
+#endif

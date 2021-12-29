@@ -1,4 +1,5 @@
 #pragma once
+#ifndef NEDITOR
 #include <SDL.h>
 #include <d3d11.h>
 #include "imgui.h"
@@ -74,3 +75,20 @@ namespace Editor
 	}
 
 }
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

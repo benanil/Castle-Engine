@@ -2,7 +2,9 @@
 #include "../Helper.hpp"
 #include "Texture.hpp"
 #include "../Engine.hpp"
-#include "../Editor/Editor.hpp"
+#ifndef NEDITOR
+#	include "../Editor/Editor.hpp"
+#endif
 
 struct MaterialCBuffer
 {
@@ -49,6 +51,7 @@ public:
 		context->PSSetConstantBuffers(1, 1, &materialCBuffer);
 	}
 
+#ifndef NEDITOR
 	void OnEditor()
 	{
 		if (ImGui::CollapsingHeader("Material"))
@@ -62,4 +65,6 @@ public:
 			ImGui::DragFloat("metallic ", &cbuffer.metallic, 0.01f);
 		}
 	}
+#endif
+
 };

@@ -39,12 +39,5 @@ static const wchar_t* GetWC(const char* c)
 #define LAMBDA(x) { x; }
 #define LAMBDAR(x) { return x;  }
 
-// NE means no except
-#define NELAMBDA(x) noexcept { x;  }
-#define NELAMBDAR(x) noexcept { return x;  }
-
-
-
-
 //math helpers
 #include "Math.hpp"

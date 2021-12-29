@@ -76,17 +76,23 @@ public:
 
 	void Bind(DXDeviceContext* d3d11DevCon)
 	{
+
 		//Set Vertex and Pixel Shaders
 		d3d11DevCon->VSSetShader(VS, 0, 0);
 		d3d11DevCon->PSSetShader(PS, 0, 0);	
 	}
 
-	~Shader()
+	void Dispose()
 	{
 		DX_RELEASE(VS);
 		DX_RELEASE(PS);
 		DX_RELEASE(VS_Buffer);
 		DX_RELEASE(PS_Buffer);
+	}
+
+	~Shader()
+	{
+		Dispose();
 	}	
 
 private:

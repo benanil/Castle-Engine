@@ -1,6 +1,7 @@
 #include "Editor.hpp"
 #include "../Main/Event.hpp"
 #include "../Engine.hpp"
+#ifndef NEDITOR
 
 namespace Editor
 {
@@ -49,3 +50,4 @@ namespace Editor
 		}
 	}
 }
+#endif

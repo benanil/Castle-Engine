@@ -1,4 +1,6 @@
 #include "Editor.hpp"
+#ifndef NEDITOR
+
 // this code mostly copied from ZargoEngine's GUI class
 
 namespace Editor
@@ -135,3 +137,5 @@ namespace Editor
 		}
 	}
 }
+
+#endif

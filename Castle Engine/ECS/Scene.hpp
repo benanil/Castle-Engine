@@ -21,7 +21,9 @@ namespace ECS
 		void Unload();
 		void Load()   {};
 		void Start()  {};
+#ifndef NEDITOR
 		void UpdateEditor();
+#endif
 		void AddEntity(Entity* entitiy);
 		void RemoveEntity(Entity* entitiy);
 		Entity* FindEntityByName(const std::string& name);

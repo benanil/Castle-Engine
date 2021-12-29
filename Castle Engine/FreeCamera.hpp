@@ -28,6 +28,7 @@ private:
 	SDL_Cursor* cursor;
 public:
 	
+#ifndef NEDITOR
 	void EditorUpdate()
 	{
 		ImGui::DragFloat("Speed", &speed);
@@ -35,6 +36,7 @@ public:
 		ImGui::DragFloat("pitch", &pitch);
 		ImGui::DragFloat("yaw", &yaw);
 	}
+#endif
 
 	FreeCamera(float _fov, float _aspectRatio, float _near, float _far)
 		: fov(XM_DegToRad(_fov)), aspectRatio(_aspectRatio), nearPlane(_near), farPlane(_far)
@@ -68,7 +70,12 @@ public:
 		POINT mousePos;
 		GetCursorPos(&mousePos);
 		
-		if (!Engine::GetMouseButtonDown(SDL_BUTTON_RIGHT) || !Editor::GameViewWindow::GetData().Focused)
+		if (!Engine::GetMouseButtonDown(SDL_BUTTON_RIGHT)
+#ifndef NEDITOR
+			|| !Editor::GameViewWindow::GetData().Focused)
+#else
+		)
+#endif
 		{
 			oldPos = mousePos;
 			Engine::SetCursor(nullptr);
@@ -133,6 +140,7 @@ public:
 
 	void UpdateProjection(const float& _aspectRatio)
 	{
+		aspectRatio = _aspectRatio;
 		Projection = XMMatrixPerspectiveFovLH(fov, _aspectRatio, nearPlane, farPlane);
 	}
 };

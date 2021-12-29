@@ -1,10 +1,17 @@
 #pragma once
 #include "Helper.hpp"
 
+// NE means no except
+#define NELAMBDA(x) noexcept { x;  }
+#define NELAMBDAR(x) noexcept { return x;  }
+
 #define XM_GET_XYZ(x) XMGETX(x), XMGETY(x), XMGETZ(x)
 
 #define DX_RAD_TO_DEG 57.2958f
 #define DX_DEG_TO_RAD 0.017453f
+#define DX_PI 3.1415f
+#define DX_TWO_PI 6.2831f
+
 #define GLM_GET_XYZ(vec) vec.x, vec.y, vec.z 
 #define DX_INLINE [[nodiscard]] __forceinline 
 
@@ -24,52 +31,52 @@ DX_INLINE float* XMPTR(xmMatrix& vector)
 	return &vector._11;
 }
 
-DX_INLINE const float& XMGETX(const xmVector& vector) LAMBDAR(vector.f[0])
-DX_INLINE const float& XMGETY(const xmVector& vector) LAMBDAR(vector.f[1])
-DX_INLINE const float& XMGETZ(const xmVector& vector) LAMBDAR(vector.f[2])
-DX_INLINE const float& XMGETW(const xmVector& vector) LAMBDAR(vector.f[3])
+DX_INLINE const float& XMGETX(const xmVector& vector) noexcept { return vector.f[0];  }
+DX_INLINE const float& XMGETY(const xmVector& vector) noexcept { return vector.f[1];  }
+DX_INLINE const float& XMGETZ(const xmVector& vector) noexcept { return vector.f[2];  }
+DX_INLINE const float& XMGETW(const xmVector& vector) noexcept { return vector.f[3];  }
 
-DX_INLINE float& XMSETX(xmVector& vector) LAMBDAR(vector.f[0])
-DX_INLINE float& XMSETY(xmVector& vector) LAMBDAR(vector.f[1])
-DX_INLINE float& XMSETZ(xmVector& vector) LAMBDAR(vector.f[2])
-DX_INLINE float& XMSETW(xmVector& vector) LAMBDAR(vector.f[3])
+DX_INLINE float& XMSETX(xmVector& vector) noexcept { return vector.f[0]; }
+DX_INLINE float& XMSETY(xmVector& vector) noexcept { return vector.f[1]; }
+DX_INLINE float& XMSETZ(xmVector& vector) noexcept { return vector.f[2]; }
+DX_INLINE float& XMSETW(xmVector& vector) noexcept { return vector.f[3]; }
 
 
 DX_INLINE float XM_RadToDeg(const float& radians) NELAMBDAR(radians* DX_RAD_TO_DEG)
 DX_INLINE float XM_DegToRad(const float& degree)  NELAMBDAR(degree* DX_DEG_TO_RAD)
 
 // xmath euler
-DX_INLINE void XM_DegToRad(const xmVector& radians, xmVector& degree) noexcept
-{
-	degree.f[0] = XMGETX(radians) * DX_DEG_TO_RAD;
-	degree.f[1] = XMGETY(radians) * DX_DEG_TO_RAD;
-	degree.f[2] = XMGETZ(radians) * DX_DEG_TO_RAD;
-}
-
-DX_INLINE void XM_RadToDeg(const xmVector& radians, xmVector& degree) noexcept
-{
-	degree.f[0] = XMGETX(radians) * DX_RAD_TO_DEG;
-	degree.f[1] = XMGETY(radians) * DX_RAD_TO_DEG;
-	degree.f[2] = XMGETZ(radians) * DX_RAD_TO_DEG;
-}
-
-DX_INLINE xmVector XM_DegToRad(const xmVector& radians) noexcept
-{
-	xmVector degree{};
-	degree.f[0] = XMGETX(radians) * DX_DEG_TO_RAD;
-	degree.f[1] = XMGETY(radians) * DX_DEG_TO_RAD;
-	degree.f[2] = XMGETZ(radians) * DX_DEG_TO_RAD;
-	return std::move(degree);
-}
-
-DX_INLINE xmVector XM_RadToDeg(const xmVector& radians) noexcept
-{
-	xmVector degree{};
-	degree.f[0] = XMGETX(radians) * DX_RAD_TO_DEG;
-	degree.f[1] = XMGETY(radians) * DX_RAD_TO_DEG;
-	degree.f[2] = XMGETZ(radians) * DX_RAD_TO_DEG;
-	return std::move(degree);
-}
+// DX_INLINE void XM_DegToRad(const xmVector& radians, xmVector& degree) noexcept
+// {
+// 	degree.f[0] = XMGETX(radians) * DX_DEG_TO_RAD;
+// 	degree.f[1] = XMGETY(radians) * DX_DEG_TO_RAD;
+// 	degree.f[2] = XMGETZ(radians) * DX_DEG_TO_RAD;
+// }
+// 
+// DX_INLINE void XM_RadToDeg(const xmVector& radians, xmVector& degree) noexcept
+// {
+// 	degree.f[0] = XMGETX(radians) * DX_RAD_TO_DEG;
+// 	degree.f[1] = XMGETY(radians) * DX_RAD_TO_DEG;
+// 	degree.f[2] = XMGETZ(radians) * DX_RAD_TO_DEG;
+// }
+// 
+// DX_INLINE xmVector XM_DegToRad(const xmVector& radians) noexcept
+// {
+// 	xmVector degree{};
+// 	degree.f[0] = XMGETX(radians) * DX_DEG_TO_RAD;
+// 	degree.f[1] = XMGETY(radians) * DX_DEG_TO_RAD;
+// 	degree.f[2] = XMGETZ(radians) * DX_DEG_TO_RAD;
+// 	return std::move(degree);
+// }
+// 
+// DX_INLINE xmVector XM_RadToDeg(const xmVector& radians) noexcept
+// {
+// 	xmVector degree{};
+// 	degree.f[0] = XMGETX(radians) * DX_RAD_TO_DEG;
+// 	degree.f[1] = XMGETY(radians) * DX_RAD_TO_DEG;
+// 	degree.f[2] = XMGETZ(radians) * DX_RAD_TO_DEG;
+// 	return std::move(degree);
+// }
 
 // GLM EULER
 
@@ -131,7 +138,7 @@ DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
 	glm::vec3 eulerAngles;
 
 	// Threshold for the singularities found at the north/south poles.
-	const float SINGULARITY_THRESHOLD = 0.4999995f;
+	static const float SINGULARITY_THRESHOLD = 0.4999995f;
 
 	float sqw = XMGETW(q) * XMGETW(q);
 	float sqx = XMGETX(q) * XMGETX(q);
@@ -143,13 +150,13 @@ DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
 	if (singularityTest > SINGULARITY_THRESHOLD * unit)
 	{
 		eulerAngles.z = 2.0f * atan2(XMGETX(q), XMGETW(q));
-		eulerAngles.y = glm::pi<float>() / 2;
+		eulerAngles.y = DX_PI / 2;
 		eulerAngles.x = 0;
 	}
 	else if (singularityTest < -SINGULARITY_THRESHOLD * unit)
 	{
 		eulerAngles.z = -2.0f * atan2(XMGETX(q), XMGETW(q));
-		eulerAngles.y = -(glm::pi<float>() / 2);
+		eulerAngles.y = -(DX_PI / 2);
 		eulerAngles.x = 0;
 	}
 	else
@@ -161,12 +168,12 @@ DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
 	return std::move(eulerAngles);
 }
 
-DX_INLINE float xmRepeat(const float& t, const float& length)
+DX_INLINE float xmRepeat(const float& t, const float& length) noexcept
 {
 	return glm::clamp(t - glm::floor(t / length) * length, 0.0f, length);
 }
 
-DX_INLINE float xmLerpAngle(const float& a, const float& b, const float& t)
+DX_INLINE float xmLerpAngle(const float& a, const float& b, const float& t) noexcept
 {
 	float delta = xmRepeat((b - a), 360);
 	if (delta > 180)
@@ -189,7 +196,7 @@ DX_INLINE glm::vec3 xmExtractScale(const xmMatrix& matrix) noexcept
 	return { XMVector3Length(row0).m128_f32[0], XMVector3Length(row1).m128_f32[0], XMVector3Length(row2).m128_f32[0] };
 }
 // https://github.com/opentk/opentk/blob/master/src/OpenTK.Mathematics/Vector/Vector3.cs
-DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const xmVector& q)
+DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const xmVector& q) noexcept
 {
 	glm::vec3 result{};
 	glm::vec3 xyz = { q.f[0], q.f[1], q.f[2] };
@@ -200,7 +207,7 @@ DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const xmVector& q)
 	return vec + temp1;
 }
 
-DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const float* q)
+DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const float* q)noexcept
 {
 	glm::vec3 result{};
 	glm::vec3 xyz = { q[0], q[1], q[2] };

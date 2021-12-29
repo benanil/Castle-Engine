@@ -168,7 +168,6 @@
     <ClCompile Include="ImGui\imgui_draw.cpp" />
     <ClCompile Include="ImGui\imgui_impl_dx11.cpp" />
     <ClCompile Include="ImGui\imgui_impl_sdl.cpp" />
-    <ClCompile Include="ImGui\imgui_impl_win32.cpp" />
     <ClCompile Include="ImGui\imgui_tables.cpp" />
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Engine.cpp" />
@@ -201,7 +200,9 @@
     <ClInclude Include="Rendering\AssetManager.hpp" />
     <ClInclude Include="Rendering\Mesh.hpp" />
     <ClInclude Include="Rendering\MeshRenderer.hpp" />
+    <ClInclude Include="Rendering\Primitives.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
+    <ClInclude Include="Rendering\Skybox.hpp" />
     <ClInclude Include="Rendering\Texture.hpp" />
     <ClInclude Include="Rendering\RenderTexture.hpp" />
     <ClInclude Include="Transform.hpp" />

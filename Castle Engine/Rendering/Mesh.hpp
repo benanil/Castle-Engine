@@ -12,37 +12,14 @@
 #include <vector>
 #include "Texture.hpp"
 #include "../ECS/ECS.hpp"
-#include "../Editor/Editor.hpp"
+#ifndef NEDITOR
+#	include "../Editor/Editor.hpp"
+#endif NEDITOR
+
 #include "AssetManager.hpp"
 #include "Material.hpp"
 
-struct Vertex
-{
-	glm::vec3 pos;
-	glm::vec3 normal;
-	glm::vec2 texCoord;
-	glm::vec3 tangent;
-
-	static ID3D11InputLayout* GetLayout(DXBlob* VS_Buffer)
-	{
-		ID3D11InputLayout* vertLayout;
-
-		D3D11_INPUT_ELEMENT_DESC layout[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TANGENT" , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		};
-
-		auto device = Engine::GetDevice();
-		device->CreateInputLayout(layout, 4, VS_Buffer->GetBufferPointer(),
-			VS_Buffer->GetBufferSize(), &vertLayout);
-
-		return vertLayout;
-	}
-};
-
+#include "Primitives.hpp"
 struct SubMesh
 {
 	Vertex* vertices;
@@ -71,7 +48,7 @@ struct SubMesh
 			vertices[i].pos.x = aimesh.mVertices[i].x;
 			vertices[i].pos.y = aimesh.mVertices[i].y;
 			vertices[i].pos.z = aimesh.mVertices[i].z;
-			
+
 			vertices[i].normal.x = aimesh.mNormals[i].x;
 			vertices[i].normal.y = aimesh.mNormals[i].y;
 			vertices[i].normal.z = aimesh.mNormals[i].z;
@@ -188,7 +165,7 @@ public:
 
 namespace MeshLoader
 {
-	[[nodiscard]] inline 
+	[[nodiscard]] inline
 		D3D11_TEXTURE_ADDRESS_MODE AssimpToD3D11_Wrap(const aiTextureMapMode& aimode);
 
 	Texture* ImportTexture(aiMaterial* const& aiMaterial, aiTextureType textureType, Texture* defaultTexture);

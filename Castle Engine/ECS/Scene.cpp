@@ -50,9 +50,9 @@ namespace ECS
 		testComponent->SetEntity(currEntity);
 	}
 
+#ifndef NEDITOR
 	void Scene::UpdateEditor() 
 	{
-#ifndef NEDITOR
 		static int PushID = 0;
 
 		ImGui::Begin("Hierarchy");
@@ -102,8 +102,8 @@ namespace ECS
 		Editor::GUI::RightClickPopUp("AddComponent", actions, 2);
 
 		ImGui::End();
-#endif
 	}
+#endif
 	
 	Entity* Scene::FindEntityByName(const std::string& name)
 	{

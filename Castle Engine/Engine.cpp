@@ -48,21 +48,8 @@ DXInputLayout* vertLayout;
 D3D11_VIEWPORT ViewPort;
 
 // constant buffer
-struct cbGlobal
-{
-	float sunAngle;
-	glm::vec3 ambientColor;  // 16
-	glm::vec3 sunColor;      
-	float fogAmount;      // 32
-    glm::vec3 viewPos;
-	float ambientStength; // 48
-} cbGlobalData;
-
-struct cbPerObject
-{
-    XMMATRIX  MVP;
-	XMMATRIX  Model;
-} cbPerObj;
+cbGlobal cbGlobalData;
+cbPerObject cbPerObj;
 
 DXBuffer* constantBuffer;
 DXBuffer* uniformGlobalBuffer;
@@ -94,6 +81,9 @@ RenderTexture* renderTexture;
 
 Event EndOfFrameEvents;
 
+UINT MSAASamples;
+
+
 std::map<int, bool> keyboard;
 std::map<int, bool> mouse;
 
@@ -110,7 +100,7 @@ SDL_Cursor* Engine::GetCursor() LAMBDAR(cursor);
 
 void Engine::AddEndOfFrameEvent(const Action& act)
 {
-	EndOfFrameEvents.Add(act);
+    EndOfFrameEvents.Add(act);
 }
 
 void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
@@ -127,7 +117,7 @@ void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line
 {
     if (FAILED(hr))
     {
-		std::cout << "hresult is: " << hr << std::endl;
+        std::cout << "hresult is: " << hr << std::endl;
         std::string description = std::string(message) + std::string(file) + " at line: " + std::to_string(line);
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
@@ -149,7 +139,7 @@ void MainWindow()
         ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
         ImGui::ColorEdit4("sun Color", &cbGlobalData.sunColor.x);
         ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle);
-		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
+        ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
     }
 
     ImGui::End();
@@ -174,7 +164,7 @@ int main(int, char**)
     SDL_SysWMinfo wmInfo{};
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(window, &wmInfo);
-    
+
 
     hwnd = (HWND)wmInfo.info.win.window;
 
@@ -188,36 +178,36 @@ int main(int, char**)
 
     Editor::AddOnEditor(MainWindow);
 
-	SceneManager::LoadNewScene();
-	
-	firstEntity = new Entity();
-	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
-	
+    SceneManager::LoadNewScene();
+
+    firstEntity = new Entity();
+    SceneManager::GetCurrentScene()->AddEntity(firstEntity);
+
     firstEntity->AddComponent((ECS::Component*)mesh);
 
-	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 3000.0f);
+    freeCamera = new FreeCamera(90, Width / Height, 0.1f, 3000.0f);
 
-	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
-	cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
+    cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
+    cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
 
-    renderTexture = new RenderTexture(Width, Height, true);
-	Editor::GameViewWindow::GetData().texture = renderTexture->textureView;
+    renderTexture = new RenderTexture(Width, Height, MSAASamples, true);
+    Editor::GameViewWindow::GetData().texture = renderTexture->textureView;
 
     renderTexture->OnSizeChanged.Add([](DXShaderResourceView* texture)
-    {
-        Editor::GameViewWindow::GetData().texture = texture;
-    });
-    
+        {
+            Editor::GameViewWindow::GetData().texture = texture;
+        });
+
     auto& viewWindowdata = Editor::GameViewWindow::GetData();
 
     viewWindowdata.OnScaleChanged.Add([](const float& w, const float& h)
-    {
-        freeCamera->aspectRatio = w / h;
-        freeCamera->UpdateProjection(freeCamera->aspectRatio);
-        renderTexture->Invalidate((int)w, (int)h);
-    });
-    
-	// Main loop
+        {
+            freeCamera->aspectRatio = w / h;
+            freeCamera->UpdateProjection(freeCamera->aspectRatio);
+            renderTexture->Invalidate((int)w, (int)h);
+        });
+
+    // Main loop
     bool done = false;
     float lastTime = 0, deltaTime;
     while (!done)
@@ -227,7 +217,7 @@ int main(int, char**)
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
-			SceneManager::GetCurrentScene()->ProceedEvent(&event);
+            SceneManager::GetCurrentScene()->ProceedEvent(&event);
             freeCamera->Update(deltaTime);
 
             deltaTime = (lastTime - (float)SDL_GetTicks()) / 1000.0f;
@@ -258,9 +248,9 @@ int main(int, char**)
             }
         }
 
-		SceneManager::GetCurrentScene()->Update(deltaTime);
+        SceneManager::GetCurrentScene()->Update(deltaTime);
         UpdateScene();
-		DrawScene();
+        DrawScene();
     }
 
     CleanUp();
@@ -274,8 +264,8 @@ void CreateRenderTarget()
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthDesc.SampleDesc.Count = 1;
-    depthDesc.SampleDesc.Quality = 0;
+    depthDesc.SampleDesc.Count = MSAASamples;
+    depthDesc.SampleDesc.Quality = MSAASamples;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     depthDesc.CPUAccessFlags = 0;
@@ -290,50 +280,93 @@ void CreateRenderTarget()
     DXTexture2D* BackBuffer;
     SwapChain->GetBuffer(0, IID_PPV_ARGS(&BackBuffer));
 
+    DX_CREATE(D3D11_RENDER_TARGET_VIEW_DESC, rtvDesc);
+
+    D3D11_TEXTURE2D_DESC backDesc;
+    BackBuffer->GetDesc(&backDesc);
+
+    rtvDesc.Format = backDesc.Format;
+    rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+
     //Create our Render Target
-    Device->CreateRenderTargetView(BackBuffer, NULL, &renderTargetView);
+    Device->CreateRenderTargetView(BackBuffer, &rtvDesc, &renderTargetView);
     BackBuffer->Release();
 
     //Set our Render Target
     DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
-	if(freeCamera)
-	freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
+    if (freeCamera)
+    {
+        freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
+    }
 
-	//Update the Viewport
+    //Update the Viewport
     memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
-	
-	ViewPort.TopLeftX = 0;
-	ViewPort.TopLeftY = 0;
-	ViewPort.Width = depthDesc.Width ;
-	ViewPort.Height = depthDesc.Height;
-	
-	ViewPort.MinDepth = 0.0f;
-	ViewPort.MaxDepth = 1.0f;
-	
-	DeviceContext->RSSetViewports(1, &ViewPort);
-    
+
+    ViewPort.TopLeftX = 0;
+    ViewPort.TopLeftY = 0;
+    ViewPort.Width = depthDesc.Width;
+    ViewPort.Height = depthDesc.Height;
+
+    ViewPort.MinDepth = 0.0f;
+    ViewPort.MaxDepth = 1.0f;
+
+    DeviceContext->RSSetViewports(1, &ViewPort);
+
     static bool firstTime = true;
 
+#ifndef NEDITOR
     if (!firstTime)
     {
         ImGuiViewport* imViewport = ImGui::GetMainViewport();
         imViewport->Size.x = depthDesc.Width;
         imViewport->Size.x = depthDesc.Height;
     }
-    
+#endif
+
     firstTime = false;
 }
 
+
 void CleanupRenderTarget()
 {
-	DX_RELEASE(renderTargetView)
-	DX_RELEASE(depthStencilBuffer) 
-	DX_RELEASE(depthStencilView)
+    DX_RELEASE(renderTargetView)
+        DX_RELEASE(depthStencilBuffer)
+        DX_RELEASE(depthStencilView)
 }
 
 bool InitializeDirect3d11App()
 {
+    UINT creationFlags = D3D11_CREATE_DEVICE_DEBUG;
+
+    DX_CHECK(
+        D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL, D3D11_SDK_VERSION, &Device, NULL, &DeviceContext),
+        "Device Creation Failed!")
+
+#ifndef NEDITOR
+        MSAASamples = 2;
+#else
+        // Determine maximum supported MSAA level.
+        for (MSAASamples = 16; MSAASamples > 1; MSAASamples >>= 1) {
+            UINT colorQualityLevels;
+            UINT depthStencilQualityLevels;
+            Device->CheckMultisampleQualityLevels(DXGI_FORMAT_R16G16B16A16_FLOAT, MSAASamples, &colorQualityLevels);
+            Device->CheckMultisampleQualityLevels(DXGI_FORMAT_D24_UNORM_S8_UINT, MSAASamples, &depthStencilQualityLevels);
+            if (colorQualityLevels > 0 && depthStencilQualityLevels > 0) {
+                break;
+            }
+        }
+#endif
+
+    IDXGIDevice* pDXGIDevice = nullptr;
+    hr = Device->QueryInterface(__uuidof(IDXGIDevice), (void**)&pDXGIDevice);
+
+    IDXGIAdapter* pDXGIAdapter = nullptr;
+    hr = pDXGIDevice->GetAdapter(&pDXGIAdapter);
+
+    IDXGIFactory* pIDXGIFactory = nullptr;
+    pDXGIAdapter->GetParent(__uuidof(IDXGIFactory), (void**)&pIDXGIFactory);
+
     //Describe our Buffer
     DX_CREATE(DXGI_MODE_DESC, bufferDesc);
 
@@ -346,11 +379,11 @@ bool InitializeDirect3d11App()
     bufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
     //Describe our SwapChain
-	DX_CREATE(DXGI_SWAP_CHAIN_DESC, swapChainDesc)
+    DX_CREATE(DXGI_SWAP_CHAIN_DESC, swapChainDesc);
 
     swapChainDesc.BufferDesc = bufferDesc;
-    swapChainDesc.SampleDesc.Count = 1;
-    swapChainDesc.SampleDesc.Quality = 0;
+    swapChainDesc.SampleDesc.Count = MSAASamples;
+    swapChainDesc.SampleDesc.Quality = MSAASamples;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.BufferCount = 1;
     swapChainDesc.OutputWindow = hwnd;
@@ -358,11 +391,10 @@ bool InitializeDirect3d11App()
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-	UINT creationFlags = D3D11_CREATE_DEVICE_DEBUG;
+    DX_CHECK(
+    pIDXGIFactory->CreateSwapChain(Device, &swapChainDesc, &SwapChain), "SwapChain Creation Failed!")
 
-    //Create our SwapChain
-    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL,
-        D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, NULL, &DeviceContext);
+    std::cout << "initialized" << std::endl;
 
     CreateRenderTarget();
     return true;
@@ -371,7 +403,9 @@ bool InitializeDirect3d11App()
 void CleanUp()
 {
     //Release the COM Objects we created
+#ifndef NEDITOR
     Editor::Clear();
+#endif
     mesh->Dispose();
     SwapChain->Release();
     Device->Release();
@@ -385,32 +419,34 @@ void CleanUp()
     SDL_Quit();
 }
 
+
 bool InitScene()
 {
     //Compile Shaders from shader file
-	shader = new Shader("First.hlsl\0", "First.hlsl\0");
+    shader = new Shader("First.hlsl\0", "First.hlsl\0");
 
-	//Set Vertex and Pixel Shaders
-    DeviceContext->VSSetShader(shader->VS, 0, 0);
-    DeviceContext->PSSetShader(shader->PS, 0, 0);
+    //Set Vertex and Pixel Shaders
+    shader->Bind(DeviceContext);
+    std::cout << "stage 0" << std::endl;
 
-	// create uniform constant buffer
-    cbGlobalData.ambientColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    // create uniform constant buffer
+    cbGlobalData.ambientColor = glm::vec3(0.8f, 0.8f, 0.65f);
     cbGlobalData.sunColor = glm::vec3(1.0f, 1.0f, 1.0f);
-	cbGlobalData.ambientStength = .15f;
+    cbGlobalData.ambientStength = .13f;
+    cbGlobalData.sunAngle = 120;
 
-	DX_CREATE(D3D11_BUFFER_DESC, cbUniformDesc);
-	cbUniformDesc.Usage = D3D11_USAGE_DEFAULT;
-	cbUniformDesc.ByteWidth = sizeof(cbGlobal);
-	cbUniformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	cbUniformDesc.CPUAccessFlags = 0;
-	cbUniformDesc.MiscFlags = 0;
+    DX_CREATE(D3D11_BUFFER_DESC, cbUniformDesc);
+    cbUniformDesc.Usage = D3D11_USAGE_DEFAULT;
+    cbUniformDesc.ByteWidth = sizeof(cbGlobal);
+    cbUniformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    cbUniformDesc.CPUAccessFlags = 0;
+    cbUniformDesc.MiscFlags = 0;
 
-	Device->CreateBuffer(&cbUniformDesc, NULL, &uniformGlobalBuffer);
-	
+    Device->CreateBuffer(&cbUniformDesc, NULL, &uniformGlobalBuffer);
+
     // Create Constant Buffer
 
-	DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
+    DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.ByteWidth = sizeof(cbPerObject);
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -418,38 +454,35 @@ bool InitScene()
     cbDesc.MiscFlags = 0;
 
     Device->CreateBuffer(&cbDesc, NULL, &constantBuffer);
-	
+
     // bind constant data
     DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
-    
 
     // bind Uniform data
     DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
     DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 
-    //Create the Input Layout
-	
-    //Set the Input Layout
-	vertLayout = Vertex::GetLayout(shader->VS_Buffer);
+    //Create the Input Layout & Set the Input Layout
+    vertLayout = Vertex::GetLayout(shader->VS_Buffer);
     DeviceContext->IASetInputLayout(vertLayout);
 
     //Set Primitive Topology
     DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Create Rasterizer 
-	DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc)
-    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc)
+        rasterizerDesc.FillMode = D3D11_FILL_SOLID;
     rasterizerDesc.CullMode = D3D11_CULL_NONE;
+    rasterizerDesc.MultisampleEnable = true;
 
     DX_CHECK(
-        Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed"
-    );
+        Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
 
     DeviceContext->RSSetState(rasterizerState);
 
     //Create the Viewport
-	memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
+    memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
 
     ViewPort.TopLeftX = 0;
     ViewPort.TopLeftY = 0;
@@ -469,43 +502,43 @@ bool InitScene()
 
 void UpdateScene()
 {
-	freeCamera->Update(0.00001f);
+    freeCamera->Update(0.00001f);
 
     const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
     cbPerObj.MVP = XMMatrixTranspose(MVP);
     cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
-    
-	cbGlobalData.viewPos = freeCamera->transform.position;
 
-	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    cbGlobalData.viewPos = freeCamera->transform.position;
+
+    DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
-	
-	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
-	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+
+    DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+    DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 }
 
 void DrawScene()
 {
     float oldViewPortW = ViewPort.Width, oldViewPortH = ViewPort.Height;
-	
-	auto& gameVindowdata = Editor::GameViewWindow::GetData();
-	ViewPort.Width = gameVindowdata.WindowScale.x;
-	ViewPort.Height = gameVindowdata.WindowScale.y;
-	
-	DeviceContext->RSSetViewports(1, &ViewPort);
 
-	//Clear our backbuffer
+    auto& gameVindowdata = Editor::GameViewWindow::GetData();
+    ViewPort.Width = gameVindowdata.WindowScale.x;
+    ViewPort.Height = gameVindowdata.WindowScale.y;
+
+    DeviceContext->RSSetViewports(1, &ViewPort);
+
+    //Clear our backbuffer
     float bgColor[4] = { .4, .4, .7, 1.0f };
     DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);
     DeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	renderTexture->SetBlendState();
-	// rendering to back buffer here
-	// mesh->Draw(DeviceContext);
+    renderTexture->SetBlendState();
+    // rendering to back buffer here
+    // mesh->Draw(DeviceContext);
 
-	// rendering to texture Here
-	renderTexture->ClearRenderTarget(bgColor);
+    // rendering to texture Here
+    renderTexture->ClearRenderTarget(bgColor);
     renderTexture->SetAsRendererTarget();
-	
+
     mesh->Draw(DeviceContext);
 
     // set default render buffers again
@@ -514,7 +547,7 @@ void DrawScene()
     ViewPort.Width = oldViewPortW; ViewPort.Height = oldViewPortH;
     DeviceContext->RSSetViewports(1, &ViewPort);
 
-	// Draw Imgui
+    // Draw Imgui
     Editor::Render();
 
     //Present the backbuffer to the screen

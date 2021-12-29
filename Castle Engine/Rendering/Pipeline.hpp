@@ -23,7 +23,7 @@ public:
 	:  shader(_shader), vertLayout(_vertLayout)
 	{
 		context = Engine::GetDeviceContext();
-		renderTexture = new RenderTexture(width, height);
+		renderTexture = new RenderTexture(width, height, 1);
 	}
 
 	void Bind()

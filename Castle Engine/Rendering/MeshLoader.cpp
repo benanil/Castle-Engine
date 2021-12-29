@@ -2,7 +2,7 @@
 
 namespace MeshLoader
 {
-	[[nodiscard]] inline 
+	[[nodiscard]] inline
 		D3D11_TEXTURE_ADDRESS_MODE AssimpToD3D11_Wrap(const aiTextureMapMode& aimode)
 	{
 		switch (aimode)
@@ -74,9 +74,9 @@ namespace MeshLoader
 			for (uint8_t j = 0; j < _aiMaterial->mNumProperties; j++)
 			{
 				if (strcmp(_aiMaterial->mProperties[j]->mKey.C_Str(), "$clr.specular") == 0)
-				mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast <float*> (_aiMaterial->mProperties[j]->mData)) / 8;
+					mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast <float*> (_aiMaterial->mProperties[j]->mData)) / 8;
 				else if (strcmp(_aiMaterial->mProperties[j]->mKey.C_Str(), "$mat.shininess") == 0)
-				mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast <float*> (_aiMaterial->mProperties[j]->mData)) / 8;
+					mesh->materials[i]->cbuffer.shininesss = (*reinterpret_cast <float*> (_aiMaterial->mProperties[j]->mData)) / 8;
 			}
 		}
 
@@ -84,9 +84,9 @@ namespace MeshLoader
 		{
 			mesh->materials.resize(1);
 			mesh->materials[0] = new Material();
-			mesh->materials[0]->albedo   = whiteTexture;
+			mesh->materials[0]->albedo = whiteTexture;
 			mesh->materials[0]->specular = blackTexture;
-			mesh->materials[0]->normal   = flatNormalTexture;
+			mesh->materials[0]->normal = flatNormalTexture;
 		}
 
 		for (uint16_t i = 0; i < scene->mNumMeshes; i++)
