@@ -2,13 +2,14 @@
 
 #include "../Helper.hpp"
 #include "../Engine.hpp"
-
+#include <stdexcept>
+	
 struct cbGlobal
 {
 	float sunAngle;
 	glm::vec3 ambientColor;  // 16
 	glm::vec3 sunColor;      
-	float fogAmount;      // 32
+	float additionalData;      // 32
 	glm::vec3 viewPos;
 	float ambientStength; // 48
 };
@@ -45,176 +46,115 @@ struct Vertex
 	}
 };
 
-struct SkyboxVertex
+struct SubMesh
 {
-	glm::vec3 pos;
+	Vertex* vertices;
+	uint32_t* indices;
 	
-	static DXInputLayout* GetLayout(DXBlob* VS_Buffer)
-	{
-		DXInputLayout* vertLayout;
-		
-		D3D11_INPUT_ELEMENT_DESC layout[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		};
-		
-		auto device = Engine::GetDevice();
-		device->CreateInputLayout(layout, 1, VS_Buffer->GetBufferPointer(),
-			VS_Buffer->GetBufferSize(), &vertLayout);
-		return vertLayout;
-	}
-};
-
-template<typename TVertex>
-class Sphere
-{
-public:
-	DXBuffer* indexBuffer;
+	uint32_t indexCount;
+	uint32_t vertexCount;
+	
+	const char* name;
+	
 	DXBuffer* vertexBuffer;
-
-	uint16_t NumVertices;
-	uint16_t NumFaces;
+	DXBuffer* indexBuffer;
 	
-	Sphere() {};
+	uint16_t materialIndex;
 	
-	Sphere(uint8_t LatLines, uint8_t LongLines)
-	{
-		NumVertices = ((LatLines - 2) * LongLines) + 2;
-		NumFaces = ((LatLines - 3) * (LongLines) * 2) + (LongLines * 2);
-
-		float sphereYaw = 0.0f;
-		float spherePitch = 0.0f;
-
-		// calculate vertices
-		std::vector<TVertex> vertices(NumVertices);
-
-		XMVECTOR currVertPos = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-
-		vertices[0].pos.x = 0.0f;
-		vertices[0].pos.y = 0.0f;
-		vertices[0].pos.z = 1.0f;
-
-		for (uint16_t i = 0; i < LatLines - 2; ++i)
+	DXGI_FORMAT indiceFormat = DXGI_FORMAT_R32_UINT;
+	SubMesh(){};
+	SubMesh(const aiMesh& aimesh) : name(aimesh.mName.C_Str())
+	{			
+		vertexCount = aimesh.mNumVertices;
+		indexCount = aimesh.mNumFaces * 3;
+		
+		vertices = (Vertex*)malloc(sizeof(Vertex) * vertexCount);
+		indices = (uint32_t*)malloc(sizeof(uint32_t) * indexCount);
+		
+		for (uint32_t i = 0; i < vertexCount; ++i) 
 		{
-			spherePitch = (i + 1) * (DX_PI / (LatLines - 1));
-			auto Rotationx = XMMatrixRotationX(spherePitch);
-			for (uint16_t j = 0; j < LongLines; ++j)
-			{
-				sphereYaw = j * (DX_TWO_PI / (LongLines));
-				auto Rotationy = XMMatrixRotationZ(sphereYaw);
-				currVertPos = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), (Rotationx * Rotationy));
-				currVertPos = XMVector3Normalize(currVertPos);
-				vertices[i * LongLines + j + 1].pos.y = XMVectorGetY(currVertPos);
-				vertices[i * LongLines + j + 1].pos.x = XMVectorGetX(currVertPos);
-				vertices[i * LongLines + j + 1].pos.z = XMVectorGetZ(currVertPos);
-			}
+			vertices[i].pos.x = aimesh.mVertices[i].x;
+			vertices[i].pos.y = aimesh.mVertices[i].y;
+			vertices[i].pos.z = aimesh.mVertices[i].z;
+			
+			vertices[i].normal.x = aimesh.mNormals[i].x;
+			vertices[i].normal.y = aimesh.mNormals[i].y;
+			vertices[i].normal.z = aimesh.mNormals[i].z;
+			
+			vertices[i].texCoord.x = aimesh.mTextureCoords[0][i].x;
+			vertices[i].texCoord.y = aimesh.mTextureCoords[0][i].y;
+			
+			vertices[i].tangent.x = aimesh.mBitangents[i].x;
+			vertices[i].tangent.y = aimesh.mBitangents[i].y;
+			vertices[i].tangent.z = aimesh.mBitangents[i].z;
 		}
-
-		vertices[NumVertices - 1].pos.x = 0.0f;
-		vertices[NumVertices - 1].pos.y = 0.0f;
-		vertices[NumVertices - 1].pos.z = -1.0f;
-
+		
+		for (uint32_t i = 0; i < aimesh.mNumFaces; i++)
+		{
+			indices[i * 3 + 0] = aimesh.mFaces[i].mIndices[0];
+			indices[i * 3 + 1] = aimesh.mFaces[i].mIndices[1];
+			indices[i * 3 + 2] = aimesh.mFaces[i].mIndices[2];
+		}
+		
+		CreateDXBuffers();
+	}
+	
+	static inline DXGI_FORMAT ChoseIndiceFormat(uint64_t indexCount)
+	{
+		return DXGI_FORMAT_R32_UINT;
+		if 		(indexCount > UINT32_MAX) throw std::runtime_error("submesh index count is to much!");
+		else if (indexCount > UINT16_MAX) return DXGI_FORMAT_R32_UINT;
+		else if (indexCount > UINT8_MAX)  return DXGI_FORMAT_R16_UINT;
+		else return DXGI_FORMAT_R8_UINT;
+	}
+	
+	void CreateDXBuffers()
+	{
+		indiceFormat = ChoseIndiceFormat(indexCount);
+		DXDevice* d3d11Device = Engine::GetDevice();
+		DXDeviceContext* d3d11DevCon = Engine::GetDeviceContext();
+		// create vertex buffer		
 		DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
+		
 		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		vertexBufferDesc.ByteWidth = sizeof(TVertex) * NumVertices;
+		vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexCount;
 		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		vertexBufferDesc.CPUAccessFlags = 0;
 		vertexBufferDesc.MiscFlags = 0;
-
-		auto d3d11Device = Engine::GetDevice();
-
-		DX_CREATE(D3D11_SUBRESOURCE_DATA, vertexBufferData);
-		vertexBufferData.pSysMem = &vertices[0];
-		HRESULT hr = d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &vertexBuffer);
-
-		// calculate indices
-		std::vector<uint16_t> indices(NumFaces * 3);
-
-		int k = 0;
-		for (uint16_t l = 0; l < LongLines - 1; ++l)
-		{
-			indices[k] = 0;
-			indices[k + 1] = l + 1;
-			indices[k + 2] = l + 2;
-			k += 3;
-		}
-
-		indices[k] = 0;
-		indices[k + 1] = LongLines;
-		indices[k + 2] = 1;
-		k += 3;
-
-		for (uint16_t i = 0; i < LatLines - 3; ++i)
-		{
-			for (uint16_t j = 0; j < LongLines - 1; ++j)
-			{
-				indices[k] = i * LongLines + j + 1;
-				indices[k + 1] = i * LongLines + j + 2;
-				indices[k + 2] = (i + 1) * LongLines + j + 1;
-
-				indices[k + 3] = (i + 1) * LongLines + j + 1;
-				indices[k + 4] = i * LongLines + j + 2;
-				indices[k + 5] = (i + 1) * LongLines + j + 2;
-
-				k += 6; // next quad
-			}
-
-			indices[k] = (i * LongLines) + LongLines;
-			indices[k + 1] = (i * LongLines) + 1;
-			indices[k + 2] = ((i + 1) * LongLines) + LongLines;
-
-			indices[k + 3] = ((i + 1) * LongLines) + LongLines;
-			indices[k + 4] = (i * LongLines) + 1;
-			indices[k + 5] = ((i + 1) * LongLines) + 1;
-
-			k += 6;
-		}
-
-		for (uint16_t l = 0; l < LongLines - 1; ++l)
-		{
-			indices[k] = NumVertices - 1;
-			indices[k + 1] = (NumVertices - 1) - (l + 1);
-			indices[k + 2] = (NumVertices - 1) - (l + 2);
-			k += 3;
-		}
 		
-		indices[k] = NumVertices - 1;
-		indices[k + 1] = (NumVertices - 1) - LongLines;
-		indices[k + 2] = NumVertices - 2;
-
-		DX_CREATE(D3D11_BUFFER_DESC, indexBufferDesc);
-		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		indexBufferDesc.ByteWidth = sizeof(uint16_t) * NumFaces * 3;
-		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		indexBufferDesc.CPUAccessFlags = 0;
-		indexBufferDesc.MiscFlags = 0;
-
-		D3D11_SUBRESOURCE_DATA iinitData;
-		iinitData.pSysMem = &indices[0];
-		d3d11Device->CreateBuffer(&indexBufferDesc, &iinitData, &indexBuffer);
+		DX_CREATE(D3D11_SUBRESOURCE_DATA, vertexBufferData);
+		
+		vertexBufferData.pSysMem = vertices;
+		DX_CHECK(
+			d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &vertexBuffer), "vertex buffer creation failed!"
+		);
+		
+		// create index buffer
+		DX_CREATE(D3D11_BUFFER_DESC, indexDesc);
+		indexDesc.Usage = D3D11_USAGE_DEFAULT;
+		indexDesc.ByteWidth = sizeof(uint32_t) * indexCount;
+		indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		indexDesc.CPUAccessFlags = 0;
+		indexDesc.MiscFlags = 0;
+		
+		D3D11_SUBRESOURCE_DATA initData;
+		initData.pSysMem = indices;
+		d3d11Device->CreateBuffer(&indexDesc, &initData, &indexBuffer);
 	}
-
-	void Draw()
+	
+	void Draw(DXDeviceContext* d3d11DevCon)
 	{
-		auto context = Engine::GetDeviceContext();
-		context->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R16_UINT, 0);
-
-		UINT stride = sizeof(TVertex);
+		d3d11DevCon->IASetIndexBuffer(indexBuffer, indiceFormat , 0);
+		//Set the vertex buffer
+		UINT stride = sizeof(Vertex);
 		UINT offset = 0;
-		context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-		context->DrawIndexed(NumFaces * 3, 0, 0 );
+		d3d11DevCon->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+		d3d11DevCon->DrawIndexed(indexCount, 0, 0);
 	}
-
-	~Sphere()
-	{
-		Dispose();
-	}
-
+	
 	void Dispose()
 	{
 		DX_RELEASE(indexBuffer)
 		DX_RELEASE(vertexBuffer)
 	}
 };
-
-typedef Sphere<SkyboxVertex> SphereSky;

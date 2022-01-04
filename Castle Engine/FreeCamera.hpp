@@ -18,7 +18,7 @@ public:
 	XMMATRIX ViewProjection;
 
 	float pitch, yaw;
-	float speed = 50, senstivity = 20;
+	float speed = 100, senstivity = 20;
 
 private:
 	XMMATRIX View;
@@ -35,6 +35,9 @@ public:
 		ImGui::DragFloat("senstivity", &senstivity);
 		ImGui::DragFloat("pitch", &pitch);
 		ImGui::DragFloat("yaw", &yaw);
+		if(ImGui::DragFloat("fov", &fov, 0.01f, 0.1f, 3.0f)) UpdateProjection();
+		ImGui::SameLine();
+		ImGui::Text(std::to_string(fov * DX_RAD_TO_DEG).c_str());
 	}
 #endif
 
@@ -136,6 +139,11 @@ public:
 		
 		if (point.x < 2) SET_CURSOR_POS(monitorScale.x - 3, point.y);
 		if (point.y < 2) SET_CURSOR_POS(point.x, monitorScale.y - 3);
+	}
+
+	void UpdateProjection()
+	{
+		UpdateProjection(aspectRatio);
 	}
 
 	void UpdateProjection(const float& _aspectRatio)

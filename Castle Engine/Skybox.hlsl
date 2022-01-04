@@ -1,3 +1,4 @@
+
 cbuffer cbPerObject : register(b0)
 {
 	float4x4 MVP;
@@ -9,7 +10,6 @@ struct SKYMAP_VS_OUTPUT
 	float4 Pos : SV_POSITION;
 	float3 texCoord : TEXCOORD;
 };
-
 
 SKYMAP_VS_OUTPUT VS(float3 inPos : POSITION)
 {
@@ -28,5 +28,8 @@ SamplerState SkyMapSampler;
 
 float4 PS(SKYMAP_VS_OUTPUT input) : SV_Target
 {
-	return SkyMap.Sample(SkyMapSampler, input.texCoord);
+	float4 result = SkyMap.Sample(SkyMapSampler, input.texCoord);
+	result.a = 1;
+
+	return result;
 }

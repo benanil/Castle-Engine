@@ -1,7 +1,7 @@
 cbuffer cbPerObject : register(b0)
 {
-    float4x4 MVP;
-    float4x4 Model;
+	float4x4 MVP;
+	float4x4 Model;
 };
 
 cbuffer cbPerMaterial : register(b1)
@@ -15,38 +15,40 @@ cbuffer cbPerMaterial : register(b1)
 cbuffer cbGlobal : register(b2)
 {
 	float sunAngle;
-	float3 ambientColor;  // 16
+	float3 ambientColor; // 16
 	float3 sunColor;
-	float fogAmount;      // 32
+	float time; // 32
 	float3 viewPos;
 	float ambientStength; // 48
 };
 
 struct VS_OUTPUT
 {
-    float4 Pos      : SV_POSITION;
-    float2 TexCoord : TEXCOORD;
+	float4 Pos      : SV_POSITION;
+	float2 TexCoord : TEXCOORD;
 	float3 normal   : NORMAL;
-	float3 tangent : TANGENT;
+	float3 tangent  : TANGENT;
+	float3 fragPos  : TEXCOORD1;
 };
 
-Texture2D ObjTexture      : register(t0);   
+Texture2D ObjTexture      : register(t0);
 Texture2D SpecularTexture : register(t1);
 Texture2D NormalTexture   : register(t2);
 
-SamplerState ObjSamplerState : register(s0); 
-SamplerState SpecularSampler : register(s1); 
-SamplerState NormalSampler   : register(s2); 
+SamplerState ObjSamplerState : register(s0);
+SamplerState SpecularSampler : register(s1);
+SamplerState NormalSampler   : register(s2);
 
 VS_OUTPUT VS(float4 inPos : POSITION, float2 inTexCoord : TEXCOORD, float4 inNormal : NORMAL, float4 inTangent : TANGENT)
 {
-    VS_OUTPUT output;
+	VS_OUTPUT output;
 
-    output.Pos = mul(inPos, MVP);
-	output.normal  = mul(inNormal, Model).xyz;
+	output.Pos = mul(inPos, MVP);
+	output.normal = mul(inNormal, Model).xyz;
 	output.TexCoord = inTexCoord;
 	output.tangent = mul(inTangent, Model).xyz;
-    return output;
+	output.fragPos = mul(inPos, Model).xyz;
+	return output;
 }
 
 #define DX_DEG_TO_RAD 0.01745f
@@ -95,48 +97,88 @@ float D_GGX(in float roughness, in float cosLh)
 // cook-torrance specular calculation                      
 float3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in float3 specular, in float roughness, in float metallic)
 {
-	float D = min(D_blinn(roughness, NdH), 1);
+	// float D = min(D_blinn(roughness, NdH), 1);
 	// float D = min(D_beckmann(roughness, NdH), 1);
-	// float D = D_GGX(roughness, NdH);
-	
+	float D = D_GGX(roughness, NdH);
+
 	float G = G_schlick(roughness, NdV, NdL);
-	
+
 	float rim = lerp(1.0 - roughness * metallic * 0.9, 1.0, NdV);
-	
+
 	return (1.0 / rim) * specular * G * D;
+}
+
+#define SCALAR3f(x) float3(x, x, x)
+
+float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float time)
+{
+	// calculate first light
+	float3 direction = float3(-950, 300, sin(time) * 500) - fragPos;
+	float lightDist = length(direction);
+
+	float diffuseFactor = dot(normal, normalize(direction));
+
+	float3 firstLight = float3(0.5, 0.3, 0.25) * diffuseFactor * (max(500 - lightDist, 0) / 500);
+
+	// calculate second light
+	direction = float3(sin(time) * 1000, 150, -420) - fragPos;
+	lightDist = length(direction);
+
+	diffuseFactor = dot(normal, normalize(direction));
+	float3 secondLight = float3(0.25, 0.3, 0.5) * diffuseFactor * (max(500 - lightDist, 0) / 500);
+
+	return firstLight + secondLight;
+}
+
+float3 NormalSampleToWorldSpace(in float3 normalMapSample,
+	in float3 unitNormalW,
+	in float3 tangentW)
+{
+	// Uncompress each component from [0,1] to [-1,1].
+	float3 normalT = 2.0f * normalMapSample - 1.0f;
+	// Build orthonormal basis.
+	float3 N = unitNormalW;
+	float3 T = normalize(tangentW - dot(tangentW, N) * N);
+	float3 B = cross(N, T);
+	float3x3 TBN = float3x3(T, B, N);
+	// Transform from tangent space to world space.
+	float3 bumpedNormalW = mul(normalT, TBN);
+	return bumpedNormalW;
 }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET
 {
 	float4 albedo = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
 	float4 specularTex = SpecularTexture.Sample(SpecularSampler, input.TexCoord) * (shininess);
-	 
+
 	clip(albedo.a - 0.15f);
 
 	float3 L = float3(0, max(sin(sunAngle * DX_DEG_TO_RAD), 0), cos(sunAngle * DX_DEG_TO_RAD));
-	float3 V = normalize(viewPos - input.Pos.xyz);
+	float3 V = normalize(input.fragPos - viewPos);
 	float3 H = normalize(V - L);
 
+	float3 normal = NormalSampleToWorldSpace(NormalTexture.Sample(NormalSampler, input.TexCoord).xyz, input.normal, input.tangent);
+
 	//normal map calculation
-		float3 normalMap = NormalTexture.Sample(NormalSampler, input.TexCoord).xyz;
-		
-		//Change normal map range from [0, 1] to [-1, 1]
-		normalMap = (2.0f * normalMap) - 1.0f;
-		
-		//Make sure tangent is completely orthogonal to normal
-		input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
-		
-		//Create the biTangent
-		float3 biTangent = cross(input.normal, input.tangent);
-		
-		//Create the "Texture Space"
-		float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
-		
-		//Convert normal from normal map to texture space and store in input.normal
-		float3 normal = normalize(mul(normalMap, texSpace));
+	// 	float3 normalMap = NormalTexture.Sample(NormalSampler, input.TexCoord).xyz;
+	// 	
+	// 	//Change normal map range from [0, 1] to [-1, 1]
+	// 	normalMap = (2.0f * normalMap) - 1.0f;
+	// 	
+	// 	//Make sure tangent is completely orthogonal to normal
+	// 	input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
+	// 	
+	// 	//Create the biTangent
+	// 	float3 biTangent = cross(input.normal, input.tangent);
+	// 	
+	// 	//Create the "Texture Space"
+	// 	float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
+	// 	
+	// 	//Convert normal from normal map to texture space and store in input.normal
+	// 	float3 normal = normalize(mul(normalMap, texSpace));
 	// normal map calculation end
 
-	float ndl = max(0.2f, dot(normal, L));
+	float ndl = max(0.1f, dot(normal, L));
 	float ndv = max(0.0f, dot(normal, V));
 	float ndh = max(0.0f, dot(normal, H));
 	float hdv = max(0.0f, dot(H, V));
@@ -148,12 +190,14 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 
 	float3 specFresnel = fresnel_factor(F0, hdv);
 	float3 specular = cooktorrance_specular(ndl, ndv, ndh, specFresnel, newRoughness, metallic) * ndl * specularTex.xyz;
-	
+
 	float3 ambient = ambientColor * ambientStength;
 
 	float4 result = float4(0, 0, 0, 1);
 	result.xyz = albedo.xyz * (ndl * sunColor) + specular + ambient;
-    
+
+	result.xyz += CalculatePointLight(normal, input.fragPos, time);
+
 	return result;
 }
 

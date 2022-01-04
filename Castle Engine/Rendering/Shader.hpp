@@ -33,6 +33,7 @@ public:
 		Profiles profiles = GetLatestProfiles();
 		
 		DXDevice* device = Engine::GetDevice();
+		d3d11DevCon = Engine::GetDeviceContext();
 
 		std::string vertexShader   = ReadAllText(std::string(vertPath));
 		std::string fragmentShader = ReadAllText(std::string(PSPath));
@@ -74,9 +75,8 @@ public:
 		DX_RELEASE(fragErrorBlob);
 	}
 
-	void Bind(DXDeviceContext* d3d11DevCon)
+	void Bind()
 	{
-
 		//Set Vertex and Pixel Shaders
 		d3d11DevCon->VSSetShader(VS, 0, 0);
 		d3d11DevCon->PSSetShader(PS, 0, 0);	
@@ -96,6 +96,8 @@ public:
 	}	
 
 private:
+
+	DXDeviceContext* d3d11DevCon;
 
 	static Profiles GetLatestProfiles()
 	{

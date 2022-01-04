@@ -30,6 +30,10 @@ namespace Engine
 	void SetCursor(SDL_Cursor* cursor);
 	SDL_Cursor* GetCursor();
 
+	// time
+	float GetDeltaTime();
+	float GetTimeSinceStartup();
+
 	void DirectXCheck(const HRESULT& hr, const int line, const char* file);
 	void DirectXCheck(const HRESULT& hr, const char* message, const int line, const char* file);
 }

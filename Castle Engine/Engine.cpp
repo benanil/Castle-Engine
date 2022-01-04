@@ -26,6 +26,8 @@
 #include "Rendering/Texture.hpp"
 #include "Rendering/Shader.hpp"
 #include "Rendering/Pipeline.hpp"
+#include "Rendering/Skybox.hpp"
+#include "Rendering/Terrain.hpp"
 #include "ECS/ECS.hpp"
 #include "Transform.hpp"
 #include "FreeCamera.hpp"
@@ -34,6 +36,17 @@
 
 using namespace ECS;
 
+//Function Prototypes//
+bool InitializeDirect3d11App();
+void CleanupRenderTarget();
+void CreateRenderTarget();
+void CleanUp();
+bool InitScene();
+void UpdateScene();
+void DrawScene();
+
+namespace 
+{
 //Global Declarations - Interfaces//
 IDXGISwapChain* SwapChain;
 DXDevice* Device;
@@ -44,6 +57,8 @@ DXRenderTargetView* renderTargetView;
 DXDepthStencilView* depthStencilView;
 DXTexture2D* depthStencilBuffer;
 DXRasterizerState* rasterizerState;
+DXRasterizerState* WireframeRasterizerState;
+
 DXInputLayout* vertLayout;
 D3D11_VIEWPORT ViewPort;
 
@@ -63,37 +78,35 @@ HRESULT hr;
 const int Width = 1000;
 const int Height = 800;
 
-//Function Prototypes//
-bool InitializeDirect3d11App();
-void CleanupRenderTarget();
-void CreateRenderTarget();
-void CleanUp();
-bool InitScene();
-void UpdateScene();
-void DrawScene();
-
 MeshRenderer* mesh;
 Entity* firstEntity;
 FreeCamera* freeCamera;
 Shader* shader;
 // Pipeline* ScreenPipeline;
 RenderTexture* renderTexture;
+Skybox* skybox;
 
 Event EndOfFrameEvents;
 
 UINT MSAASamples;
 
-
 std::map<int, bool> keyboard;
 std::map<int, bool> mouse;
+SDL_Cursor* cursor;
+float TimeSinceStartup;
+float DeltaTime;
+}
 
+// ---TIME--
+float Engine::GetDeltaTime() { return DeltaTime; }
+float Engine::GetTimeSinceStartup() { return TimeSinceStartup; }
+
+// ---INPUT---
 bool Engine::GetKeyDown(int keycode) LAMBDAR(keyboard[keycode])
 bool Engine::GetKeyUp(int keycode) LAMBDAR(!keyboard[keycode])
 
 bool Engine::GetMouseButtonDown(int buttonName) LAMBDAR(mouse[buttonName])
 bool Engine::GetMouseButtonUp(int buttonName) LAMBDAR(mouse[buttonName])
-
-SDL_Cursor* cursor;
 
 void Engine::SetCursor(SDL_Cursor* _cursor) LAMBDA(cursor = _cursor)
 SDL_Cursor* Engine::GetCursor() LAMBDAR(cursor);
@@ -142,6 +155,11 @@ void MainWindow()
         ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
     }
 
+	if (ImGui::CollapsingHeader("Terrain"))
+	{
+		Terrain::OnEditor();
+	}
+
     ImGui::End();
 
     Editor::GameViewWindow::Draw();
@@ -165,7 +183,6 @@ int main(int, char**)
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(window, &wmInfo);
 
-
     hwnd = (HWND)wmInfo.info.win.window;
 
     InitializeDirect3d11App();    //Initialize Direct3D
@@ -177,7 +194,7 @@ int main(int, char**)
     Editor::DarkTheme();
 
     Editor::AddOnEditor(MainWindow);
-
+    
     SceneManager::LoadNewScene();
 
     firstEntity = new Entity();
@@ -185,7 +202,7 @@ int main(int, char**)
 
     firstEntity->AddComponent((ECS::Component*)mesh);
 
-    freeCamera = new FreeCamera(90, Width / Height, 0.1f, 3000.0f);
+    freeCamera = new FreeCamera(90, Width / Height, 0.1f, 90'000.0f);
 
     cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
     cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
@@ -209,19 +226,20 @@ int main(int, char**)
 
     // Main loop
     bool done = false;
-    float lastTime = 0, deltaTime;
+    float lastTime = 0;
     while (!done)
     {
         SDL_Event event;
 
-        while (SDL_PollEvent(&event))
+		DeltaTime = (lastTime - (float)SDL_GetTicks()) / 1000.0f;
+		lastTime = SDL_GetTicks();
+		TimeSinceStartup += DeltaTime;
+
+		while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
             SceneManager::GetCurrentScene()->ProceedEvent(&event);
-            freeCamera->Update(deltaTime);
-
-            deltaTime = (lastTime - (float)SDL_GetTicks()) / 1000.0f;
-            lastTime = SDL_GetTicks();
+            freeCamera->Update(DeltaTime);
 
             switch (event.type)
             {
@@ -248,7 +266,7 @@ int main(int, char**)
             }
         }
 
-        SceneManager::GetCurrentScene()->Update(deltaTime);
+        SceneManager::GetCurrentScene()->Update(DeltaTime);
         UpdateScene();
         DrawScene();
     }
@@ -331,8 +349,8 @@ void CreateRenderTarget()
 void CleanupRenderTarget()
 {
     DX_RELEASE(renderTargetView)
-        DX_RELEASE(depthStencilBuffer)
-        DX_RELEASE(depthStencilView)
+    DX_RELEASE(depthStencilBuffer)
+    DX_RELEASE(depthStencilView)
 }
 
 bool InitializeDirect3d11App()
@@ -340,22 +358,22 @@ bool InitializeDirect3d11App()
     UINT creationFlags = D3D11_CREATE_DEVICE_DEBUG;
 
     DX_CHECK(
-        D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL, D3D11_SDK_VERSION, &Device, NULL, &DeviceContext),
-        "Device Creation Failed!")
+    D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL, D3D11_SDK_VERSION, &Device, NULL, &DeviceContext),
+    "Device Creation Failed!")
 
 #ifndef NEDITOR
-        MSAASamples = 2;
+    MSAASamples = 2;
 #else
-        // Determine maximum supported MSAA level.
-        for (MSAASamples = 16; MSAASamples > 1; MSAASamples >>= 1) {
-            UINT colorQualityLevels;
-            UINT depthStencilQualityLevels;
-            Device->CheckMultisampleQualityLevels(DXGI_FORMAT_R16G16B16A16_FLOAT, MSAASamples, &colorQualityLevels);
-            Device->CheckMultisampleQualityLevels(DXGI_FORMAT_D24_UNORM_S8_UINT, MSAASamples, &depthStencilQualityLevels);
-            if (colorQualityLevels > 0 && depthStencilQualityLevels > 0) {
-                break;
-            }
+    // Determine maximum supported MSAA level.
+    for (MSAASamples = 16; MSAASamples > 1; MSAASamples >>= 1) {
+        UINT colorQualityLevels;
+        UINT depthStencilQualityLevels;
+        Device->CheckMultisampleQualityLevels(DXGI_FORMAT_R16G16B16A16_FLOAT, MSAASamples, &colorQualityLevels);
+        Device->CheckMultisampleQualityLevels(DXGI_FORMAT_D24_UNORM_S8_UINT, MSAASamples, &depthStencilQualityLevels);
+        if (colorQualityLevels > 0 && depthStencilQualityLevels > 0) {
+            break;
         }
+    }
 #endif
 
     IDXGIDevice* pDXGIDevice = nullptr;
@@ -426,8 +444,7 @@ bool InitScene()
     shader = new Shader("First.hlsl\0", "First.hlsl\0");
 
     //Set Vertex and Pixel Shaders
-    shader->Bind(DeviceContext);
-    std::cout << "stage 0" << std::endl;
+    shader->Bind();
 
     // create uniform constant buffer
     cbGlobalData.ambientColor = glm::vec3(0.8f, 0.8f, 0.65f);
@@ -471,15 +488,23 @@ bool InitScene()
     DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Create Rasterizer 
-    DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc)
-        rasterizerDesc.FillMode = D3D11_FILL_SOLID;
-    rasterizerDesc.CullMode = D3D11_CULL_NONE;
+	DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc);
+    rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+    rasterizerDesc.CullMode = D3D11_CULL_BACK;
     rasterizerDesc.MultisampleEnable = true;
 
     DX_CHECK(
-        Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
+	Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
 
-    DeviceContext->RSSetState(rasterizerState);
+	memset(&rasterizerDesc, 0, sizeof(D3D11_RASTERIZER_DESC));
+	rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+	rasterizerDesc.CullMode = D3D11_CULL_NONE;
+	rasterizerDesc.MultisampleEnable = true;
+
+	DeviceContext->RSSetState(rasterizerState);
+
+	DX_CHECK(
+		Device->CreateRasterizerState(&rasterizerDesc, &WireframeRasterizerState), "rasterizer creation failed");
 
     //Create the Viewport
     memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
@@ -497,6 +522,13 @@ bool InitScene()
     mesh = MeshLoader::LoadMesh("Models/sponza.obj");
     mesh->SetEntity(firstEntity);
 
+	skybox = new Skybox(10, 10, MSAASamples);
+    std::cout << "skybox created" << std::endl;
+
+	Terrain::Initialize();
+    
+    std::cout << "Terrain created" << std::endl;
+
     return true;
 }
 
@@ -513,8 +545,29 @@ void UpdateScene()
     DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+	// use additionalData  as time since startup
+	cbGlobalData.additionalData = TimeSinceStartup;
+
+	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
     DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+}
+
+void DrawTerrain()
+{
+    Terrain::BindShader();
+
+    cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-1500, 0, -2100) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
+
+    DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+
+    cbGlobalData.additionalData = Terrain::GetTerrainScale();
+    DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+
+    DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+    DeviceContext->RSSetState(rasterizerState);
+
+    Terrain::Draw();
 }
 
 void DrawScene()
@@ -539,15 +592,26 @@ void DrawScene()
     renderTexture->ClearRenderTarget(bgColor);
     renderTexture->SetAsRendererTarget();
 
-    mesh->Draw(DeviceContext);
+	DeviceContext->RSSetState(rasterizerState);
+	mesh->Draw(DeviceContext);
 
-    // set default render buffers again
-    DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
+    
+    DrawTerrain();
+	
+	// set default render buffers again
+	DeviceContext->OMSetDepthStencilState(nullptr, 0);
+	DeviceContext->RSSetState(rasterizerState);
+
+	DeviceContext->IASetInputLayout(vertLayout);
 
     ViewPort.Width = oldViewPortW; ViewPort.Height = oldViewPortH;
     DeviceContext->RSSetViewports(1, &ViewPort);
+	DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
-    // Draw Imgui
+	shader->Bind();
+
+	// Draw Imgui
     Editor::Render();
 
     //Present the backbuffer to the screen

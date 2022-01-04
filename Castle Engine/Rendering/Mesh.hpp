@@ -20,103 +20,6 @@
 #include "Material.hpp"
 
 #include "Primitives.hpp"
-struct SubMesh
-{
-	Vertex* vertices;
-	uint32_t* indices;
-
-	uint32_t indexCount;
-	uint32_t vertexCount;
-
-	const char* name;
-
-	DXBuffer* vertexBuffer;
-	DXBuffer* indexBuffer;
-
-	uint16_t materialIndex;
-
-	SubMesh(const aiMesh& aimesh) : name(aimesh.mName.C_Str())
-	{
-		vertexCount = aimesh.mNumVertices;
-		indexCount = aimesh.mNumFaces * 3;
-
-		vertices = (Vertex*)malloc(sizeof(Vertex) * vertexCount);
-		indices = (uint32_t*)malloc(sizeof(uint32_t) * indexCount);
-
-		for (uint32_t i = 0; i < vertexCount; ++i) // +1 iter for jumping texcoord.y
-		{
-			vertices[i].pos.x = aimesh.mVertices[i].x;
-			vertices[i].pos.y = aimesh.mVertices[i].y;
-			vertices[i].pos.z = aimesh.mVertices[i].z;
-
-			vertices[i].normal.x = aimesh.mNormals[i].x;
-			vertices[i].normal.y = aimesh.mNormals[i].y;
-			vertices[i].normal.z = aimesh.mNormals[i].z;
-
-			vertices[i].texCoord.x = aimesh.mTextureCoords[0][i].x;
-			vertices[i].texCoord.y = aimesh.mTextureCoords[0][i].y;
-
-			vertices[i].tangent.x = aimesh.mBitangents[i].x;
-			vertices[i].tangent.y = aimesh.mBitangents[i].y;
-			vertices[i].tangent.z = aimesh.mBitangents[i].z;
-		}
-
-		DXDevice* d3d11Device = Engine::GetDevice();
-		DXDeviceContext* d3d11DevCon = Engine::GetDeviceContext();
-
-		// create vertex buffer		
-		DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
-
-		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexCount;
-		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		vertexBufferDesc.CPUAccessFlags = 0;
-		vertexBufferDesc.MiscFlags = 0;
-
-		DX_CREATE(D3D11_SUBRESOURCE_DATA, vertexBufferData);
-
-		vertexBufferData.pSysMem = vertices;
-		DX_CHECK(
-			d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &vertexBuffer), "vertex buffer creation failed!"
-		);
-
-		for (uint32_t i = 0; i < aimesh.mNumFaces; i++)
-		{
-			indices[i * 3 + 0] = aimesh.mFaces[i].mIndices[0];
-			indices[i * 3 + 1] = aimesh.mFaces[i].mIndices[1];
-			indices[i * 3 + 2] = aimesh.mFaces[i].mIndices[2];
-		}
-
-		// create index buffer
-		DX_CREATE(D3D11_BUFFER_DESC, indexDesc);
-		indexDesc.Usage = D3D11_USAGE_DEFAULT;
-		indexDesc.ByteWidth = sizeof(uint32_t) * indexCount;
-		indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		indexDesc.CPUAccessFlags = 0;
-		indexDesc.MiscFlags = 0;
-
-		D3D11_SUBRESOURCE_DATA initData;
-		initData.pSysMem = indices;
-		d3d11Device->CreateBuffer(&indexDesc, &initData, &indexBuffer);
-	}
-
-	void Draw(DXDeviceContext* d3d11DevCon)
-	{
-		d3d11DevCon->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-		//Set the vertex buffer
-		UINT stride = sizeof(Vertex);
-		UINT offset = 0;
-		d3d11DevCon->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-		d3d11DevCon->DrawIndexed(indexCount, 0, 0);
-	}
-
-	void Dispose()
-	{
-		indexBuffer->Release();
-		vertexBuffer->Release();
-	}
-};
-
 
 class MeshRenderer : ECS::Component
 {
@@ -124,12 +27,12 @@ public:
 	SubMesh* subMeshes;
 	std::vector<Material*> materials;
 	uint16_t subMeshCount;
-
+	
 	MeshRenderer() : ECS::Component() {}
-
+	
 	ECS::Entity* GetEntity() { return entity; }
 	void SetEntity(ECS::Entity* _entity) { entity = _entity; }
-
+	
 	void Update(const float& deltaTime) {}
 	void OnEditor()
 	{
@@ -142,7 +45,7 @@ public:
 		}
 		pushID = 0;
 	}
-
+	
 	void Draw(DXDeviceContext* deviceContext)
 	{
 		for (uint16_t i = 0; i < subMeshCount; i++)
@@ -151,7 +54,7 @@ public:
 			subMeshes[i].Draw(deviceContext);
 		}
 	}
-
+	
 	void Dispose()
 	{
 		for (uint16_t i = 0; i < subMeshCount; i++)
@@ -162,6 +65,134 @@ public:
 		subMeshes = nullptr;
 	}
 };
+
+struct SphereCreateResult
+{
+	uint32_t vertexCount, indexCount;
+	glm::vec3* vertices;
+	uint32_t* indices;
+};
+
+static SphereCreateResult* CSCreateSphereVertexIndices(uint16_t LatLines, uint16_t LongLines)
+{
+	SphereCreateResult* result = new SphereCreateResult();
+	
+	result->vertexCount = ((LatLines - 2) * LongLines) + 2;
+	result->indexCount  = (((LatLines - 3) * (LongLines) * 2) + (LongLines * 2)) * 3;
+	
+	float sphereYaw = 0.0f;
+	float spherePitch = 0.0f;
+	
+	// calculate vertices
+	result->vertices = (glm::vec3*)malloc(sizeof(glm::vec3) * result->vertexCount);
+	XMVECTOR currVertPos = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	
+	result->vertices[0].x = 0.0f;
+	result->vertices[0].y = 0.0f;
+	result->vertices[0].z = 1.0f;
+	
+	for (uint16_t i = 0; i < LatLines - 2; ++i)
+	{
+		spherePitch = (i + 1) * (DX_PI / (LatLines - 1));
+		auto Rotationx = XMMatrixRotationX(spherePitch);
+		for (uint16_t j = 0; j < LongLines; ++j)
+		{
+			sphereYaw = j * (DX_TWO_PI / (LongLines));
+			auto Rotationy = XMMatrixRotationZ(sphereYaw);
+			currVertPos = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), (Rotationx * Rotationy));
+			currVertPos = XMVector3Normalize(currVertPos);
+			result->vertices[i * LongLines + j + 1].y = XMVectorGetY(currVertPos);
+			result->vertices[i * LongLines + j + 1].x = XMVectorGetX(currVertPos);
+			result->vertices[i * LongLines + j + 1].z = XMVectorGetZ(currVertPos);
+		}
+	}
+	
+	result->vertices[result->vertexCount - 1].x = 0.0f;
+	result->vertices[result->vertexCount - 1].y = 0.0f;
+	result->vertices[result->vertexCount - 1].z = -1.0f;
+	
+	// calculate indices
+	result->indices = (uint32_t*)malloc(sizeof(uint32_t) * result->indexCount);
+	uint32_t k = 0;
+	for (uint16_t l = 0; l < LongLines - 1; ++l)
+	{
+		result->indices[k] = 0;
+		result->indices[k + 1] = l + 1;
+		result->indices[k + 2] = l + 2;
+		k += 3;
+	}
+	
+	result->indices[k] = 0;
+	result->indices[k + 1] = LongLines;
+	result->indices[k + 2] = 1;
+	k += 3;
+	
+	for (uint16_t i = 0; i < LatLines - 3; ++i)
+	{
+		for (uint16_t j = 0; j < LongLines - 1; ++j)
+		{
+			result->indices[k] = i * LongLines + j + 1;
+			result->indices[k + 1] = i * LongLines + j + 2;
+			result->indices[k + 2] = (i + 1) * LongLines + j + 1;
+			
+			result->indices[k + 3] = (i + 1) * LongLines + j + 1;
+			result->indices[k + 4] = i * LongLines + j + 2;
+			result->indices[k + 5] = (i + 1) * LongLines + j + 2;
+			
+			k += 6; // next quad
+		}
+		
+		result->indices[k] = (i * LongLines) + LongLines;
+		result->indices[k + 1] = (i * LongLines) + 1;
+		result->indices[k + 2] = ((i + 1) * LongLines) + LongLines;
+		
+		result->indices[k + 3] = ((i + 1) * LongLines) + LongLines;
+		result->indices[k + 4] = (i * LongLines) + 1;
+		result->indices[k + 5] = ((i + 1) * LongLines) + 1;
+		
+		k += 6;
+	}
+	
+	for (uint16_t l = 0; l < LongLines - 1; ++l)
+	{
+		result->indices[k] = result->vertexCount - 1;
+		result->indices[k + 1] = (result->vertexCount - 1) - (l + 1);
+		result->indices[k + 2] = (result->vertexCount - 1) - (l + 2);
+		k += 3;
+	}
+	
+	result->indices[k]     = result->vertexCount - 1;
+	result->indices[k + 1] = (result->vertexCount - 1) - LongLines;
+	result->indices[k + 2] = result->vertexCount - 2;
+
+	return result;
+}
+
+static SubMesh* CSCreateSphere(uint16_t LatLines, uint16_t LongLines)
+{
+	SubMesh* result = new SubMesh();
+	 
+	SphereCreateResult* createResult = CSCreateSphereVertexIndices(LatLines, LongLines);
+
+	result->vertices = (Vertex*)malloc(sizeof(Vertex) * result->vertexCount);
+
+	for (uint16_t i = 0; i < result->vertexCount; ++i)
+	{
+		result->vertices[i].pos = createResult->vertices[i];
+	}
+
+	result->indices = createResult->indices;
+	result->vertexCount = createResult->vertexCount;
+	result->indexCount  =  createResult->indexCount;
+
+	for (uint16_t i = 0; i < result->vertexCount; ++i)
+	{
+		result->vertices->normal = result->vertices->pos;
+	}
+	
+	result->CreateDXBuffers();
+	return result;
+}
 
 namespace MeshLoader
 {

@@ -6,6 +6,7 @@
 #include <xnamath.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <stdexcept>
 
 // helper type definitions
 typedef ID3D11Device              DXDevice;
@@ -34,7 +35,67 @@ static const wchar_t* GetWC(const char* c)
     mbstowcs(wc, c, cSize);
     return wc;
 }
-#define DX_CREATE(_type, name) _type name{}; memset(&name, 0,sizeof(_type));
+#define DX_CREATE(_type, _name) _type _name{}; memset(&_name, 0,sizeof(_type));
+
+template<typename VertexT, typename IndexT>
+static inline void CSCreateVertexIndexBuffers(
+    DXDevice* d3d11Device,
+    DXDeviceContext* d3d11DevCon,
+    const VertexT* vertices, 
+    const IndexT* indices,
+	uint16_t vertexCount, uint16_t indexCount, 
+    DXBuffer** p_vertexBuffer,
+    DXBuffer** p_indexBuffer)
+{
+	// create vertex buffer		
+	DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
+
+	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	vertexBufferDesc.ByteWidth = sizeof(VertexT) * vertexCount;
+	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vertexBufferDesc.CPUAccessFlags = 0;
+	vertexBufferDesc.MiscFlags = 0;
+
+	DX_CREATE(D3D11_SUBRESOURCE_DATA, vertexBufferData);
+
+	vertexBufferData.pSysMem = vertices;
+	if (FAILED(d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, p_vertexBuffer)))
+	{
+		throw std::runtime_error("vertex buffer creation failed!");
+	}
+	// create index buffer
+	DX_CREATE(D3D11_BUFFER_DESC, indexDesc);
+	indexDesc.Usage = D3D11_USAGE_DEFAULT;
+	indexDesc.ByteWidth = sizeof(IndexT) * indexCount;
+	indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	indexDesc.CPUAccessFlags = 0;
+	indexDesc.MiscFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA initData;
+	initData.pSysMem = indices;
+	d3d11Device->CreateBuffer(&indexDesc, &initData, p_indexBuffer);
+}
+
+struct DrawIndexedInfo
+{
+	DXDeviceContext* d3d11DevCon;
+	DXInputLayout* vertexLayout;
+	DXBuffer* vertexBuffer; DXBuffer* indexBuffer; uint32_t indexCount;
+};
+
+template<typename TVertex>
+void inline DrawIndexed32(DrawIndexedInfo* drawInfo)
+{
+	drawInfo->d3d11DevCon->IASetInputLayout(drawInfo->vertexLayout);
+	drawInfo->d3d11DevCon->IASetIndexBuffer(drawInfo->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	
+	// draw skybox sphere
+	UINT stride = sizeof(TVertex);
+	UINT offset = 0;
+	drawInfo->d3d11DevCon->IASetVertexBuffers(0, 1, &drawInfo->vertexBuffer, &stride, &offset);
+	
+	drawInfo->d3d11DevCon->DrawIndexed(drawInfo->indexCount, 0, 0);
+}
 
 #define LAMBDA(x) { x; }
 #define LAMBDAR(x) { return x;  }

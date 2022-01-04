@@ -3,17 +3,59 @@
 #include <vector>
 #include "Shader.hpp"
 #include "Mesh.hpp"
+#include "../FreeCamera.hpp"
 
 // https://www.braynzarsoft.net/viewtutorial/q16390-20-cube-mapping-skybox
 
 class Skybox
 {
-public:
-	Skybox(uint8_t LatLines, uint8_t LongLines, uint8_t  samples) 
-		: mesh(LatLines, LongLines), shader(Shader("Skybox.hlsl\0", "Skybox.hlsl\0"))
+private:
+
+	struct SkyboxVertex
 	{
+		glm::vec3 pos;
+		
+		static DXInputLayout* GetLayout(DXBlob* VS_Buffer)
+		{
+			DXInputLayout* vertLayout;
+			
+			D3D11_INPUT_ELEMENT_DESC layout[] =
+			{
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			};
+			
+			auto device = Engine::GetDevice();
+			device->CreateInputLayout(layout, 1, VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
+			return vertLayout;
+		}
+	};
+
+	Shader shader;
+
+	SphereCreateResult* mesh;
+
+	DXBuffer* vertexBuffer;
+	DXBuffer* indexBuffer;
+
+	DXShaderResourceView* srv;
+	DXDepthStencilState* DSLessEqual;
+	DXRasterizerState* RSCullNone;
+	DXTexSampler* textureSampler;
+
+	DXInputLayout* vertexLayout;
+
+public:
+	Skybox(uint8_t LatLines, uint8_t LongLines, uint8_t samples) : shader(Shader("Skybox.hlsl\0", "Skybox.hlsl\0"))
+	{
+		mesh = CSCreateSphereVertexIndices(LatLines, LongLines);
+		
 		auto d3d11DevCon = Engine::GetDeviceContext();
 		auto d3d11Device = Engine::GetDevice();
+		
+		CSCreateVertexIndexBuffers<SkyboxVertex, uint32_t>(
+			d3d11Device, d3d11DevCon, 
+			reinterpret_cast<SkyboxVertex*>(mesh->vertices), mesh->indices,
+			mesh->vertexCount, mesh->indexCount, &vertexBuffer, &indexBuffer);
 
 		vertexLayout = SkyboxVertex::GetLayout(shader.VS_Buffer);
 
@@ -28,9 +70,6 @@ public:
 		
 		D3D11_TEXTURE2D_DESC SMTextureDesc;
 		SMTexture->GetDesc(&SMTextureDesc);
-
-		SMTextureDesc.SampleDesc.Count = samples;
-		SMTextureDesc.SampleDesc.Quality = samples;
 
 		D3D11_SHADER_RESOURCE_VIEW_DESC SMViewDesc;
 		SMViewDesc.Format = SMTextureDesc.Format;
@@ -54,6 +93,7 @@ public:
 
 		// create render states
 		DX_CREATE(D3D11_RASTERIZER_DESC, cmdesc);
+		cmdesc.MultisampleEnable = true;
 		cmdesc.FillMode = D3D11_FILL_SOLID;
 		cmdesc.CullMode = D3D11_CULL_BACK;
 		cmdesc.FrontCounterClockwise = true;
@@ -68,21 +108,30 @@ public:
 		d3d11Device->CreateDepthStencilState(&dssDesc, &DSLessEqual);
 	}
 
-	void Draw()
+	void Draw(cbPerObject& cbPerObj, DXDeviceContext* DeviceContext, DXBuffer* constantBuffer, const FreeCamera* freeCamera)
 	{
-		auto d3d11DevCon =  Engine::GetDeviceContext();
+		XMMATRIX Model = XMMatrixScaling(900000, 900000, 900000);
+		cbPerObj.MVP   = XMMatrixTranspose(Model * freeCamera->ViewProjection);
+		cbPerObj.Model = XMMatrixTranspose(Model);
 		
-		d3d11DevCon->PSSetShaderResources( 0, 1, &srv );
-		d3d11DevCon->PSSetSamplers( 0, 1, &textureSampler);
+		DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+		DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+		
+		DeviceContext->PSSetShaderResources( 0, 1, &srv );
+		DeviceContext->PSSetSamplers( 0, 1, &textureSampler);
 
-		d3d11DevCon->OMSetDepthStencilState(DSLessEqual, 0);
-		d3d11DevCon->RSSetState(RSCullNone);
+		DeviceContext->OMSetDepthStencilState(DSLessEqual, 0);
+		DeviceContext->RSSetState(RSCullNone);
 
-		d3d11DevCon->IASetInputLayout(vertexLayout);
-
-		shader.Bind(d3d11DevCon);
-		mesh.Draw();
-
+		shader.Bind();
+		
+		DrawIndexedInfo drawInfo
+		{
+			DeviceContext, vertexLayout, 
+			vertexBuffer, indexBuffer, mesh->indexCount
+		};
+		
+		DrawIndexed32<SkyboxVertex>(&drawInfo);
 	}
 
 	~Skybox()
@@ -92,23 +141,8 @@ public:
 		DX_RELEASE(srv       )
 		DX_RELEASE(vertexLayout)
 		shader.Dispose();
-		mesh.Dispose();
+		delete mesh;
 	}
-
-private:
-
-	SphereSky mesh;
-	Shader shader;
-	
-	DXShaderResourceView* srv           ;
-	DXDepthStencilState*  DSLessEqual   ;
-	DXRasterizerState*    RSCullNone    ;
-	DXTexSampler*         textureSampler;
-
-	DXInputLayout* vertexLayout;
-
-	int NumSphereVertices;
-	int NumSphereFaces;
 };
 
 
