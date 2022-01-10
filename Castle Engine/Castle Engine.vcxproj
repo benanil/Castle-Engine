@@ -119,12 +119,14 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Include;$(SolutionDir)CastleEngine\;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnableModules>true</EnableModules>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)libs;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>spdlogd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>spdlogd.lib;FastNoise.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <FxCompile>
       <EntryPointName>VS</EntryPointName>
@@ -138,10 +140,12 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;FASTNOISE_STATIC_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;NEDITOR;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;FASTNOISE_STATIC_LIB</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Include;$(SolutionDir)CastleEngine\;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnableModules>true</EnableModules>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -177,6 +181,7 @@
     <ClCompile Include="Rendering\MeshLoader.cpp" />
     <ClCompile Include="Rendering\Pipeline.cpp" />
     <ClCompile Include="Rendering\AssetManager.cpp" />
+    <ClCompile Include="Rendering\Renderer3D.cpp" />
     <ClCompile Include="Rendering\RenderTexture.cpp" />
     <ClCompile Include="Rendering\Shader.cpp" />
     <ClCompile Include="Rendering\Terrain.cpp" />
@@ -204,12 +209,14 @@
     <ClInclude Include="Rendering\Mesh.hpp" />
     <ClInclude Include="Rendering\MeshRenderer.hpp" />
     <ClInclude Include="Rendering\Primitives.hpp" />
+    <ClInclude Include="Rendering\Renderer3D.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
     <ClInclude Include="Rendering\Skybox.hpp" />
     <ClInclude Include="Rendering\Texture.hpp" />
     <ClInclude Include="Rendering\RenderTexture.hpp" />
     <ClInclude Include="Rendering\Terrain.hpp" />
     <ClInclude Include="Main\Time.hpp" />
+    <ClInclude Include="Timer.hpp" />
     <ClInclude Include="Transform.hpp" />
   </ItemGroup>
   <ItemGroup>

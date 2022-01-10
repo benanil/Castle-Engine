@@ -34,6 +34,7 @@ public:
 	void SetEntity(ECS::Entity* _entity) { entity = _entity; }
 	
 	void Update(const float& deltaTime) {}
+#ifndef NEDITOR
 	void OnEditor()
 	{
 		static int pushID = 0;
@@ -45,7 +46,7 @@ public:
 		}
 		pushID = 0;
 	}
-	
+#endif
 	void Draw(DXDeviceContext* deviceContext)
 	{
 		for (uint16_t i = 0; i < subMeshCount; i++)

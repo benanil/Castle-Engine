@@ -130,7 +130,7 @@ float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float time)
 	return firstLight + secondLight;
 }
 
-float3 NormalSampleToWorldSpace(in float3 normalMapSample,
+float3 CalculateNormalMap(in float3 normalMapSample,
 	in float3 unitNormalW,
 	in float3 tangentW)
 {
@@ -157,26 +157,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 	float3 V = normalize(input.fragPos - viewPos);
 	float3 H = normalize(V - L);
 
-	float3 normal = NormalSampleToWorldSpace(NormalTexture.Sample(NormalSampler, input.TexCoord).xyz, input.normal, input.tangent);
-
-	//normal map calculation
-	// 	float3 normalMap = NormalTexture.Sample(NormalSampler, input.TexCoord).xyz;
-	// 	
-	// 	//Change normal map range from [0, 1] to [-1, 1]
-	// 	normalMap = (2.0f * normalMap) - 1.0f;
-	// 	
-	// 	//Make sure tangent is completely orthogonal to normal
-	// 	input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
-	// 	
-	// 	//Create the biTangent
-	// 	float3 biTangent = cross(input.normal, input.tangent);
-	// 	
-	// 	//Create the "Texture Space"
-	// 	float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
-	// 	
-	// 	//Convert normal from normal map to texture space and store in input.normal
-	// 	float3 normal = normalize(mul(normalMap, texSpace));
-	// normal map calculation end
+	float3 normal = CalculateNormalMap(NormalTexture.Sample(NormalSampler, input.TexCoord).xyz, input.normal, input.tangent);
 
 	float ndl = max(0.1f, dot(normal, L));
 	float ndv = max(0.0f, dot(normal, V));

@@ -18,7 +18,9 @@
 #include <vector>
 #undef SDL_HAS_VULKAN 
 #include <SDL_syswm.h>
-#include "Editor/Editor.hpp"
+#ifndef NEDITOR
+#   include "Editor/Editor.hpp"
+#endif
 #include "Engine.hpp"
 #include <format>
 #include <string>
@@ -141,6 +143,7 @@ DXDevice* Engine::GetDevice() { return Device; }
 DXDeviceContext* Engine::GetDeviceContext() { return DeviceContext; }
 SDL_Window* Engine::GetWindow() { return window; };
 
+#ifndef NEDITOR
 void MainWindow()
 {
     ImGui::Begin("Settings");
@@ -169,6 +172,7 @@ void MainWindow()
         ECS::SceneManager::GetCurrentScene()->UpdateEditor();
     }
 }
+#endif
 
 int main(int, char**)
 {
@@ -189,12 +193,14 @@ int main(int, char**)
 
     InitScene();    //Initialize our scene
 
+#ifndef NEDITOR
     // init imgui
     Editor::Initialize(window, Device, DeviceContext);
     Editor::DarkTheme();
 
     Editor::AddOnEditor(MainWindow);
-    
+#endif
+
     SceneManager::LoadNewScene();
 
     firstEntity = new Entity();
@@ -207,6 +213,7 @@ int main(int, char**)
     cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
     cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
 
+#ifndef NEDITOR
     renderTexture = new RenderTexture(Width, Height, MSAASamples, true);
     Editor::GameViewWindow::GetData().texture = renderTexture->textureView;
 
@@ -223,10 +230,12 @@ int main(int, char**)
             freeCamera->UpdateProjection(freeCamera->aspectRatio);
             renderTexture->Invalidate((int)w, (int)h);
         });
+#endif
 
     // Main loop
     bool done = false;
     float lastTime = 0;
+    
     while (!done)
     {
         SDL_Event event;
@@ -237,7 +246,9 @@ int main(int, char**)
 
 		while (SDL_PollEvent(&event))
         {
+#ifndef NEDITOR
             ImGui_ImplSDL2_ProcessEvent(&event);
+#endif
             SceneManager::GetCurrentScene()->ProceedEvent(&event);
             freeCamera->Update(DeltaTime);
 
@@ -331,18 +342,16 @@ void CreateRenderTarget()
 
     DeviceContext->RSSetViewports(1, &ViewPort);
 
-    static bool firstTime = true;
-
 #ifndef NEDITOR
+    static bool firstTime = true;
     if (!firstTime)
     {
         ImGuiViewport* imViewport = ImGui::GetMainViewport();
         imViewport->Size.x = depthDesc.Width;
         imViewport->Size.x = depthDesc.Height;
     }
-#endif
-
     firstTime = false;
+#endif
 }
 
 
@@ -556,22 +565,23 @@ void DrawTerrain()
 {
     Terrain::BindShader();
 
-    cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-1500, 0, -2100) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
+    cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -1100) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
 
     DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-    cbGlobalData.additionalData = Terrain::GetTerrainScale();
+    cbGlobalData.additionalData = Terrain::GetTextureScale();
     DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
 
     DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
-    DeviceContext->RSSetState(rasterizerState);
+	DeviceContext->RSSetState(rasterizerState);
 
     Terrain::Draw();
 }
 
 void DrawScene()
 {
+#ifndef NEDITOR
     float oldViewPortW = ViewPort.Width, oldViewPortH = ViewPort.Height;
 
     auto& gameVindowdata = Editor::GameViewWindow::GetData();
@@ -579,24 +589,28 @@ void DrawScene()
     ViewPort.Height = gameVindowdata.WindowScale.y;
 
     DeviceContext->RSSetViewports(1, &ViewPort);
+    renderTexture->SetBlendState();
+#endif
 
     //Clear our backbuffer
     float bgColor[4] = { .4, .4, .7, 1.0f };
-    DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);
+    DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);    
     DeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-    renderTexture->SetBlendState();
-    // rendering to back buffer here
-    // mesh->Draw(DeviceContext);
 
+#ifdef NEDITOR
+    // rendering to back buffer here
+    mesh->Draw(DeviceContext);
+#else
     // rendering to texture Here
     renderTexture->ClearRenderTarget(bgColor);
     renderTexture->SetAsRendererTarget();
-
+#endif
 	DeviceContext->RSSetState(rasterizerState);
+
 	mesh->Draw(DeviceContext);
 
 	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
-    
+
     DrawTerrain();
 	
 	// set default render buffers again
@@ -604,15 +618,19 @@ void DrawScene()
 	DeviceContext->RSSetState(rasterizerState);
 
 	DeviceContext->IASetInputLayout(vertLayout);
+    DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
+#ifndef NEDITOR
     ViewPort.Width = oldViewPortW; ViewPort.Height = oldViewPortH;
     DeviceContext->RSSetViewports(1, &ViewPort);
-	DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+#endif
 
 	shader->Bind();
 
+#ifndef NEDITOR
 	// Draw Imgui
     Editor::Render();
+#endif
 
     //Present the backbuffer to the screen
     SwapChain->Present(1, 0);

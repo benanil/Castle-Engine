@@ -17,7 +17,6 @@ cbuffer cbGlobal : register(b2)
 struct VS_OUTPUT 
 {
 	float4 Pos : SV_POSITION;
-	float height : HEIGHT;
 	float3 normal : NORMAL;
 	float3 vertexPos : TEXCOORD;
 };
@@ -28,33 +27,35 @@ SamplerState textureSampler : register(s0);
 Texture2D grassTexture : register(t1);
 SamplerState grassSampler : register(s1);
 
-VS_OUTPUT VS(float4 Pos : POSITION, float height : HEIGHT, float3 normal : NORMAL)
+VS_OUTPUT VS(float4 Pos : POSITION, float4 normal : NORMAL)
 {
 	VS_OUTPUT o;
 	o.Pos = mul(Pos, MVP);
-	o.height = height;
-	o.normal = normal;
+	o.normal = normal.xyz;
 	o.vertexPos = Pos.xyz;
 	return o;
 }
 
 float4 PS(VS_OUTPUT input) : SV_Target
 {
-	float4 result = float4(0, 0, 0, 1); 
+	float4 result = float4(1, 1, 1, 1); 
 
 	if (input.vertexPos.y < -13)
 	{
 		// terrain level is low use dirt texture
 		result = terrainTexture.Sample(textureSampler, input.vertexPos.xz * (textureScale * 0.4f));	
+		// 
+		float ndl = max(dot(input.normal, float3(sin(0.2f), cos(0.2f), 0)), 0.16f);
+		result.xyz *= ndl;
 	}
 	else
 	{
 		// use grass texture
 		result = grassTexture.Sample(grassSampler, input.vertexPos.xz * (textureScale * 0.1f));	
+		// 
+		float ndl = max(dot(input.normal, float3(sin(0.2f), cos(0.2f), 0)), 0.16f);
+		result.xyz *= ndl;	
 	}
-	
-	float ndl = max(dot(input.normal, float3(sin(0.2f), cos(0.2f), 0)), 0.16f);
-	result.xyz *= ndl;	
 	
 	return result;
 }

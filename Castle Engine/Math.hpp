@@ -12,9 +12,20 @@
 #define DX_PI 3.1415f
 #define DX_TWO_PI 6.2831f
 
+#define GLM_GET_XY(vec) vec.x, vec.y
 #define GLM_GET_XYZ(vec) vec.x, vec.y, vec.z 
+
+#define GLM_SET_XY(vec, _x, _y) vec.x = _x; vec.y = _y; 
+#define GLM_SET_XYZ(vec, _x, _y, _z) vec.x = _x; vec.y = _y; vec.z = _y;
+
 #define DX_INLINE [[nodiscard]] __forceinline 
 
+DX_INLINE bool Approximately(float a, float b)
+{
+	return std::abs(a - b) < 0.1f;
+}
+
+// XMMATH
 typedef XMVECTORF32 xmVector;
 typedef XMMATRIX xmMatrix;
 typedef XMVECTORF32 xmQuaternion;
@@ -44,39 +55,6 @@ DX_INLINE float& XMSETW(xmVector& vector) noexcept { return vector.f[3]; }
 
 DX_INLINE float XM_RadToDeg(const float& radians) NELAMBDAR(radians* DX_RAD_TO_DEG)
 DX_INLINE float XM_DegToRad(const float& degree)  NELAMBDAR(degree* DX_DEG_TO_RAD)
-
-// xmath euler
-// DX_INLINE void XM_DegToRad(const xmVector& radians, xmVector& degree) noexcept
-// {
-// 	degree.f[0] = XMGETX(radians) * DX_DEG_TO_RAD;
-// 	degree.f[1] = XMGETY(radians) * DX_DEG_TO_RAD;
-// 	degree.f[2] = XMGETZ(radians) * DX_DEG_TO_RAD;
-// }
-// 
-// DX_INLINE void XM_RadToDeg(const xmVector& radians, xmVector& degree) noexcept
-// {
-// 	degree.f[0] = XMGETX(radians) * DX_RAD_TO_DEG;
-// 	degree.f[1] = XMGETY(radians) * DX_RAD_TO_DEG;
-// 	degree.f[2] = XMGETZ(radians) * DX_RAD_TO_DEG;
-// }
-// 
-// DX_INLINE xmVector XM_DegToRad(const xmVector& radians) noexcept
-// {
-// 	xmVector degree{};
-// 	degree.f[0] = XMGETX(radians) * DX_DEG_TO_RAD;
-// 	degree.f[1] = XMGETY(radians) * DX_DEG_TO_RAD;
-// 	degree.f[2] = XMGETZ(radians) * DX_DEG_TO_RAD;
-// 	return std::move(degree);
-// }
-// 
-// DX_INLINE xmVector XM_RadToDeg(const xmVector& radians) noexcept
-// {
-// 	xmVector degree{};
-// 	degree.f[0] = XMGETX(radians) * DX_RAD_TO_DEG;
-// 	degree.f[1] = XMGETY(radians) * DX_RAD_TO_DEG;
-// 	degree.f[2] = XMGETZ(radians) * DX_RAD_TO_DEG;
-// 	return std::move(degree);
-// }
 
 // GLM EULER
 

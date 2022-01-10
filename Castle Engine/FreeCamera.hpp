@@ -68,7 +68,7 @@ public:
 	{
 		uint32_t mouseState = SDL_GetMouseState(nullptr, nullptr);
 
-		float velocity = speed * (SDL_GetModState() & KMOD_LSHIFT) ? 4.0f : 1.0f;
+		float velocity = speed * (SDL_GetModState() & KMOD_LSHIFT) ? 8.0f : 2.0f;
 
 		POINT mousePos;
 		GetCursorPos(&mousePos);

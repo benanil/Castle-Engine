@@ -2,42 +2,55 @@
 #include "../Engine.hpp"
 #include "Shader.hpp"
 
-struct __declspec(align(32)) TerrainVertex
-{
-	glm::vec3 pos;
-	float height;
-	glm::vec3 normal;
-	
-	static DXInputLayout* GetLayout(DXBlob* VS_Buffer)
-	{
-		DXInputLayout* vertLayout;
-		
-		D3D11_INPUT_ELEMENT_DESC layout[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "HEIGHT"  , 0, DXGI_FORMAT_R32_FLOAT      , 0, 12 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 16 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		};
-		
-		auto device = Engine::GetDevice();
-		device->CreateInputLayout(layout, 3, VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
-		return vertLayout;
-	}
-};
-
 namespace Terrain
 {
-	constexpr uint16_t t_width = 100;
-	constexpr uint16_t t_height = 100;
-	constexpr uint16_t t_vertexCount = (t_width + 1) * (t_height + 1);
-	constexpr uint16_t t_indexCount   = t_width * t_height * 6;
+	struct __declspec(align(32)) TerrainVertex
+	{
+		union
+		{
+			glm::vec3 pos;
+			float padding;
+			struct { XMVECTOR posvec; };
+		};
 
+		union
+		{
+			glm::vec3 normal;
+			float padding1;
+			struct { XMVECTOR normvec; };
+		};
+
+		static DXInputLayout* GetLayout(DXBlob* VS_Buffer)
+		{
+			DXInputLayout* vertLayout;
+			
+			D3D11_INPUT_ELEMENT_DESC layout[] =
+			{
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
+				{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 16 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			};
+			
+			auto device = Engine::GetDevice();
+			device->CreateInputLayout(layout, 2, VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
+			return vertLayout;
+		}
+	};
+	
+	enum class TerrainEdge : uint16_t 
+	{
+		NONE   = 0x00000000,
+		XMinus = 0x00000001, // <- 
+		XPlus  = 0x00000002, // ->
+		ZMinus = 0x00000004, // up
+		ZPlus  = 0x00000008  // down
+	};
+	
 	void Initialize();
 
 	void Draw();
 	void Dispose();
 	void OnEditor();
 
-	float GetTerrainScale();
+	float GetTextureScale();
 	void BindShader();
 }
