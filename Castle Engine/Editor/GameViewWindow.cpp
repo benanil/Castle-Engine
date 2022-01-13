@@ -1,6 +1,7 @@
 #include "Editor.hpp"
 #include "../Main/Event.hpp"
 #include "../Engine.hpp"
+#include "../External/ImGuizmo.h"
 #ifndef NEDITOR
 
 namespace Editor
@@ -23,7 +24,8 @@ namespace Editor
 		void Draw()
 		{
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
-			ImGui::Begin("Game Window", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+			static const int flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground;
+			ImGui::Begin("Game Window", nullptr, flags);
 			
 			data.Hovered = ImGui::IsWindowHovered();
 			data.Focused = ImGui::IsWindowFocused();
@@ -35,14 +37,39 @@ namespace Editor
 				data.PanelPosition.x != newPosition.x || data.PanelPosition.y != newPosition.y)
 			{
 				Engine::AddEndOfFrameEvent(ChangeScale);
-				
 			}
+
 			static bool first = true;
 			
 			if (!first)
 			{
 				ImGui::Image(data.texture, data.WindowScale);
 			}
+			
+			ImGuizmo::BeginFrame();
+
+			if (ImGui::IsWindowHovered() || ImGui::IsWindowFocused())
+			{
+				static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
+
+				if (Engine::GetKeyDown(SDLK_q)) operation = ImGuizmo::OPERATION::ROTATE;
+				if (Engine::GetKeyDown(SDLK_w)) operation = ImGuizmo::OPERATION::TRANSLATE;
+				if (Engine::GetKeyDown(SDLK_r)) operation = ImGuizmo::OPERATION::SCALE;
+
+				ImVec2 panelSize = ImGui::GetContentRegionAvail();
+				ImGuizmo::Enable(true);
+				ImGuizmo::SetOrthographic(false);
+				ImGuizmo::SetDrawlist();
+				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, panelSize.x, panelSize.y);
+
+				ImGuizmo::Manipulate(data.view, data.projection, operation, ImGuizmo::MODE::LOCAL, data.matrix);
+
+				if (ImGuizmo::IsUsing())
+				{
+					data.OnManipulated(data.matrix);
+				}
+			}
+
 			first = false;
 	
 			ImGui::End();
