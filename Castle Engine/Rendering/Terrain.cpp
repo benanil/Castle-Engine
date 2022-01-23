@@ -46,11 +46,6 @@ namespace Terrain
 	float GetTerrainScale() { return textureScale;  };
 	void BindShader() { shader->Bind(); };
 	
-	std::array<uint32_t, WidthSize > XMinusIndices; 
-	std::array<uint32_t, WidthSize > XPlusIndices ;
-	std::array<uint32_t, HeightSize> ZMinusIndices; 
-	std::array<uint32_t, HeightSize> ZPlusIndices ;
-	
 	const uint32_t* GetEdgeIndices(TerrainEdge edgeFlags);
 	void GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset);
 	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise,  glm::vec2 pos);
@@ -63,12 +58,6 @@ float Terrain::GetTextureScale() { return textureScale; }
 
 void Terrain::Initialize()
 {
-	for (uint32_t i = 0; i < t_width + 1; i++) XMinusIndices[i] = i;
-	for (uint32_t i = leftUpper, j = 0; i < t_vertexCount; i++, j++) XPlusIndices[j] = i;   
-	
-	for (uint32_t i = 0       , j = 0; j < ZMinusIndices.size(); i += t_width  + 1 , j++) ZMinusIndices[j] = i;
-	for (uint32_t i = t_height, j = 0; j < ZPlusIndices.size() ; i += t_height + 1 , j++) ZPlusIndices [j] = i;
-	
 	shader = new Shader("Terrain.hlsl", "Terrain.hlsl");
 	grassTexture = new Texture("Textures/Grass00seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
 	dirtTexture = new Texture("Textures/Dirt00seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
