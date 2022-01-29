@@ -147,17 +147,6 @@ void Terrain::CreateChunk(
 	CalculateNormals(vertices, indices);
 }
 
-const uint32_t* Terrain::GetEdgeIndices(TerrainEdge edgeFlags) 
-{
-	switch (edgeFlags)
-	{
-		case TerrainEdge::XMinus: return XMinusIndices.data();
-		case TerrainEdge::XPlus : return XPlusIndices .data();
-		case TerrainEdge::ZMinus: return ZMinusIndices.data();
-		case TerrainEdge::ZPlus : return ZPlusIndices .data();
-		default: assert(1, "terrain edge flag is wrong!"); return nullptr;
-	}
-}
 
 void Terrain::GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset)
 {
