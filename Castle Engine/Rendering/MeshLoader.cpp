@@ -41,7 +41,7 @@ namespace MeshLoader
 		{
 			whiteTexture = new Texture("Textures/dark_texture.png");
 			blackTexture = new Texture("Textures/default texture.png");
-			flatNormalTexture = new Texture("Textures/flat normal.jpg");
+			flatNormalTexture = new Texture("Textures/flat_normal_texture.png");
 			firstImport = false;
 		}
 

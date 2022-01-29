@@ -1,5 +1,5 @@
 #pragma once
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "../Engine.hpp"
 #include <cassert>
 #include <D3DX11.h>

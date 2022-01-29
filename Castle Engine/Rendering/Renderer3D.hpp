@@ -1,5 +1,5 @@
 #pragma once
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 
 namespace Renderer3D
 {

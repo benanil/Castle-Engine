@@ -8,7 +8,7 @@
 #include "../Main/Event.hpp"
 #include <iostream>
 #include <functional>
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "../Main/Event.hpp"
 
 typedef void(*FileCallback)(const char* ptr);

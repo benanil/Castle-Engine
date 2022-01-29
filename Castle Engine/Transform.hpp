@@ -1,5 +1,5 @@
 #pragma once
-#include "Helper.hpp"
+#include "Rendering.hpp"
 #include <glm/glm.hpp>
 #include "Main/Event.hpp"
 

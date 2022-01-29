@@ -1,4 +1,4 @@
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "../Engine.hpp"
 #include "Shader.hpp"
 
@@ -34,15 +34,6 @@ namespace Terrain
 			device->CreateInputLayout(layout, 2, VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
 			return vertLayout;
 		}
-	};
-	
-	enum class TerrainEdge : uint16_t 
-	{
-		NONE   = 0x00000000,
-		XMinus = 0x00000001, // <- 
-		XPlus  = 0x00000002, // ->
-		ZMinus = 0x00000004, // up
-		ZPlus  = 0x00000008  // down
 	};
 	
 	void Initialize();

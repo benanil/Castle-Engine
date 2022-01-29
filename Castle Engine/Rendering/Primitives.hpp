@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "../Engine.hpp"
 #include <stdexcept>
 	

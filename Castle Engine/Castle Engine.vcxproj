@@ -178,6 +178,7 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Main\Event.cpp" />
     <ClCompile Include="Editor\GUI.cpp" />
+    <ClCompile Include="Rendering\ComputeShader.cpp" />
     <ClCompile Include="Rendering\MeshLoader.cpp" />
     <ClCompile Include="Rendering\Pipeline.cpp" />
     <ClCompile Include="Rendering\AssetManager.cpp" />
@@ -199,9 +200,9 @@
     <ClInclude Include="Editor\Editor.hpp" />
     <ClInclude Include="FreeCamera.hpp" />
     <ClInclude Include="Math.hpp" />
-    <ClInclude Include="Helper.hpp" />
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
+    <ClInclude Include="Rendering\ComputeShader.hpp" />
     <ClInclude Include="Rendering\FrameBuffer.hpp" />
     <ClInclude Include="Rendering\Material.hpp" />
     <ClInclude Include="Rendering\Pipeline.hpp" />
@@ -210,6 +211,7 @@
     <ClInclude Include="Rendering\MeshRenderer.hpp" />
     <ClInclude Include="Rendering\Primitives.hpp" />
     <ClInclude Include="Rendering\Renderer3D.hpp" />
+    <ClInclude Include="Rendering.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
     <ClInclude Include="Rendering\Skybox.hpp" />
     <ClInclude Include="Rendering\Texture.hpp" />

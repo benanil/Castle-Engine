@@ -1,5 +1,5 @@
 #pragma once
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "Shader.hpp"
 #include "RenderTexture.hpp"
 #include "../Engine.hpp"

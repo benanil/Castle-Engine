@@ -1,7 +1,7 @@
 
 
 #pragma once
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "../Main/Event.hpp"
 
 typedef Func<std::function<void(DXShaderResourceView*)>, DXShaderResourceView*> OnTextureChanged;

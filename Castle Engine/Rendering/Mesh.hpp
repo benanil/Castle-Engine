@@ -5,7 +5,7 @@
 #include <assimp/postprocess.h> 
 #include <glm/glm.hpp>
 #include <cstdint>
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "../Engine.hpp"
 #include <array>
 #include <utility>

@@ -5,7 +5,6 @@
 
 #include <windows.h>
 #include <d3dx11.h>
-#include "helper.hpp"
 #include <D3DX10.h>
 #include <cassert>
 
@@ -24,12 +23,14 @@
 #include "Engine.hpp"
 #include <format>
 #include <string>
+#include "Rendering.hpp"
 #include "Rendering/Mesh.hpp"
 #include "Rendering/Texture.hpp"
 #include "Rendering/Shader.hpp"
 #include "Rendering/Pipeline.hpp"
 #include "Rendering/Skybox.hpp"
 #include "Rendering/Terrain.hpp"
+#include "Rendering/ComputeShader.hpp"
 #include "ECS/ECS.hpp"
 #include "Transform.hpp"
 #include "FreeCamera.hpp"
@@ -97,6 +98,8 @@ std::map<int, bool> mouse;
 SDL_Cursor* cursor;
 float TimeSinceStartup;
 float DeltaTime;
+
+ComputeShader* computeShader;
 }
 
 // ---TIME--
@@ -123,6 +126,7 @@ void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
     if (FAILED(hr))
     {
         std::string description = std::string("UNKNOWN ERROR!\n") + std::string(file) + " at line: " + std::to_string(line);
+        std::cout << description << "hresult is: " << hr << std::endl;
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
     }
@@ -132,8 +136,8 @@ void Engine::DirectXCheck(const HRESULT& hr, const char* message, const int line
 {
     if (FAILED(hr))
     {
-        std::cout << "hresult is: " << hr << std::endl;
         std::string description = std::string(message) + std::string(file) + " at line: " + std::to_string(line);
+        std::cout << description << "hresult is: " << hr << std::endl;
         SDL_ShowSimpleMessageBox(SDL_MessageBoxFlags::SDL_MESSAGEBOX_ERROR, "DX ERROR!", description.c_str(), window);
         assert(1);
     }
@@ -212,6 +216,40 @@ int main(int, char**)
 
     cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
     cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
+
+    computeShader = new ComputeShader("PostProcessing.hlsl","CS", 2, 2);
+    
+    {
+    void* startData = malloc(sizeof(glm::ivec2) * 16 * 16);
+
+    glm::ivec2* strtivec = reinterpret_cast<glm::ivec2*>(startData);
+
+    for (size_t x = 0; x < 16; ++x) {
+        for (size_t y = 0; y < 16; ++y) {
+            strtivec[x * 16 + y].x = 1;
+            strtivec[x * 16 + y].y = 1;
+        }
+    }
+
+    CS::CreationResult dataCreateRes = computeShader->RWCreateUAVBuffer(sizeof(glm::ivec2), 16 * 16, startData);
+    computeShader->Dispatch();
+    
+    CS::BufferMappingResult mapResult = computeShader->RWMapUAVBuffer(dataCreateRes, D3D11_MAP_READ);
+    
+        glm::ivec2* data = reinterpret_cast<glm::ivec2*>(mapResult.data);
+        for (size_t x = 0; x < 16; ++x) {
+            for (size_t y = 0; y < 16; ++y) {
+                std::cout << " " << data[x * 16 + y].x << data[x * 16 + y].y;
+            }
+            std::cout << std::endl;
+        }    
+        std::cout << std::endl;
+
+    computeShader->RWUnmapUAVBuffer(mapResult.mOutputDebugBuffer);
+    free(startData);
+    }
+
+    shader->Bind();
 
 #ifndef NEDITOR
     renderTexture = new RenderTexture(Width, Height, MSAASamples, true);
@@ -528,7 +566,7 @@ bool InitScene()
     //Set the Viewport
     DeviceContext->RSSetViewports(1, &ViewPort);
 
-    mesh = MeshLoader::LoadMesh("Models/sponza.obj");
+    mesh = MeshLoader::LoadMesh("Models/gltfs/GltfCube.gltf");
     mesh->SetEntity(firstEntity);
 
 	skybox = new Skybox(10, 10, MSAASamples);

@@ -46,7 +46,6 @@ namespace Terrain
 	float GetTerrainScale() { return textureScale;  };
 	void BindShader() { shader->Bind(); };
 	
-	const uint32_t* GetEdgeIndices(TerrainEdge edgeFlags);
 	void GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset);
 	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise,  glm::vec2 pos);
 	void CalculateNormals(TerrainVertex* vertices, const uint32_t* indices);
@@ -59,8 +58,8 @@ float Terrain::GetTextureScale() { return textureScale; }
 void Terrain::Initialize()
 {
 	shader = new Shader("Terrain.hlsl", "Terrain.hlsl");
-	grassTexture = new Texture("Textures/Grass00seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
-	dirtTexture = new Texture("Textures/Dirt00seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
+	grassTexture = new Texture("Textures/grass_seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
+	dirtTexture = new Texture("Textures/dirt_texture.png", D3D11_TEXTURE_ADDRESS_MIRROR);
 	
 	inputLayout = TerrainVertex::GetLayout(shader->VS_Buffer);
 	d3d11DevCon = Engine::GetDeviceContext();
@@ -156,7 +155,6 @@ void Terrain::GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm:
 
 void Terrain::Create()
 {
-#define DX_CREATE_VERTEX_INDEX_BUFFERS(vertBuff, indBuff) CSCreateVertexIndexBuffers<TerrainVertex, uint32_t>(Engine::GetDevice(), Engine::GetDeviceContext(), vertices, indices, t_vertexCount, t_indexCount, vertBuff, indBuff);
 	Dispose();
 	
 	TerrainVertex vertices[t_vertexCount];
@@ -184,7 +182,9 @@ void Terrain::Create()
 		{
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
-			DX_CREATE_VERTEX_INDEX_BUFFERS(&vertexBuffers[i], &indexBuffers[i]);
+			
+			CSCreateVertexIndexBuffers<TerrainVertex, uint32_t>(Engine::GetDevice(), Engine::GetDeviceContext(), vertices, indices, 
+				t_vertexCount, t_indexCount, &vertexBuffers[i], &indexBuffers[i]);
 		}
 	}
 }

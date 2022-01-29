@@ -1,25 +1,9 @@
 
 
-Texture2D _texture;
-SamplerState _sampler;
+RWStructuredBuffer<int2> TestRW;
 
-struct VS_Output
-{  
-	float4 Pos : SV_POSITION;              
-	float2 Tex : TEXCOORD0;
-};
-
-VS_Output VS(uint id : SV_VertexID)
+[numthreads(8,8, 1)]
+void CS(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-	VS_Output Output;
-	
-	Output.Tex = float2((id << 1) & 2, id & 2);
-	Output.Pos = float4(Output.Tex * float2(2,-2) + float2(-1,1), 0, 1);
-	
-	return Output;
+	TestRW[dispatchThreadID.x * 16 + dispatchThreadID.y] += 1;
 }
-
-float4 PS(VS_Output input) : SV_TARGET
-{
-	return _texture.Sample(_sampler, input.Tex);
-}	

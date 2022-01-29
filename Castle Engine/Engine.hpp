@@ -1,5 +1,5 @@
 #pragma once
-#include "Helper.hpp"
+#include "Rendering.hpp"
 #include <SDL.h>
 #include "Main/Event.hpp"
 

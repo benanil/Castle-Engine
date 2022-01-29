@@ -1,5 +1,5 @@
 #pragma once
-#include "../Helper.hpp"
+#include "../Rendering.hpp"
 #include "Texture.hpp"
 #include "../Engine.hpp"
 #ifndef NEDITOR

@@ -90,14 +90,14 @@
     <ClCompile Include="Rendering\Renderer3D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Rendering\ComputeShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Helper.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Editor\Editor.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -171,6 +171,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\Renderer3D.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\ComputeShader.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
