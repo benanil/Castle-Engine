@@ -88,7 +88,7 @@ public:
 		Engine::SetCursor(cursor);
 		
 		POINT dir{};
-		dir.x = oldPos.x - mousePos.x;
+		dir.x = mousePos.x - oldPos.x;
 		dir.y = oldPos.y - mousePos.y;
 		
 		if (dir.x + dir.y < 150)
@@ -108,8 +108,8 @@ public:
 
 		if (Engine::GetKeyDown(SDLK_w)) transform.position += transform.GetForward() * velocity;
 		if (Engine::GetKeyDown(SDLK_s)) transform.position -= transform.GetForward() * velocity;
-		if (Engine::GetKeyDown(SDLK_d)) transform.position += transform.GetRight() * velocity; 
-		if (Engine::GetKeyDown(SDLK_a)) transform.position -= transform.GetRight() * velocity; 
+		if (Engine::GetKeyDown(SDLK_d)) transform.position -= transform.GetRight() * velocity; 
+		if (Engine::GetKeyDown(SDLK_a)) transform.position += transform.GetRight() * velocity; 
 		if (Engine::GetKeyDown(SDLK_q)) transform.position -= transform.GetUP() * velocity;    
 		if (Engine::GetKeyDown(SDLK_e)) transform.position += transform.GetUP() * velocity;    
 

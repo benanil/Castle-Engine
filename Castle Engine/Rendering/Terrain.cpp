@@ -8,6 +8,7 @@
 #include "spdlog/spdlog.h"
 #include "FastSIMD/FastSIMD.h"
 #include "FastNoise/FastNoise.h"
+#include "Renderer3D.hpp"
 #include <cassert>
 #include <algorithm>
 #include <chrono>
@@ -57,7 +58,7 @@ float Terrain::GetTextureScale() { return textureScale; }
 
 void Terrain::Initialize()
 {
-	shader = new Shader("Terrain.hlsl", "Terrain.hlsl");
+	shader = new Shader("Shaders/Terrain.hlsl\0");
 	grassTexture = new Texture("Textures/grass_seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
 	dirtTexture = new Texture("Textures/dirt_texture.png", D3D11_TEXTURE_ADDRESS_MIRROR);
 	
@@ -183,7 +184,7 @@ void Terrain::Create()
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
 			
-			CSCreateVertexIndexBuffers<TerrainVertex, uint32_t>(Engine::GetDevice(), Engine::GetDeviceContext(), vertices, indices, 
+			CSCreateVertexIndexBuffers<TerrainVertex, uint32_t>(Engine::GetDevice(), vertices, indices, 
 				t_vertexCount, t_indexCount, &vertexBuffers[i], &indexBuffers[i]);
 		}
 	}

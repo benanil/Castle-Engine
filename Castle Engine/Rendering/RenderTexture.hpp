@@ -16,6 +16,7 @@ public:
 	DXTexture2D* depthStencilBuffer;
 	OnTextureChanged OnSizeChanged;
 	DXBlendState* blendState;
+	DXTexSampler* sampler;
 	UINT sampleCount;
 private:
 	DXDeviceContext* deviceContext;
@@ -23,7 +24,8 @@ private:
 	bool depth;
 	DXGI_FORMAT format;
 public:
-	RenderTexture(const int& width, const int& height, const UINT& sampleCount, const bool& createDepth = true, DXGI_FORMAT format = DXGI_FORMAT_R16G16B16A16_FLOAT);
+	RenderTexture() {};
+	RenderTexture(const int& width, const int& height, const UINT& sampleCount, const bool& createDepth = true, DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM);
 	~RenderTexture() { Release(); }
 	void Invalidate(const int&, const int&);
 	void Release();

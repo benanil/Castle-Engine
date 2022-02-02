@@ -40,7 +40,6 @@ static const wchar_t* GetWC(const char* c)
 template<typename VertexT, typename IndexT>
 static inline void CSCreateVertexIndexBuffers(
 	DXDevice* d3d11Device,
-	DXDeviceContext* d3d11DevCon,
 	const VertexT* vertices,
 	const IndexT* indices,
 	uint16_t vertexCount, uint16_t indexCount,
@@ -88,6 +87,20 @@ void inline DrawIndexed32(DrawIndexedInfo* drawInfo)
 {
 	drawInfo->d3d11DevCon->IASetInputLayout(drawInfo->vertexLayout);
 	drawInfo->d3d11DevCon->IASetIndexBuffer(drawInfo->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	// draw skybox sphere
+	UINT stride = sizeof(TVertex);
+	UINT offset = 0;
+	drawInfo->d3d11DevCon->IASetVertexBuffers(0, 1, &drawInfo->vertexBuffer, &stride, &offset);
+
+	drawInfo->d3d11DevCon->DrawIndexed(drawInfo->indexCount, 0, 0);
+}
+
+template<typename TVertex>
+void inline DrawIndexed16(DrawIndexedInfo* drawInfo)
+{
+	drawInfo->d3d11DevCon->IASetInputLayout(drawInfo->vertexLayout);
+	drawInfo->d3d11DevCon->IASetIndexBuffer(drawInfo->indexBuffer, DXGI_FORMAT_R16_UINT, 0);
 
 	// draw skybox sphere
 	UINT stride = sizeof(TVertex);

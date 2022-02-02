@@ -24,6 +24,7 @@
 #include <format>
 #include <string>
 #include "Rendering.hpp"
+#include "Rendering/Renderer3D.hpp"
 #include "Rendering/Mesh.hpp"
 #include "Rendering/Texture.hpp"
 #include "Rendering/Shader.hpp"
@@ -50,56 +51,54 @@ void DrawScene();
 
 namespace 
 {
-//Global Declarations - Interfaces//
-IDXGISwapChain* SwapChain;
-DXDevice* Device;
-DXDeviceContext* DeviceContext;
+    //Global Declarations - Interfaces//
+    IDXGISwapChain* SwapChain;
+    DXDevice* Device;
+    DXDeviceContext* DeviceContext;
 
-// pipeline
-DXRenderTargetView* renderTargetView;
-DXDepthStencilView* depthStencilView;
-DXTexture2D* depthStencilBuffer;
-DXRasterizerState* rasterizerState;
-DXRasterizerState* WireframeRasterizerState;
+    // pipeline
+    DXRenderTargetView* renderTargetView;
+    DXDepthStencilView* depthStencilView;
+    DXTexture2D* depthStencilBuffer;
+    DXRasterizerState* rasterizerState;
+    DXRasterizerState* WireframeRasterizerState;
 
-DXInputLayout* vertLayout;
-D3D11_VIEWPORT ViewPort;
+    DXInputLayout* vertLayout;
+    D3D11_VIEWPORT ViewPort;
 
-// constant buffer
-cbGlobal cbGlobalData;
-cbPerObject cbPerObj;
+    // constant buffer
+    cbGlobal cbGlobalData;
+    cbPerObject cbPerObj;
 
-DXBuffer* constantBuffer;
-DXBuffer* uniformGlobalBuffer;
+    DXBuffer* constantBuffer;
+    DXBuffer* uniformGlobalBuffer;
 
-//Global Declarations - Others//
-SDL_Window* window;
-LPCTSTR WndClassName = L"firstwindow";
-HWND hwnd = NULL;
-HRESULT hr;
+    //Global Declarations - Others//
+    SDL_Window* window;
+    HWND hwnd = NULL;
+    HRESULT hr;
 
-const int Width = 1000;
-const int Height = 800;
+    const int Width = 1000;
+    const int Height = 800;
 
-MeshRenderer* mesh;
-Entity* firstEntity;
-FreeCamera* freeCamera;
-Shader* shader;
-// Pipeline* ScreenPipeline;
-RenderTexture* renderTexture;
-Skybox* skybox;
+    MeshRenderer* mesh;
+    Entity* firstEntity;
+    FreeCamera* freeCamera;
+    Shader* shader;
+    // Pipeline* ScreenPipeline;
+    RenderTexture* renderTexture;
+    Skybox* skybox;
 
-Event EndOfFrameEvents;
+    Event EndOfFrameEvents;
+    Func<Changed2i, int, int> ScreenScaleChanged;
 
-UINT MSAASamples;
+    UINT MSAASamples;
 
-std::map<int, bool> keyboard;
-std::map<int, bool> mouse;
-SDL_Cursor* cursor;
-float TimeSinceStartup;
-float DeltaTime;
-
-ComputeShader* computeShader;
+    std::map<int, bool> keyboard;
+    std::map<int, bool> mouse;
+    SDL_Cursor* cursor;
+    float TimeSinceStartup;
+    float DeltaTime;
 }
 
 // ---TIME--
@@ -119,6 +118,11 @@ SDL_Cursor* Engine::GetCursor() LAMBDAR(cursor);
 void Engine::AddEndOfFrameEvent(const Action& act)
 {
     EndOfFrameEvents.Add(act);
+}
+
+void Engine::AddWindowScaleEvent(const Changed2i& act)
+{
+    ScreenScaleChanged.Add(act);
 }
 
 void Engine::DirectXCheck(const HRESULT& hr, const int line, const char* file)
@@ -217,57 +221,27 @@ int main(int, char**)
     cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
     cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
 
-    computeShader = new ComputeShader("PostProcessing.hlsl","CS", 2, 2);
-    
-    {
-    void* startData = malloc(sizeof(glm::ivec2) * 16 * 16);
-
-    glm::ivec2* strtivec = reinterpret_cast<glm::ivec2*>(startData);
-
-    for (size_t x = 0; x < 16; ++x) {
-        for (size_t y = 0; y < 16; ++y) {
-            strtivec[x * 16 + y].x = 1;
-            strtivec[x * 16 + y].y = 1;
-        }
-    }
-
-    CS::CreationResult dataCreateRes = computeShader->RWCreateUAVBuffer(sizeof(glm::ivec2), 16 * 16, startData);
-    computeShader->Dispatch();
-    
-    CS::BufferMappingResult mapResult = computeShader->RWMapUAVBuffer(dataCreateRes, D3D11_MAP_READ);
-    
-        glm::ivec2* data = reinterpret_cast<glm::ivec2*>(mapResult.data);
-        for (size_t x = 0; x < 16; ++x) {
-            for (size_t y = 0; y < 16; ++y) {
-                std::cout << " " << data[x * 16 + y].x << data[x * 16 + y].y;
-            }
-            std::cout << std::endl;
-        }    
-        std::cout << std::endl;
-
-    computeShader->RWUnmapUAVBuffer(mapResult.mOutputDebugBuffer);
-    free(startData);
-    }
+    Renderer3D::Initialize(Device, DeviceContext, MSAASamples);
 
     shader->Bind();
 
-#ifndef NEDITOR
     renderTexture = new RenderTexture(Width, Height, MSAASamples, true);
-    Editor::GameViewWindow::GetData().texture = renderTexture->textureView;
+#ifndef NEDITOR
+    Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
 
     renderTexture->OnSizeChanged.Add([](DXShaderResourceView* texture)
-        {
-            Editor::GameViewWindow::GetData().texture = texture;
-        });
+    {
+        Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
+    });
 
     auto& viewWindowdata = Editor::GameViewWindow::GetData();
 
     viewWindowdata.OnScaleChanged.Add([](const float& w, const float& h)
-        {
-            freeCamera->aspectRatio = w / h;
-            freeCamera->UpdateProjection(freeCamera->aspectRatio);
-            renderTexture->Invalidate((int)w, (int)h);
-        });
+    {
+        freeCamera->aspectRatio = w / h;
+        freeCamera->UpdateProjection(freeCamera->aspectRatio);
+        renderTexture->Invalidate((int)w, (int)h);
+    });
 #endif
 
     // Main loop
@@ -331,7 +305,7 @@ void CreateRenderTarget()
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthDesc.SampleDesc.Count = MSAASamples;
+    depthDesc.SampleDesc.Count = std::max(MSAASamples, 1u);
     depthDesc.SampleDesc.Quality = MSAASamples;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
@@ -353,7 +327,11 @@ void CreateRenderTarget()
     BackBuffer->GetDesc(&backDesc);
 
     rtvDesc.Format = backDesc.Format;
-    rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+#ifndef NEDITOR
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+#else
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+#endif
 
     //Create our Render Target
     Device->CreateRenderTargetView(BackBuffer, &rtvDesc, &renderTargetView);
@@ -380,6 +358,10 @@ void CreateRenderTarget()
 
     DeviceContext->RSSetViewports(1, &ViewPort);
 
+    if (renderTexture)
+    renderTexture->Invalidate(depthDesc.Width, depthDesc.Height);
+    ScreenScaleChanged(depthDesc.Width, depthDesc.Height);
+
 #ifndef NEDITOR
     static bool firstTime = true;
     if (!firstTime)
@@ -402,14 +384,19 @@ void CleanupRenderTarget()
 
 bool InitializeDirect3d11App()
 {
-    UINT creationFlags = D3D11_CREATE_DEVICE_DEBUG;
+    UINT creationFlags =
+#ifndef NEDITOR
+        D3D11_CREATE_DEVICE_DEBUG; // todo make 0 after development
+#else
+        D3D11_CREATE_DEVICE_DEBUG ;
+#endif
 
     DX_CHECK(
     D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL, D3D11_SDK_VERSION, &Device, NULL, &DeviceContext),
     "Device Creation Failed!")
 
 #ifndef NEDITOR
-    MSAASamples = 2;
+    MSAASamples = 0;
 #else
     // Determine maximum supported MSAA level.
     for (MSAASamples = 16; MSAASamples > 1; MSAASamples >>= 1) {
@@ -447,7 +434,7 @@ bool InitializeDirect3d11App()
     DX_CREATE(DXGI_SWAP_CHAIN_DESC, swapChainDesc);
 
     swapChainDesc.BufferDesc = bufferDesc;
-    swapChainDesc.SampleDesc.Count = MSAASamples;
+    swapChainDesc.SampleDesc.Count = std::max(MSAASamples, 1u);
     swapChainDesc.SampleDesc.Quality = MSAASamples;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.BufferCount = 1;
@@ -488,7 +475,7 @@ void CleanUp()
 bool InitScene()
 {
     //Compile Shaders from shader file
-    shader = new Shader("First.hlsl\0", "First.hlsl\0");
+    shader = new Shader("Shaders/First.hlsl\0");
 
     //Set Vertex and Pixel Shaders
     shader->Bind();
@@ -528,7 +515,14 @@ bool InitScene()
     DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 
     //Create the Input Layout & Set the Input Layout
-    vertLayout = Vertex::GetLayout(shader->VS_Buffer);
+	std::vector<InputLayoutCreateInfo> vertexLayoutInfos = 
+	{
+		{ "POSITION", DXGI_FORMAT_R32G32B32_FLOAT},
+		{ "NORMAL"  , DXGI_FORMAT_R32G32B32_FLOAT},
+		{ "TEXCOORD", DXGI_FORMAT_R32G32_FLOAT   },
+		{ "TANGENT" , DXGI_FORMAT_R32G32B32_FLOAT}
+	};
+    vertLayout = Renderer3D::CreateVertexInputLayout(vertexLayoutInfos, shader->VS_Buffer);
     DeviceContext->IASetInputLayout(vertLayout);
 
     //Set Primitive Topology
@@ -566,7 +560,7 @@ bool InitScene()
     //Set the Viewport
     DeviceContext->RSSetViewports(1, &ViewPort);
 
-    mesh = MeshLoader::LoadMesh("Models/gltfs/GltfCube.gltf");
+    mesh = MeshLoader::LoadMesh("Models/sponza.obj");
     mesh->SetEntity(firstEntity);
 
 	skybox = new Skybox(10, 10, MSAASamples);
@@ -635,28 +629,34 @@ void DrawScene()
     DeviceContext->ClearRenderTargetView(renderTargetView, bgColor);    
     DeviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-#ifdef NEDITOR
-    // rendering to back buffer here
-    mesh->Draw(DeviceContext);
-#else
     // rendering to texture Here
     renderTexture->ClearRenderTarget(bgColor);
     renderTexture->SetAsRendererTarget();
-#endif
-	DeviceContext->RSSetState(rasterizerState);
+	
+    DeviceContext->RSSetState(rasterizerState);
 
+    // todo render multiple meshes
 	mesh->Draw(DeviceContext);
 
 	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
 
     DrawTerrain();
-	
-	// set default render buffers again
-	DeviceContext->OMSetDepthStencilState(nullptr, 0);
-	DeviceContext->RSSetState(rasterizerState);
 
-	DeviceContext->IASetInputLayout(vertLayout);
+#ifndef NEDITOR
+	Renderer3D::PostProcessing(renderTexture->textureView, renderTexture->sampler, false);
+#endif
+
     DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+
+#ifdef NEDITOR
+	Renderer3D::PostProcessing(renderTexture->textureView, renderTexture->sampler, true);
+#endif
+    // set default render buffers again
+    DeviceContext->OMSetDepthStencilState(nullptr, 0);
+    DeviceContext->RSSetState(rasterizerState);
+
+    DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
+	DeviceContext->IASetInputLayout(vertLayout);
 
 #ifndef NEDITOR
     ViewPort.Width = oldViewPortW; ViewPort.Height = oldViewPortH;

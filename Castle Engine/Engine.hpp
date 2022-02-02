@@ -21,6 +21,7 @@ namespace Engine
 	SDL_Window* GetWindow();
 
 	void AddEndOfFrameEvent(const Action& act);
+	void AddWindowScaleEvent(const Changed2i& act);
 
 	bool GetKeyDown(int keycode);
 	bool GetKeyUp  (int keycode);

@@ -24,55 +24,17 @@ public:
 	DXBlob* PS_Buffer ;
 
 public:
-	Shader() {};
 
 	std::string ReadAllText(const std::string& filePath);
 
+	Shader() {};
+	Shader(const char* path) 
+	{
+		Load(path, path, "VS", "PS");
+	}
 	Shader(const char* vertPath, const char* PSPath, const char* vertName = "VS", const char* PSName = "PS")
 	{
-		Profiles profiles = GetLatestProfiles();
-		
-		DXDevice* device = Engine::GetDevice();
-		d3d11DevCon = Engine::GetDeviceContext();
-
-		std::string vertexShader   = ReadAllText(std::string(vertPath));
-		std::string fragmentShader = ReadAllText(std::string(PSPath));
-
-		DXBlob* vertexErrorBlob, *fragErrorBlob;
-
-		if (FAILED(
-			D3DCompile(vertexShader.c_str(), vertexShader.size(), nullptr,
-				nullptr, nullptr, "VS", profiles.vertex, 0, 0, &VS_Buffer, &vertexErrorBlob)))
-		{
-			std::cout << "Vertex Shader Compiling Error:\n" << ((char*)vertexErrorBlob->GetBufferPointer()) << std::endl;
-			DX_CHECK(-1, "Vertex Shader Compiling Error")
-		}
-
-		HRESULT hr = device->CreateVertexShader(VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), NULL, &VS);
-
-		if (hr != S_OK) {
-			std::cout << "vertex Shader compiling error!\n hresult: " << hr << std::endl;
-			DX_CHECK(-1, "vertex Shader Compiling Error ")
-		}
-
-		DX_RELEASE(vertexErrorBlob);
-
-		if (FAILED(
-			D3DCompile(fragmentShader.c_str(), fragmentShader.size(), nullptr,
-				nullptr, nullptr, "PS", profiles.frag, 0, 0, &PS_Buffer, &fragErrorBlob)))
-		{
-			std::cout << "pixel Shader Compiling Error:\n" << ((char*)fragErrorBlob->GetBufferPointer()) << std::endl;
-			DX_CHECK(-1, "pixel Shader Compiling Error")
-		}
-	
-		hr = device->CreatePixelShader(PS_Buffer->GetBufferPointer(), PS_Buffer->GetBufferSize(), NULL, &PS);
-		
-		if (hr != S_OK) {
-			std::cout << "Pixel Shader compiling error!\n hresult: " << hr << std::endl;
-			DX_CHECK(-1, "pixel Shader Compiling Error ")
-		}
-
-		DX_RELEASE(fragErrorBlob);
+		Load(vertPath, PSPath, vertName, PSName);
 	}
 
 	void Bind()
@@ -98,6 +60,59 @@ public:
 private:
 
 	DXDeviceContext* d3d11DevCon;
+
+	void Load(const char* vertPath, const char* PSPath, const char* vertName = "VS", const char* PSName = "PS")
+	{
+		Profiles profiles = GetLatestProfiles();
+		
+		DXDevice* device = Engine::GetDevice();
+		d3d11DevCon = Engine::GetDeviceContext();
+		
+		std::string vertexShader   = ReadAllText(std::string(vertPath));
+		std::string fragmentShader = ReadAllText(std::string(PSPath));
+		
+		DXBlob* vertexErrorBlob, *fragErrorBlob;
+		
+		D3D_SHADER_MACRO shaderMacros {};
+#ifdef  DEBUG
+		shaderMacros.Definition = "DEBUG";
+		shaderMacros.Name = "DEBUG";
+#endif //  DEBUG
+
+		if (FAILED(
+			D3DCompile(vertexShader.c_str(), vertexShader.size(), nullptr,
+			&shaderMacros, nullptr, "VS", profiles.vertex, 0, 0, &VS_Buffer, &vertexErrorBlob)))
+		{
+			std::cout << "Vertex Shader Compiling Error:\n" << ((char*)vertexErrorBlob->GetBufferPointer()) << std::endl;
+			DX_CHECK(-1, "Vertex Shader Compiling Error")
+		}
+		
+		HRESULT hr = device->CreateVertexShader(VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), NULL, &VS);
+		
+		if (hr != S_OK) {
+			std::cout << "vertex Shader compiling error!\n hresult: " << hr << std::endl;
+			DX_CHECK(-1, "vertex Shader Compiling Error ")
+		}
+		
+		DX_RELEASE(vertexErrorBlob);
+		
+		if (FAILED(
+			D3DCompile(fragmentShader.c_str(), fragmentShader.size(), nullptr,
+			&shaderMacros, nullptr, "PS", profiles.frag, 0, 0, &PS_Buffer, &fragErrorBlob)))
+		{
+			std::cout << "pixel Shader Compiling Error:\n" << ((char*)fragErrorBlob->GetBufferPointer()) << std::endl;
+			DX_CHECK(-1, "pixel Shader Compiling Error")
+		}
+		
+		hr = device->CreatePixelShader(PS_Buffer->GetBufferPointer(), PS_Buffer->GetBufferSize(), NULL, &PS);
+		
+		if (hr != S_OK) {
+			std::cout << "Pixel Shader compiling error!\n hresult: " << hr << std::endl;
+			DX_CHECK(-1, "pixel Shader Compiling Error ")
+		}
+		
+		DX_RELEASE(fragErrorBlob);
+	}
 
 	static Profiles GetLatestProfiles()
 	{

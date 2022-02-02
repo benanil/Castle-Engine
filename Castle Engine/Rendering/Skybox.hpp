@@ -1,5 +1,6 @@
 #pragma once
 #include "../Rendering.hpp"
+#include "Renderer3D.hpp"
 #include <vector>
 #include "Shader.hpp"
 #include "Mesh.hpp"
@@ -14,20 +15,6 @@ private:
 	struct SkyboxVertex
 	{
 		glm::vec3 pos;
-		
-		static DXInputLayout* GetLayout(DXBlob* VS_Buffer)
-		{
-			DXInputLayout* vertLayout;
-			
-			D3D11_INPUT_ELEMENT_DESC layout[] =
-			{
-				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			};
-			
-			auto device = Engine::GetDevice();
-			device->CreateInputLayout(layout, 1, VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
-			return vertLayout;
-		}
 	};
 
 	Shader shader;
@@ -45,19 +32,20 @@ private:
 	DXInputLayout* vertexLayout;
 
 public:
-	Skybox(uint8_t LatLines, uint8_t LongLines, uint8_t samples) : shader(Shader("Skybox.hlsl\0", "Skybox.hlsl\0"))
+	Skybox(uint8_t LatLines, uint8_t LongLines, uint8_t samples) : shader(Shader("Shaders/Skybox.hlsl\0"))
 	{
 		mesh = CSCreateSphereVertexIndices(LatLines, LongLines);
 		
 		auto d3d11DevCon = Engine::GetDeviceContext();
 		auto d3d11Device = Engine::GetDevice();
 		
-		CSCreateVertexIndexBuffers<SkyboxVertex, uint32_t>(
-			d3d11Device, d3d11DevCon, 
+		CSCreateVertexIndexBuffers<SkyboxVertex, uint32_t>(d3d11Device,  
 			reinterpret_cast<SkyboxVertex*>(mesh->vertices), mesh->indices,
 			mesh->vertexCount, mesh->indexCount, &vertexBuffer, &indexBuffer);
 
-		vertexLayout = SkyboxVertex::GetLayout(shader.VS_Buffer);
+		std::vector<InputLayoutCreateInfo> vertexLayoutInfos = { { "POSITION", DXGI_FORMAT_R32G32B32_FLOAT } };
+			
+		vertexLayout = Renderer3D::CreateVertexInputLayout(vertexLayoutInfos, shader.VS_Buffer);
 
 		// loading cubemap
 		D3DX11_IMAGE_LOAD_INFO loadSMInfo;

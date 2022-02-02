@@ -7,8 +7,8 @@ cbuffer cbPerObject : register(b0)
 
 struct SKYMAP_VS_OUTPUT 
 {
-	float4 Pos : SV_POSITION;
-	float3 texCoord : TEXCOORD;
+	float4 Pos 	    : SV_POSITION;
+	float3 texCoord : TEXCOORD   ;
 };
 
 SKYMAP_VS_OUTPUT VS(float3 inPos : POSITION)

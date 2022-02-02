@@ -59,7 +59,7 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	textureDesc.MipLevels = 1;
 	textureDesc.ArraySize = 1;
 	textureDesc.Format = format;
-	textureDesc.SampleDesc.Count = sampleCount;
+	textureDesc.SampleDesc.Count = std::max(sampleCount, 1u);
 	textureDesc.SampleDesc.Quality = sampleCount;
 	textureDesc.Usage = D3D11_USAGE_DEFAULT;
 	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
@@ -68,10 +68,22 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	
 	DX_CHECK(
 	device->CreateTexture2D(&textureDesc, NULL, &texture), "render texture creation failed!" );
+
+	DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
+	
+	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;    
+	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+	sampDesc.MinLOD = 0;
+	sampDesc.MaxLOD = 1;
+	device->CreateSamplerState( &sampDesc, &sampler);
 	
 	D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc{};
 	renderTargetViewDesc.Format = textureDesc.Format;
-	renderTargetViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+	renderTargetViewDesc.ViewDimension = sampleCount > 1 ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+
 	renderTargetViewDesc.Texture2D.MipSlice = 0;
 	
 	DX_CHECK(
@@ -79,13 +91,13 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	
 	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResViewDesc{};
 	shaderResViewDesc.Format = textureDesc.Format;
-	shaderResViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DMS;
+	shaderResViewDesc.ViewDimension = sampleCount > 1 ? D3D11_SRV_DIMENSION_TEXTURE2DMS : D3D11_SRV_DIMENSION_TEXTURE2D;
 	shaderResViewDesc.Texture2D.MostDetailedMip = 0;
 	shaderResViewDesc.Texture2D.MipLevels = 1;
 	
 	DX_CHECK(
 	device->CreateShaderResourceView(texture, &shaderResViewDesc, &textureView), "render target view creation failed!");
-	
+
 	if (depth)
 	{
 		DX_CREATE(D3D11_TEXTURE2D_DESC, depthDesc)
@@ -94,7 +106,7 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 		depthDesc.MipLevels = 1;
 		depthDesc.ArraySize = 1;
 		depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		depthDesc.SampleDesc.Count = sampleCount;
+		depthDesc.SampleDesc.Count = std::max(sampleCount, 1u);
 		depthDesc.SampleDesc.Quality = sampleCount;
 		depthDesc.Usage = D3D11_USAGE_DEFAULT;
 		depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;

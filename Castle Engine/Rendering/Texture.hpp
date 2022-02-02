@@ -11,6 +11,7 @@ public:
 	D3D11_TEXTURE_ADDRESS_MODE  wrapMode;
 	const char* wrapName;
 	char* path;
+	unsigned int width, height;
 public:
 	Texture(const char* _path, D3D11_TEXTURE_ADDRESS_MODE _wrapMode = D3D11_TEXTURE_ADDRESS_WRAP) 
 	: wrapMode(_wrapMode), path(const_cast<char*>(_path))
@@ -75,10 +76,14 @@ private:
 	void Load(const wchar_t* _path)
 	{
 		auto device = Engine::GetDevice();
-
+		
+		D3DX11_IMAGE_LOAD_INFO loadInfo;
 		DX_CHECK(
-			D3DX11CreateShaderResourceViewFromFile(device, _path, NULL, NULL,
+			D3DX11CreateShaderResourceViewFromFile(device, _path, &loadInfo, NULL,
 					&resourceView, NULL), path)
+
+		width = loadInfo.Width;
+		height = loadInfo.Height;
 
 		DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
 		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
