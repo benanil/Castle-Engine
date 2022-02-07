@@ -45,6 +45,7 @@ struct SubMesh
 	
 	DXGI_FORMAT indiceFormat = DXGI_FORMAT_R32_UINT;
 	SubMesh(){};
+	~SubMesh() { Dispose(); };
 	SubMesh(const aiMesh& aimesh) : name(aimesh.mName.C_Str())
 	{			
 		vertexCount = aimesh.mNumVertices;
@@ -136,7 +137,7 @@ struct SubMesh
 	
 	void Dispose()
 	{
-		DX_RELEASE(indexBuffer)
-		DX_RELEASE(vertexBuffer)
+		// DX_RELEASE(indexBuffer)
+		// DX_RELEASE(vertexBuffer)
 	}
 };

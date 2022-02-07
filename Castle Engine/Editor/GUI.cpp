@@ -13,7 +13,7 @@ namespace Editor
 		ImGui::GetFont()->FontSize -= 3;
 	}
 
-	void GUI::TextureField(const char* name, const int& texture)
+	void GUI::TextureField(const char* name, DXShaderResourceView* texture)
 	{
 		ImGui::Text(name);
 		ImGui::SameLine();
@@ -22,17 +22,7 @@ namespace Editor
 		DropUIElementString("Texture", callback);
 	}
 
-	void GUI::TextureField(const char* name, DXShaderResourceView* texture)
-	{
-		ImGui::Text(name);
-		ImGui::SameLine();
-		ImGui::Image(texture, { filesize, filesize }, { 0, 1 }, { 1, 0 });
-		
-		FileCallback callback = [](const char* ptr){};
-		DropUIElementString("Texture", callback);
-	}
-	
-	bool GUI::ImageButton(const unsigned int& texture, const float& size)
+	bool GUI::ImageButton(DXShaderResourceView* texture, const float& size)
 	{
 		return ImGui::ImageButton((void*)texture, { size , size }, { 1, 0 }, { 0, 1 });
 	}
@@ -76,12 +66,12 @@ namespace Editor
 		}
 	}
 
-	bool GUI::DragUIElementString(const char* file, const char* type, const unsigned int& texture)
+	bool GUI::DragUIElementString(const char* file, const char* type, DXShaderResourceView* texture)
 	{
 		if (ImGui::IsItemFocused() && ImGui::IsAnyMouseDown() && ImGui::BeginDragDropSource())
 		{
-			ImGui::SetDragDropPayload(type, file, strlen(file));
-			if (texture != -1)
+			ImGui::SetDragDropPayload(type, file, strlen(file)+1);
+			if (texture != nullptr)
 			{
 				ImGui::Image((void*)texture, { filesize, filesize }, { 0, 1 }, { 1, 0 });
 			}
@@ -106,12 +96,12 @@ namespace Editor
 	}
 
 	template<typename T>
-	inline bool GUI::DragUIElement(const char* file, const T& type, const unsigned int& texture)
+	inline bool GUI::DragUIElement(const T* file, const char* type, DXShaderResourceView* texture)
 	{
 		if (ImGui::IsItemFocused() && ImGui::IsAnyMouseDown() && ImGui::BeginDragDropSource())
 		{
 			ImGui::SetDragDropPayload(type, file, sizeof(T));
-			if (texture != -1)
+			if (texture != nullptr)
 			{
 				ImGui::Image((void*)texture, { filesize, filesize }, { 0, 1 }, { 1, 0 });
 			}

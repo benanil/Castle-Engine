@@ -25,6 +25,8 @@ class Func
 {
 public:
 	std::vector<act> actions;
+	Func() { }
+	Func(const act& _act) { actions.push_back(_act); }
 	void Add(const act& func) { actions.push_back(func); };
 
 	void Invoke(const args&... _args) const

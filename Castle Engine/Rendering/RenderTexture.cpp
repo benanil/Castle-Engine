@@ -5,8 +5,8 @@ RenderTexture::RenderTexture(
 	const int& textureWidth, 
 	const int& textureHeight,
 	const UINT& _sampleCount,
-	const bool& createDepth,
-	DXGI_FORMAT _format) : depth(createDepth), sampleCount(_sampleCount), format(_format)
+	RenderTextureCreateFlags _flags,
+	DXGI_FORMAT _format) : flags(_flags), sampleCount(_sampleCount), format(_format), width(textureWidth), height(textureHeight)
 {
 	deviceContext = Engine::GetDeviceContext();
 	device        = Engine::GetDevice();
@@ -38,7 +38,7 @@ void RenderTexture::ClearRenderTarget(const float* colour)
 	// Clear the back buffer.
 	deviceContext->ClearRenderTargetView(renderTargetView, colour);
 	// clear depth buffer
-	if (depth)
+	if (HasFlag(flags, RenderTextureCreateFlags::Depth))
 	deviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0.0f);
 }
 
@@ -48,8 +48,10 @@ void RenderTexture::SetBlendState()
 	deviceContext->OMSetBlendState(blendState, blend_factor, 0xffffffff);
 }
 
-void RenderTexture::Invalidate(const int& width, const int& height)
+void RenderTexture::Invalidate(int _width, int _height)
 {
+	width = std::max(_width, 1);
+	height = std::max(_height, 1);
 	Release();
 
 	DX_CREATE(D3D11_TEXTURE2D_DESC, textureDesc)
@@ -66,14 +68,20 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	textureDesc.CPUAccessFlags = 0;
 	textureDesc.MiscFlags = 0;
 	
+	if (HasFlag(flags, RenderTextureCreateFlags::UAV)){
+		textureDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
+	} 
+
 	DX_CHECK(
 	device->CreateTexture2D(&textureDesc, NULL, &texture), "render texture creation failed!" );
 
 	DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
 	
-	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	D3D11_FILTER filterMode = HasFlag(flags, RenderTextureCreateFlags::Linear)
+								? D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
+	sampDesc.Filter = filterMode;
 	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;    
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
 	sampDesc.MinLOD = 0;
@@ -98,7 +106,7 @@ void RenderTexture::Invalidate(const int& width, const int& height)
 	DX_CHECK(
 	device->CreateShaderResourceView(texture, &shaderResViewDesc, &textureView), "render target view creation failed!");
 
-	if (depth)
+	if (HasFlag(flags, RenderTextureCreateFlags::Depth))
 	{
 		DX_CREATE(D3D11_TEXTURE2D_DESC, depthDesc)
 		depthDesc.Width = width;
@@ -130,5 +138,7 @@ void RenderTexture::Release()
 	DX_RELEASE(renderTargetView) 
 	DX_RELEASE(depthStencilView)
 	DX_RELEASE(depthStencilBuffer)
+	DX_RELEASE(blendState)
+	DX_RELEASE(sampler)
 }
 

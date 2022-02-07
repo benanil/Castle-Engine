@@ -49,6 +49,7 @@ public:
 #endif
 	void Draw(DXDeviceContext* deviceContext)
 	{
+		Engine::SetModelMatrix(entity->transform->GetMatrix());
 		for (uint16_t i = 0; i < subMeshCount; i++)
 		{
 			materials[std::min<uint16_t>(subMeshes[i].materialIndex, materials.size() - 1)]->Bind();

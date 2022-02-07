@@ -181,28 +181,30 @@ TextureCreateResult ComputeShader::RWCreateUAVTexture(uint32_t width, uint32_t h
 	vinitData.pSysMem = pixels;
 	D3D11_SUBRESOURCE_DATA* p_vinitData = pixels ? &vinitData : nullptr;
 
-	if (FAILED(device->CreateTexture2D(&textureDesc, p_vinitData, &texture))) {
-		std::cout << "RWUAV texture creation failed!" << std::endl;
-	}
+	HRESULT hr = device->CreateTexture2D(&textureDesc, p_vinitData, &texture);
+	// if (FAILED(device->CreateTexture2D(&textureDesc, p_vinitData, &texture))) {
+	// 	std::cout << "RWUAV texture creation failed!" << std::endl;
+	// }
 	DX_CREATE(D3D11_SHADER_RESOURCE_VIEW_DESC, srvDesc);
 	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = 1;
 	ID3D11ShaderResourceView* mOutputTexSRV;
-	if (FAILED(device->CreateShaderResourceView(texture, &srvDesc, &mOutputTexSRV))) {
-		std::cout << "RWUAV texture resource view creation failed!" << std::endl;
-	}
+	hr = device->CreateShaderResourceView(texture, &srvDesc, &mOutputTexSRV);
+	// if (FAILED(device->CreateShaderResourceView(texture, &srvDesc, &mOutputTexSRV))) {
+	// 	std::cout << "RWUAV texture resource view creation failed!" << std::endl;
+	// }
 	
 	DX_CREATE(D3D11_UNORDERED_ACCESS_VIEW_DESC, uavDesc);
 	uavDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Texture2D.MipSlice = 0;
 	ID3D11UnorderedAccessView* mOutputTexUAV;
-
-	if (FAILED(device->CreateUnorderedAccessView(texture, &uavDesc, &mOutputTexUAV))) {
-		std::cout << "RWUAV texture UAV creation failed!" << std::endl;
-	}
+	hr = device->CreateUnorderedAccessView(texture, &uavDesc, &mOutputTexUAV);
+	// if (FAILED(device->CreateUnorderedAccessView(texture, &uavDesc, &mOutputTexUAV))) {
+	// 	std::cout << "RWUAV texture UAV creation failed!" << std::endl;
+	// }
 
 	TextureCreateResult result{ mOutputTexSRV, UAVs.size() , width, height};
 	Textures.push_back(texture);
@@ -238,10 +240,19 @@ TextureMappingResult ComputeShader::RWMapUAVTexture(const TextureCreateResult& t
 	}
 	CS::TextureMappingResult result{};
 	if (!FAILED(d3d11DevCon->Map(mOutputDebugBuffer, 0, mappingMode, 0, &mappedData)))
+
 	{
 		result.data = mappedData.pData;
 	}
 	result.mOutputDebugBuffer = mOutputDebugBuffer;
+	return result;
+}
+
+TextureCreateResult ComputeShader::RWAddAsUAVTexture(const RenderTexture* texture)
+{
+	ID3D11UnorderedAccessView* mOutputTexUAV = CreateUAVFromResourceView(texture->textureView);
+	TextureCreateResult result{ texture->textureView, UAVs.size() , texture->width, texture->height };
+	UAVs.push_back(mOutputTexUAV);
 	return result;
 }
 
@@ -251,6 +262,20 @@ TextureCreateResult ComputeShader::RWAddAsUAVTexture(const Texture& texture)
 	TextureCreateResult result{ texture.resourceView, UAVs.size() , texture.width, texture.height };
 	UAVs.push_back(mOutputTexUAV);
 	return result;
+}
+ 
+void ComputeShader::RWSetUAVTexture(unsigned int uavIndex, const Texture& texture)
+{
+	ID3D11UnorderedAccessView* mOutputTexUAV = CreateUAVFromResourceView(texture.resourceView);
+	DX_RELEASE(UAVs[uavIndex]);
+	UAVs[uavIndex] = mOutputTexUAV;
+}
+
+void ComputeShader::RWSetUAVTexture(unsigned int uavIndex, const RenderTexture* texture)
+{
+	ID3D11UnorderedAccessView* mOutputTexUAV = CreateUAVFromResourceView(texture->textureView);
+	DX_RELEASE(UAVs[uavIndex]);
+	UAVs[uavIndex] = mOutputTexUAV;
 }
 
 void ComputeShader::RWSetUAVTexture(unsigned int index, ID3D11ShaderResourceView* resourceView)
@@ -272,9 +297,11 @@ ID3D11UnorderedAccessView* ComputeShader::CreateUAVFromResourceView(ID3D11Shader
 	uavDesc.Texture2D.MipSlice = 0;
 	ID3D11Resource* textureBuffer;
 	resourceView->GetResource(&textureBuffer);
-	if (FAILED(device->CreateUnorderedAccessView(textureBuffer, &uavDesc, &result))) {
-		std::cout << "RWUAV texture UAV creation failed!" << std::endl;
-	}
+	HRESULT hr = device->CreateUnorderedAccessView(textureBuffer, &uavDesc, &result);
+	// if (FAILED(device->CreateUnorderedAccessView(textureBuffer, &uavDesc, &result))) {
+	// 	std::cout << "RWUAV texture UAV creation failed!" << std::endl;
+	// }
+	
 	return result;
 }
 

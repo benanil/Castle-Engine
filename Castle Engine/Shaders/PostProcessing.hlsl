@@ -1,22 +1,25 @@
-struct PostProcessVertex 
+struct PostProcessVertex
 {
-	float4 pos : SV_POSITION; 
-	float2 uv  : TEXCOORD   ; 
+	float4 pos   : SV_POSITION;
+	float2 texCoord : TEXCOORD;
 };
 
 #ifdef DEBUG
 //Texture2D _texture ;
 #else
-Texture2D _texture ;
+Texture2D _texture  : register(t0);
+Texture2D _texture1 : register(t1);
 #endif
 SamplerState textureSampler : register(s0);
+SamplerState textureSampler1 : register(s1);
 
 
-PostProcessVertex VS(float4 pos : POSITION, float2 uv  : TEXCOORD)
+PostProcessVertex VS(float4 pos : POSITION, float2 uv : TEXCOORD)
 {
 	PostProcessVertex o;
 	o.pos = pos;
-	o.uv = uv;
+	o.texCoord = uv;
+
 	return o;
 }
 
@@ -70,10 +73,10 @@ float ColTone(in float x, in float4 p)
 float3 AMDTonemapper(float3 color)
 {
 	static const float hdrMax = 16.0; // How much HDR range before clipping. HDR modes likely need this pushed up to say 25.0.
-	static const float contrast = 2.0; // Use as a baseline to tune the amount of contrast the tonemapper has.
+	static const float contrast = 1.8; // Use as a baseline to tune the amount of contrast the tonemapper has.
 	static const float shoulder = 1.0; // Likely don’t need to mess with this factor, unless matching existing tonemapper is not working well..
-	static const float midIn = 0.18; // most games will have a {0.0 to 1.0} range for LDR so midIn should be 0.18.
-	static const float midOut = 0.18; // Use for LDR. For HDR10 10:10:10:2 use maybe 0.18/25.0 to start. For scRGB, I forget what a good starting point is, need to re-calculate.
+	static const float midIn = 0.20; // most games will have a {0.0 to 1.0} range for LDR so midIn should be 0.18.
+	static const float midOut = 0.21; // Use for LDR. For HDR10 10:10:10:2 use maybe 0.18/25.0 to start. For scRGB, I forget what a good starting point is, need to re-calculate.
 
 	const float b = ColToneB(hdrMax, contrast, shoulder, midIn, midOut);
 	const float c = ColToneC(hdrMax, contrast, shoulder, midIn, midOut);
@@ -88,7 +91,7 @@ float3 AMDTonemapper(float3 color)
 
 	// probably want send these pre-computed (so send over saturation/crossSaturation as a constant)
 	static const float crosstalk = 4.0; // controls amount of channel crosstalk
-	static const float saturation = 1.6; // full tonal range saturation control
+	static const float saturation = 1.4; // full tonal range saturation control
 	static const float crossSaturation = contrast * 16.0; // crosstalk saturation
 
 	float white = 1.0;
@@ -148,6 +151,17 @@ float3 Uncharted2Tonemap(in float3 color)
 	return Uncharted2TonemapOp(2.0 * color) / Uncharted2TonemapOp(W);
 }
 
+float3 ApplyGamma(in float3 color)
+{
+	return pow(color.rgb, 1.0f / 1.4f);
+}
+
+float3 Saturation(in float3 In, in float value)
+{
+	float luma = dot(In, float3(0.2126729, 0.7151522, 0.0721750));
+	return luma.xxx + value.xxx * (In - luma.xxx);
+}
+
 //--------------------------------------------------------------------------------------
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 //--------------------------------------------------------------------------------------
@@ -158,17 +172,26 @@ float3 ACESFilm(float3 x)
 	static const float c = 2.43f;
 	static const float d = 0.59f;
 	static const float e = 0.14f;
-	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+	return (x * (a * x + b)) / (x * (c * x + d) + e);
 }
 
-float3 ApplyGamma(in float3 color)
+cbuffer ScreenSizeCB : register(b0)
 {
-	return pow(color.rgb, 1.0f / 1.4f);
-}
+	int2 screenSize; int mode; float saturation;
+};
 
 float4 PS(PostProcessVertex i) : SV_Target
 {
-	float3 tex = AMDTonemapper(_texture.Sample(textureSampler, i.uv).xyz);
-	float3 tonemapped = AMDTonemapper(tex);
-	return float4(tonemapped.x, tonemapped.y, tonemapped.z, 1);
+	float3 color = Saturation(_texture.Sample(textureSampler, i.texCoord).xyz * 0.82, saturation);// Saturation(_texture.Load(int3(i.texCoord.x * screenSize.x, i.texCoord.y * screenSize.y, 0)).xyz * 0.82, saturation);
+	float3 tonemapped = color;
+	switch (mode)
+	{
+		case 0: tonemapped = ACESFilm(color);  			break;
+		case 1: tonemapped = AMDTonemapper(color);  	break;
+		case 2: tonemapped = Uncharted2Tonemap(color);  break;
+		case 3: tonemapped = Reinhard(color);  			break;
+		case 4: tonemapped = DX11DSK(color);  			break;
+	}
+	float4 bloom = _texture1.Sample(textureSampler1, i.texCoord);// _texture1.Load(int3(i.texCoord.x* screenSize.x, i.texCoord.y* screenSize.y, 0)) * 0.2f;
+	return float4(tonemapped.x, tonemapped.y, tonemapped.z, 1) + bloom;
 }

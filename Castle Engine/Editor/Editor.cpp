@@ -16,6 +16,7 @@ namespace Editor
 
         ImGui_ImplSDL2_InitForD3D(window);
         ImGui_ImplDX11_Init(d3d11Device, d3d11DevCon);
+        ResourcesWindow::Initialize();
     }
     
     void AddOnEditor(const Action& action)
@@ -97,6 +98,8 @@ namespace Editor
         }
 
         OnEditor();
+
+        ResourcesWindow::DrawWindow();
 
         ImGui::End();
         ImGui::Render();

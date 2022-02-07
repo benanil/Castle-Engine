@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include "Texture.hpp"
+#include "RenderTexture.hpp"
 #ifdef _MSC_VER
 #pragma comment(lib, "d3dcompiler") // Automatically link with d3dcompiler.lib as we are using D3DCompile() below.
 #endif
@@ -50,6 +51,11 @@ public:
 
 	/// <returns> registered resourceWiew index </returns>
 	CS::TextureCreateResult RWAddAsUAVTexture(const Texture& texture);
+	CS::TextureCreateResult RWAddAsUAVTexture(const RenderTexture* texture);
+
+	void RWSetUAVTexture(unsigned int uavIndex, const Texture& texture);
+	void RWSetUAVTexture(unsigned int uavIndex, const RenderTexture* texture);
+
 	CS::TextureCreateResult RWCreateUAVTexture(unsigned int width, unsigned int height, void* pixels = nullptr, D3D11_MAP mappingMode = (D3D11_MAP)0);
 	// <summary>for accessing texture from cpu </summary>
 	CS::TextureMappingResult RWMapUAVTexture(const CS::TextureCreateResult&, D3D11_MAP mappingMode);

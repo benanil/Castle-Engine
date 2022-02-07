@@ -98,7 +98,7 @@ private:
 		
 		if (FAILED(
 			D3DCompile(fragmentShader.c_str(), fragmentShader.size(), nullptr,
-			&shaderMacros, nullptr, "PS", profiles.frag, 0, 0, &PS_Buffer, &fragErrorBlob)))
+			&shaderMacros, nullptr, PSName, profiles.frag, 0, 0, &PS_Buffer, &fragErrorBlob)))
 		{
 			std::cout << "pixel Shader Compiling Error:\n" << ((char*)fragErrorBlob->GetBufferPointer()) << std::endl;
 			DX_CHECK(-1, "pixel Shader Compiling Error")

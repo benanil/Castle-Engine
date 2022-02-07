@@ -10,6 +10,7 @@
 #include <functional>
 #include "../Rendering.hpp"
 #include "../Main/Event.hpp"
+#include <filesystem>
 
 typedef void(*FileCallback)(const char* ptr);
 
@@ -38,19 +39,19 @@ namespace Editor
 	{
 		void Header(const char* title);
 		void TextureField(const char* name, DXShaderResourceView* texture);
-		void TextureField(const char* name, const int& texture);
-		bool ImageButton(const unsigned int& texture, const float& size = filesize);
+		void TextureField(const char* name, DXShaderResourceView* texture);
+		bool ImageButton(DXShaderResourceView* texture, const float& size = filesize);
 
 		void EnumField(int& value, const char** names, const int& count, const char* label,
 		const Action& onSellect = NULL, const ImGuiComboFlags& flags = 0);
 
 		void RightClickPopUp(const char* name, const TitleAndAction* menuItems, const int& count);
 
-		bool DragUIElementString(const char* file, const char* type, const unsigned int& texture);
+		bool DragUIElementString(const char* file, const char* type, DXShaderResourceView* texture);
 		void DropUIElementString(const char* type, const FileCallback& callback);
 
 		template<typename T>
-		bool DragUIElement(const char* file, const T& type, const unsigned int& texture);
+		bool DragUIElement(const T* file, const char* type, DXShaderResourceView* texture);
 		template<typename T>
 		void DropUIElement(const char* type, const std::function<T>& callback);
 	}
@@ -71,6 +72,13 @@ namespace Editor
 	{
 		void Draw();
 		GameViewWindowData& GetData();
+	}
+
+	namespace ResourcesWindow
+	{
+		std::filesystem::path GetCurrentPath();
+		void Initialize();
+		void DrawWindow();
 	}
 }
 #endif

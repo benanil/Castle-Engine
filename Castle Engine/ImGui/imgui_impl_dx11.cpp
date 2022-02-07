@@ -466,8 +466,8 @@ bool    ImGui_ImplDX11_CreateDeviceObjects()
             \
             float4 main(PS_INPUT input) : SV_Target\
             {\
-            float4 out_col = input.col * texture0.Sample(sampler0, input.uv); \
-            return out_col; \
+            	float4 out_col = input.col * texture0.Sample(sampler0, input.uv); \
+				return out_col; \
             }";
 
         ID3DBlob* pixelShaderBlob;

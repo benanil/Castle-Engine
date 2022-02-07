@@ -34,6 +34,8 @@ namespace Engine
 	// time
 	float GetDeltaTime();
 	float GetTimeSinceStartup();
+	
+	void SetModelMatrix(const XMMATRIX& matrix);
 
 	void DirectXCheck(const HRESULT& hr, const int line, const char* file);
 	void DirectXCheck(const HRESULT& hr, const char* message, const int line, const char* file);

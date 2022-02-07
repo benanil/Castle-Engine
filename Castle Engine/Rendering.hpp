@@ -42,7 +42,7 @@ static inline void CSCreateVertexIndexBuffers(
 	DXDevice* d3d11Device,
 	const VertexT* vertices,
 	const IndexT* indices,
-	uint16_t vertexCount, uint16_t indexCount,
+	uint32_t vertexCount, uint32_t indexCount,
 	DXBuffer** p_vertexBuffer,
 	DXBuffer** p_indexBuffer)
 {

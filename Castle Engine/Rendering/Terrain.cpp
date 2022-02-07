@@ -42,7 +42,7 @@ namespace Terrain
 	float seaLevel = -25;
 	int seed; 
 	bool isPerlin = false;
-	int VerticalChunkCount = 5, HorizontalChunkCount = 5;
+	glm::ivec2 CuhunkSize = {5, 5};
 
 	float GetTerrainScale() { return textureScale;  };
 	void BindShader() { shader->Bind(); };
@@ -87,7 +87,7 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices)
 	{
 		CSTIMER("normal calculation speed: ")
 		//Go through each vertex
-		#pragma omp parallel for collapse(2), shared(vertices, indices) // 4x optimization
+#pragma omp parallel for collapse(2), shared(vertices, indices) // 4x optimization
 		for (int32_t i = 0; i < t_vertexCount; ++i)
 		{
 			uint8_t facesUsing = 0;
@@ -168,18 +168,18 @@ void Terrain::Create()
 	FastNoise::SmartNode<> fnGenerator;
 	
 	if (isPerlin) 
-		 fnGenerator = FastNoise::New<FastNoise::Perlin>();
+		fnGenerator = FastNoise::New<FastNoise::Perlin>();
 	else fnGenerator = FastNoise::NewFromEncodedNodeTree("DQAFAAAAAAAAQAgAAAAAAD8AAAAAAA==");
 	
-	vertexBuffers.resize(VerticalChunkCount * HorizontalChunkCount);
-	indexBuffers.resize (VerticalChunkCount * HorizontalChunkCount);
+	vertexBuffers.resize(CuhunkSize.x * CuhunkSize.y);
+	indexBuffers.resize (CuhunkSize.x * CuhunkSize.y);
 	
-	glm::vec2 startPos    = { -((VerticalChunkCount * t_width) / 2),  -((HorizontalChunkCount * t_height) / 2) };
+	glm::vec2 startPos    = { -((CuhunkSize.x * t_width) / 2),  -((CuhunkSize.y* t_height) / 2) };
 	glm::ivec2 i_startPos = { (int)startPos.x,  (int)startPos.y };
 
-	for (uint8_t x = 0, i = 0; x < HorizontalChunkCount; ++x)
+	for (uint8_t x = 0, i = 0; x < CuhunkSize.y; ++x)
 	{
-		for (uint8_t y = 0; y < VerticalChunkCount; ++y, ++i)
+		for (uint8_t y = 0; y < CuhunkSize.x; ++y, ++i)
 		{
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
@@ -219,10 +219,8 @@ void Terrain::OnEditor()
 	ImGui::DragFloat("height", &height, 0.25f);
 	ImGui::DragInt("Seed", &seed);
 	ImGui::DragFloat("seaLevel", &seaLevel);
-	
-	ImGui::DragInt("VerticalChunkCount", &VerticalChunkCount); 
-	ImGui::SameLine();
-	ImGui::DragInt("HorizontalChunkCount", &HorizontalChunkCount);
+
+	ImGui::DragInt2("ChunkSize", &CuhunkSize.x);
 	ImGui::Checkbox("Perlin?", &isPerlin);
 
 	if (ImGui::Button("Recreate"))

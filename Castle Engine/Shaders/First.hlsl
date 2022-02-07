@@ -42,7 +42,9 @@ SamplerState NormalSampler   : register(s2);
 VS_OUTPUT VS(float4 inPos : POSITION, float2 inTexCoord : TEXCOORD, float4 inNormal : NORMAL, float4 inTangent : TANGENT)
 {
 	VS_OUTPUT output;
-
+	inPos.w = 1;
+	inNormal.w = 0;
+	inTangent.w = 0;
 	output.Pos = mul(inPos, MVP);
 	output.normal = mul(inNormal, Model).xyz;
 	output.TexCoord = inTexCoord;
@@ -113,21 +115,26 @@ float3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in float3
 float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float time)
 {
 	// calculate first light
-	float3 direction = float3(-950, 300, sin(time) * 500) - fragPos;
-	float lightDist = length(direction);
+	
+	if (distance(float3(-950, 300, 0), fragPos) < 250)
+	{
+		return float3(0.32,0.1,0.12) * 6;
+	}
+	// float3 direction = float3(-950, 300, 0) - fragPos;// float3(-950, 300, sin(time) * 500) - fragPos;
+	// float lightDist = length(direction);
+	// 
+	// float diffuseFactor = dot(normal, normalize(direction));
+	// 
+	// float3 firstLight = float3(0.5, 0.3, 0.25) * diffuseFactor * (max(500 - lightDist, 0) / 500);
+	// 
+	// // calculate second light
+	// direction = float3(0, 150, -420) - fragPos; // float3(sin(time * 0.5) * 1000, 150, -420) - fragPos;
+	// lightDist = length(direction);
+	// 
+	// diffuseFactor = dot(normal, normalize(direction));
+	// float3 secondLight = float3(0.25, 0.3, 0.5) * diffuseFactor * (max(500 - lightDist, 0) / 500);
 
-	float diffuseFactor = dot(normal, normalize(direction));
-
-	float3 firstLight = float3(0.5, 0.3, 0.25) * diffuseFactor * (max(500 - lightDist, 0) / 500);
-
-	// calculate second light
-	direction = float3(sin(time) * 1000, 150, -420) - fragPos;
-	lightDist = length(direction);
-
-	diffuseFactor = dot(normal, normalize(direction));
-	float3 secondLight = float3(0.25, 0.3, 0.5) * diffuseFactor * (max(500 - lightDist, 0) / 500);
-
-	return firstLight + secondLight;
+	return float3(0, 0, 0);//firstLight * 10 + secondLight * 10;
 }
 
 float3 CalculateNormalMap(in float3 normalMapSample,

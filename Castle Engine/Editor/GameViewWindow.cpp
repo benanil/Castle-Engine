@@ -1,7 +1,11 @@
 #include "Editor.hpp"
 #include "../Main/Event.hpp"
 #include "../Engine.hpp"
-// #include "../External/ImGuizmo.h"
+#include <filesystem>
+#include "../Rendering/Mesh.hpp"
+#include "../Rendering/Renderer3D.hpp"
+#include "../ECS/ECS.hpp"
+
 #ifndef NEDITOR
 
 namespace Editor
@@ -19,6 +23,18 @@ namespace Editor
 			data.PanelPosition = newPosition;
 			data.WindowScale = newScale;
 			data.OnScaleChanged(newScale.x, newScale.y);
+		}
+
+		void FileCallback(const char* file)
+		{
+			ECS::Entity* entity = new ECS::Entity();
+			ECS::SceneManager::GetCurrentScene()->AddEntity(entity);
+			MeshRenderer* renderer = MeshLoader::LoadMesh(file);
+			Renderer3D::AddMeshRenderer(renderer);
+			renderer->SetEntity(entity);
+			entity->AddComponent((ECS::Component*)renderer);
+			std::cout << "dropped" << std::endl;
+			std::cout << file << std::endl;
 		}
 
 		void Draw()
@@ -44,31 +60,8 @@ namespace Editor
 			if (!first)
 			{
 				ImGui::Image(data.texture, data.WindowScale);
+				GUI::DropUIElementString("MESH", FileCallback);
 			}
-			
-			// ImGuizmo::BeginFrame();
-			// 
-			// if (ImGui::IsWindowHovered() || ImGui::IsWindowFocused())
-			// {
-			// 	static ImGuizmo::OPERATION operation = ImGuizmo::OPERATION::TRANSLATE;
-			// 
-			// 	if (Engine::GetKeyDown(SDLK_q)) operation = ImGuizmo::OPERATION::ROTATE;
-			// 	if (Engine::GetKeyDown(SDLK_w)) operation = ImGuizmo::OPERATION::TRANSLATE;
-			// 	if (Engine::GetKeyDown(SDLK_r)) operation = ImGuizmo::OPERATION::SCALE;
-			// 
-			// 	ImVec2 panelSize = ImGui::GetContentRegionAvail();
-			// 	ImGuizmo::Enable(true);
-			// 	ImGuizmo::SetOrthographic(false);
-			// 	ImGuizmo::SetDrawlist();
-			// 	ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, panelSize.x, panelSize.y);
-			// 
-			// 	ImGuizmo::Manipulate(data.view, data.projection, operation, ImGuizmo::MODE::LOCAL, data.matrix);
-			// 
-			// 	if (ImGuizmo::IsUsing())
-			// 	{
-			// 		data.OnManipulated(data.matrix);
-			// 	}
-			// }
 
 			first = false;
 	

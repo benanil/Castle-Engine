@@ -1,5 +1,6 @@
 #pragma once
 #include "RenderTexture.hpp"
+#include "Mesh.hpp"
 
 struct InputLayoutCreateInfo
 {
@@ -13,6 +14,14 @@ namespace Renderer3D
 	
 	DXInputLayout* CreateVertexInputLayout(std::vector<InputLayoutCreateInfo> infos, DXBlob* VS_Buffer);
 	RenderTexture* GetPostRenderTexture();
+	void WindowScaleEvent(const int& x, const int& y);
+	void AddMeshRenderer(MeshRenderer* meshRenderer);
+	const std::array<RenderTexture*, 6>& GetDownsampleSRV();
+	const std::array<RenderTexture*, 6>& GetUpsampleSRV();
 
+	void RenderMeshes();
+#ifndef NEDITOR
+	void OnEditor();
+#endif
 	void Dispose();
 }

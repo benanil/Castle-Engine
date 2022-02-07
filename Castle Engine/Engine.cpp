@@ -7,6 +7,7 @@
 #include <d3dx11.h>
 #include <D3DX10.h>
 #include <cassert>
+#include <thread>
 
 #include <algorithm>
 #include <utility>
@@ -20,7 +21,6 @@
 #ifndef NEDITOR
 #   include "Editor/Editor.hpp"
 #endif
-#include "Engine.hpp"
 #include <format>
 #include <string>
 #include "Rendering.hpp"
@@ -32,6 +32,8 @@
 #include "Rendering/Skybox.hpp"
 #include "Rendering/Terrain.hpp"
 #include "Rendering/ComputeShader.hpp"
+#include "Timer.hpp"
+#include "Engine.hpp"
 #include "ECS/ECS.hpp"
 #include "Transform.hpp"
 #include "FreeCamera.hpp"
@@ -69,7 +71,7 @@ namespace
     // constant buffer
     cbGlobal cbGlobalData;
     cbPerObject cbPerObj;
-
+	
     DXBuffer* constantBuffer;
     DXBuffer* uniformGlobalBuffer;
 
@@ -166,10 +168,34 @@ void MainWindow()
         ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
     }
 
-	if (ImGui::CollapsingHeader("Terrain"))
-	{
+	if (ImGui::CollapsingHeader("Terrain")) {
 		Terrain::OnEditor();
 	}
+	if (ImGui::CollapsingHeader("PostProcessing")) {
+		Renderer3D::OnEditor();
+	}
+    
+    const std::array<RenderTexture*, 6>& downTextures = Renderer3D::GetDownsampleSRV();
+
+    for (size_t i = 0; i < 6; i++)
+    {
+        float sizeX = 1000 / (1 << i), sizeY = 800 / (1 << i);
+        ImGui::Text(std::to_string(1000 / (1 << i)).c_str());
+        ImGui::SameLine();
+        ImGui::Text(std::to_string(800 / (1 << i)).c_str());
+	    ImGui::Image(downTextures[i]->textureView, { std::min(128.0f, sizeX) , std::min(128.0f, sizeY) });
+    }
+    
+    const std::array<RenderTexture*, 6>& upTextures = Renderer3D::GetDownsampleSRV();
+
+    for (int i = 6 - 1; i >= 0; i--)
+    {
+        float sizeX = 1000 / (1 << i), sizeY = 800 / (1 << i);
+        ImGui::Text(std::to_string((int)sizeX).c_str());
+        ImGui::SameLine();
+        ImGui::Text(std::to_string((int)sizeY).c_str());
+        ImGui::Image(upTextures[i]->textureView, { std::min(128.0f, sizeX) , std::min(128.0f, sizeY)});
+    }
 
     ImGui::End();
 
@@ -184,6 +210,7 @@ void MainWindow()
 
 int main(int, char**)
 {
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         printf("Error: %s\n", SDL_GetError());
         return -1;
@@ -213,26 +240,20 @@ int main(int, char**)
 
     firstEntity = new Entity();
     SceneManager::GetCurrentScene()->AddEntity(firstEntity);
-
+	mesh->SetEntity(firstEntity);
     firstEntity->AddComponent((ECS::Component*)mesh);
-
+    
     freeCamera = new FreeCamera(90, Width / Height, 0.1f, 90'000.0f);
 
     cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
-    cbPerObj.Model = XMMatrixTranspose(XMMatrixIdentity());
+    cbPerObj.Model = firstEntity->transform->GetMatrix();
 
     Renderer3D::Initialize(Device, DeviceContext, MSAASamples);
 
-    shader->Bind();
+    renderTexture = new RenderTexture(Width, Height, MSAASamples, RenderTextureCreateFlags::Depth);
 
-    renderTexture = new RenderTexture(Width, Height, MSAASamples, true);
 #ifndef NEDITOR
     Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
-
-    renderTexture->OnSizeChanged.Add([](DXShaderResourceView* texture)
-    {
-        Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
-    });
 
     auto& viewWindowdata = Editor::GameViewWindow::GetData();
 
@@ -241,6 +262,8 @@ int main(int, char**)
         freeCamera->aspectRatio = w / h;
         freeCamera->UpdateProjection(freeCamera->aspectRatio);
         renderTexture->Invalidate((int)w, (int)h);
+        Renderer3D::WindowScaleEvent((int)w, (int)h);
+        Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
     });
 #endif
 
@@ -299,9 +322,10 @@ int main(int, char**)
     return 0;
 }
 
+D3D11_TEXTURE2D_DESC depthDesc;
 void CreateRenderTarget()
 {
-    D3D11_TEXTURE2D_DESC depthDesc{};
+    memset(&depthDesc, 0, sizeof(D3D11_TEXTURE2D_DESC));
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -340,11 +364,6 @@ void CreateRenderTarget()
     //Set our Render Target
     DeviceContext->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
-    if (freeCamera)
-    {
-        freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
-    }
-
     //Update the Viewport
     memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
 
@@ -357,9 +376,20 @@ void CreateRenderTarget()
     ViewPort.MaxDepth = 1.0f;
 
     DeviceContext->RSSetViewports(1, &ViewPort);
-
+    
+#ifdef NEDITOR
+    if (freeCamera)
+    {
+        freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
+    }
     if (renderTexture)
-    renderTexture->Invalidate(depthDesc.Width, depthDesc.Height);
+    {
+        renderTexture->Invalidate(depthDesc.Width, depthDesc.Height);
+    }
+#else
+	auto& viewWindowdata = Editor::GameViewWindow::GetData();
+	viewWindowdata.OnScaleChanged.Invoke(depthDesc.Width, depthDesc.Height);
+#endif
     ScreenScaleChanged(depthDesc.Width, depthDesc.Height);
 
 #ifndef NEDITOR
@@ -494,7 +524,7 @@ bool InitScene()
     cbUniformDesc.MiscFlags = 0;
 
     Device->CreateBuffer(&cbUniformDesc, NULL, &uniformGlobalBuffer);
-
+	
     // Create Constant Buffer
 
     DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
@@ -562,6 +592,7 @@ bool InitScene()
 
     mesh = MeshLoader::LoadMesh("Models/sponza.obj");
     mesh->SetEntity(firstEntity);
+	Renderer3D::AddMeshRenderer(mesh);
 
 	skybox = new Skybox(10, 10, MSAASamples);
     std::cout << "skybox created" << std::endl;
@@ -573,16 +604,20 @@ bool InitScene()
     return true;
 }
 
+void Engine::SetModelMatrix(const XMMATRIX& matrix)
+{
+	const auto MVP = matrix * freeCamera->ViewProjection;
+	cbPerObj.MVP = XMMatrixTranspose(MVP);
+	cbPerObj.Model = XMMatrixTranspose(matrix);
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+    DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+}
+
 void UpdateScene()
 {
     freeCamera->Update(0.00001f);
 
-    const auto MVP = firstEntity->transform->GetMatrix() * freeCamera->ViewProjection;
-    cbPerObj.MVP = XMMatrixTranspose(MVP);
-    cbPerObj.Model = XMMatrixTranspose(firstEntity->transform->GetMatrix());
-
     cbGlobalData.viewPos = freeCamera->transform.position;
-
     DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
     DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 
@@ -635,8 +670,7 @@ void DrawScene()
 	
     DeviceContext->RSSetState(rasterizerState);
 
-    // todo render multiple meshes
-	mesh->Draw(DeviceContext);
+	Renderer3D::RenderMeshes();
 
 	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
 

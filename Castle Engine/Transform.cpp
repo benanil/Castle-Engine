@@ -23,7 +23,7 @@ namespace ECS
 		
 		XMQuaternionRotationRollPitchYaw(GLM_GET_XYZ(euler));
 
-		matrix = XMMatrixIdentity() * translation * rotation * scaleMat;
+		matrix = XMMatrixIdentity() * rotation * translation * scaleMat;
 		OnTransformChanged();
 	}
 
