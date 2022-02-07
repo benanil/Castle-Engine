@@ -59,7 +59,7 @@ namespace Editor
 			
 			if (!first)
 			{
-				ImGui::Image(data.texture, data.WindowScale);
+				ImGui::Image(data.texture, data.WindowScale, { 1, 1 }, {0, 0});
 				GUI::DropUIElementString("MESH", FileCallback);
 			}
 

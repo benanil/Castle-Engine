@@ -175,28 +175,6 @@ void MainWindow()
 		Renderer3D::OnEditor();
 	}
     
-    const std::array<RenderTexture*, 6>& downTextures = Renderer3D::GetDownsampleSRV();
-
-    for (size_t i = 0; i < 6; i++)
-    {
-        float sizeX = 1000 / (1 << i), sizeY = 800 / (1 << i);
-        ImGui::Text(std::to_string(1000 / (1 << i)).c_str());
-        ImGui::SameLine();
-        ImGui::Text(std::to_string(800 / (1 << i)).c_str());
-	    ImGui::Image(downTextures[i]->textureView, { std::min(128.0f, sizeX) , std::min(128.0f, sizeY) });
-    }
-    
-    const std::array<RenderTexture*, 6>& upTextures = Renderer3D::GetDownsampleSRV();
-
-    for (int i = 6 - 1; i >= 0; i--)
-    {
-        float sizeX = 1000 / (1 << i), sizeY = 800 / (1 << i);
-        ImGui::Text(std::to_string((int)sizeX).c_str());
-        ImGui::SameLine();
-        ImGui::Text(std::to_string((int)sizeY).c_str());
-        ImGui::Image(upTextures[i]->textureView, { std::min(128.0f, sizeX) , std::min(128.0f, sizeY)});
-    }
-
     ImGui::End();
 
     Editor::GameViewWindow::Draw();

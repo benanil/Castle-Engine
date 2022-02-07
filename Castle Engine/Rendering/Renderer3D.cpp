@@ -19,7 +19,11 @@ namespace Renderer3D
 
 	__declspec(align(16)) struct PostCbuffer
 	{
-		int width, height, mode; float saturation;
+		int width, height, mode;
+		union {
+			struct { float saturation; };
+			struct { float treshold;   };
+		};
 	};
 
 	DXDevice* Device; DXDeviceContext* DeviceContext;
@@ -50,7 +54,7 @@ namespace Renderer3D
 
 	unsigned int MSAASamples;
 
-	float treshold;
+	float treshold = 0.8f;
 
 	void PostModeChanged();
 	void RenderToQuad(RenderTexture* rendertTexture, Shader* shader,
@@ -66,9 +70,6 @@ namespace Renderer3D
 }
 
 RenderTexture* Renderer3D::GetPostRenderTexture() { return postRenderTexture; }
-const std::array<RenderTexture*, 6>& Renderer3D::GetDownsampleSRV() { return downSampleRTS; }
-const std::array<RenderTexture*, 6>& Renderer3D::GetUpsampleSRV() { return upSampleRTS;  }
-
 
 __forceinline static int FormatToByteSize(DXGI_FORMAT format)
 {
@@ -135,13 +136,12 @@ void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, 
 	}
 
 	std::array<PostProcessVertex, 4> vertices;
-	vertices[0] = { glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f) };
-	vertices[1] = { glm::vec2(-1.0f,  1.0f), glm::vec2(1.0f, 0.0f) };
-	vertices[2] = { glm::vec2(1.0f, -1.0f), glm::vec2(0.0f, 1.0f) };
-	vertices[3] = { glm::vec2(1.0f,  1.0f), glm::vec2(0.0f, 0.0f) };
+	vertices[0] = { glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f) };
+	vertices[1] = { glm::vec2(-1.0f,  1.0f), glm::vec2(0.0f, 1.0f) };
+	vertices[2] = { glm::vec2( 1.0f, -1.0f), glm::vec2(1.0f, 0.0f) };
+	vertices[3] = { glm::vec2( 1.0f,  1.0f), glm::vec2(1.0f, 1.0f) };
 
-	std::array<uint16_t, 6> indices =
-	{
+	std::array<uint16_t, 6> indices = {
 		0,1,2, 1,3,2
 	};
 
@@ -190,12 +190,13 @@ void Renderer3D::WindowScaleEvent(const int& _width, const int& _height)
 #ifndef NEDITOR
 void Renderer3D::OnEditor()
 {
-	if (ImGui::DragFloat("Saturation", &postCbuffer.saturation, 0.001f)) PostModeChanged();
-	ImGui::DragFloat("Treshold", &treshold, 0.01f);
-
 	static std::array<const char*, 5> PostModes = { "ACES", "AMD", "Uncharted", "Reinhard", "DX11DSK" };
 
 	Editor::GUI::EnumField(postCbuffer.mode, PostModes.data(), 5, "Modes", PostModeChanged);
+	if (ImGui::DragFloat("Saturation", &postCbuffer.saturation, 0.001f)) PostModeChanged();
+	
+	ImGui::Text("Bloom");
+	ImGui::DragFloat("Treshold", &treshold, 0.01f);
 }
 
 #endif
@@ -244,12 +245,13 @@ void Renderer3D::PostProcessing(DXShaderResourceView* srv, DXTexSampler* sampler
 {
 	int startMode = postCbuffer.mode;
 	float startSaturation = postCbuffer.saturation;
-	postCbuffer.saturation = treshold;
-	RenderToQuad(downSampleRTS[0], FragPrefilter13 , srv, sampler, 1 );
+	postCbuffer.treshold = treshold;
+
+	RenderToQuad(downSampleRTS[0], FragPrefilter13 , srv, sampler, 1 << 0);
 	RenderToQuad(downSampleRTS[1], FragPrefilter4  , downSampleRTS[0], 1 << 1);
 	RenderToQuad(downSampleRTS[2], FragDownsample13, downSampleRTS[1], 1 << 2);
 	RenderToQuad(downSampleRTS[3], FragDownsample4 , downSampleRTS[2], 1 << 3);
-	RenderToQuad(downSampleRTS[4], FragDownsample4 , downSampleRTS[3], 1 << 4);
+	RenderToQuad(downSampleRTS[4], FragDownsample13, downSampleRTS[3], 1 << 4);
 	RenderToQuad(downSampleRTS[5], FragDownsample4 , downSampleRTS[4], 1 << 5);
 	
 	RenderToQuadUpsample(upSampleRTS[4], FragUpsampleTent, downSampleRTS[5], downSampleRTS[4], 1 << 4);

@@ -1,5 +1,8 @@
 #define HALF_MAX        65504.0 
 #define EPSILON         1.0e-4
+#define INT_MAX         2147483647
+#define INT_MIN        -2147483648
+#define FLOAT_MAX       1.175494351e-38
 
 struct PostProcessVertex
 {
@@ -148,6 +151,7 @@ half4 Prefilter(half4 color, float2 uv)
 half4 FragPrefilter13(PostProcessVertex i) : SV_Target
 {
 	float2 texelSize = float2(1.0, 1.0) / screenSize;
+	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	half4 color = DownsampleBox13Tap(i.texCoord, texelSize);
 	return Prefilter(SafeHDR(color), i.texCoord);
@@ -156,25 +160,26 @@ half4 FragPrefilter13(PostProcessVertex i) : SV_Target
 half4 FragPrefilter4(PostProcessVertex i) : SV_Target
 {
 	float2 texelSize = float2(1.0, 1.0) / screenSize;
+	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	half4 color = DownsampleBox4Tap(i.texCoord, texelSize);
 	return Prefilter(SafeHDR(color), i.texCoord);
 }
 
 // ----------------------------------------------------------------------------------------
-// Downsample
-
+// Downsample1
 half4 FragDownsample13(PostProcessVertex i) : SV_Target
 {
 	float2 texelSize = float2(1.0, 1.0) / screenSize;
+	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	return DownsampleBox13Tap(i.texCoord, texelSize);
 }
 
-
 half4 FragDownsample4(PostProcessVertex i) : SV_Target
 {
 	float2 texelSize = float2(1.0, 1.0) / screenSize;
+	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	return DownsampleBox4Tap(i.texCoord , texelSize);
 }
@@ -185,22 +190,17 @@ half4 FragDownsample4(PostProcessVertex i) : SV_Target
 half4 FragUpsampleTent(PostProcessVertex i) : SV_Target
 {
 	float2 texelSize = float2(1.0, 1.0) / screenSize;
+	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	half4 bloom = UpsampleTent(i.texCoord , texelSize);
-	return _texture1.Sample(texSampler1, i.texCoord);
+	return bloom + _texture1.Sample(texSampler1, i.texCoord);
 }
 
 half4 FragUpsampleBox(PostProcessVertex i) : SV_Target
 {
 	float2 texelSize = float2(1.0, 1.0) / screenSize;
+	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	half4 bloom = UpsampleBox(i.texCoord * 0.5, texelSize);
-	return _texture1.Sample(texSampler1, i.texCoord);
+	return bloom + _texture1.Sample(texSampler1, i.texCoord);
 }
-
-// FragPrefilter13
-// FragPrefilter4
-// FragDownsample13
-// FragDownsample4
-// FragUpsampleTent
-// FragUpsampleBox

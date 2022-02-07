@@ -78,7 +78,7 @@ void RenderTexture::Invalidate(int _width, int _height)
 	DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
 	
 	D3D11_FILTER filterMode = HasFlag(flags, RenderTextureCreateFlags::Linear)
-								? D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
+		? D3D11_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
 	sampDesc.Filter = filterMode;
 	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;

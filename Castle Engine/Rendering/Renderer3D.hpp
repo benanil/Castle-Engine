@@ -16,8 +16,6 @@ namespace Renderer3D
 	RenderTexture* GetPostRenderTexture();
 	void WindowScaleEvent(const int& x, const int& y);
 	void AddMeshRenderer(MeshRenderer* meshRenderer);
-	const std::array<RenderTexture*, 6>& GetDownsampleSRV();
-	const std::array<RenderTexture*, 6>& GetUpsampleSRV();
 
 	void RenderMeshes();
 #ifndef NEDITOR
