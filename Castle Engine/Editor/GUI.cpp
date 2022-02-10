@@ -1,4 +1,6 @@
 #include "Editor.hpp"
+#include <type_traits>
+
 #ifndef NEDITOR
 
 // this code mostly copied from ZargoEngine's GUI class
@@ -33,7 +35,7 @@ namespace Editor
 	// GUI::EnumField(value, names, 3, "TestEnum", NULL, 0);
 	/// <summary> note this is not usefull for bitfields | flags </summary> 
 	/// <param name="count"> number of names </param>
-	void GUI::EnumField(int& value, const char** names, const int& count, const char* label,
+	bool GUI::EnumField(int& value, const char** names, const int& count, const char* label,
 						const Action& onSellect, const ImGuiComboFlags& flags)
 	{
 		if (ImGui::BeginCombo(label, names[value], flags))
@@ -44,6 +46,7 @@ namespace Editor
 				{
 					value = i;
 					if (onSellect) onSellect();
+					else { ImGui::EndCombo(); return true; }
 				}
 			}
 			ImGui::EndCombo();

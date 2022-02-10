@@ -1,7 +1,8 @@
 #pragma once
 #include "../Rendering.hpp"
 #include "Texture.hpp"
-#include "../Engine.hpp"
+#include "../DirectxBackend.hpp"
+
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
@@ -28,7 +29,7 @@ public:
 
 	void CreateMaterialBuffer()
 	{
-		DXDevice* device = Engine::GetDevice();
+		DXDevice* device = DirectxBackend::GetDevice();
 
 		DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
 		cbDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -42,7 +43,7 @@ public:
 
 	void Bind()
 	{
-		DXDeviceContext* context = Engine::GetDeviceContext();
+		DXDeviceContext* context = DirectxBackend::GetDeviceContext();
 		if (albedo)   albedo->Bind(context, 0);
 		if (specular) specular->Bind(context, 1);
 		if (normal)   normal->Bind(context, 2);

@@ -66,16 +66,10 @@
     <ClCompile Include="Rendering\RenderTexture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Rendering\Pipeline.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Editor\GameViewWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Rendering\MeshLoader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Rendering\Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Rendering\Terrain.cpp">
@@ -91,6 +85,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Helper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\TesellatedMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectxBackend.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\PostProcessing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -143,9 +149,6 @@
     <ClInclude Include="FreeCamera.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\Pipeline.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Rendering\Material.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -180,6 +183,24 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Helper.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\TesellationShader.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\TesellatedMesh.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\All.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Input.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectxBackend.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\PostProcessing.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

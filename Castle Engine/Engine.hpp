@@ -1,10 +1,11 @@
 #pragma once
-#include "Rendering.hpp"
+#include <d3d11.h>
 #include <SDL.h>
 #include "Main/Event.hpp"
 
 #define DX_CHECK(hr, message) Engine::DirectXCheck(hr, message, __LINE__, RemoveSolutionDir(__FILE__));
 #define SDX_CHECK(hr) Engine::DirectXCheck(hr, __LINE__, RemoveSolutionDir((__FILE__)));
+#define DECLARE_HANDLE(name) struct name##__{int unused;}; typedef struct name##__ *name
 
 // converts BUNCH_OF_PATH/CastleEngine/FILE.xxx to CastleEngine/FILE.xxx 
 // sp that means this function creates a compile time string for us
@@ -14,29 +15,21 @@ inline constexpr const char* RemoveSolutionDir(const char* file)
 	return file + len;
 }
 
+struct HWND__;
+typedef HWND__* HWND;
+
 namespace Engine
 {
-	DXDevice* GetDevice();
-	DXDeviceContext* GetDeviceContext();
+	constexpr int Width = 1000, Height = 800;
+
 	SDL_Window* GetWindow();
 
-	void AddEndOfFrameEvent(const Action& act);
-	void AddWindowScaleEvent(const Changed2i& act);
+	void AddEndOfFrameEvent(Action action);
+	void AddWindowScaleEvent(FunctionAction<void, int, int>::Type act);
 
-	bool GetKeyDown(int keycode);
-	bool GetKeyUp  (int keycode);
-	
-	bool GetMouseButtonDown(int buttonName);
-	bool GetMouseButtonUp(int buttonName);
-	void SetCursor(SDL_Cursor* cursor);
-	SDL_Cursor* GetCursor();
-
-	// time
-	float GetDeltaTime();
-	float GetTimeSinceStartup();
-	
-	void SetModelMatrix(const XMMATRIX& matrix);
+	HWND GetHWND();
 
 	void DirectXCheck(const HRESULT& hr, const int line, const char* file);
 	void DirectXCheck(const HRESULT& hr, const char* message, const int line, const char* file);
 }
+

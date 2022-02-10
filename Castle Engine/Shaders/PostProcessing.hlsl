@@ -192,6 +192,6 @@ float4 PS(PostProcessVertex i) : SV_Target
 		case 3: tonemapped = Reinhard(color);  			break;
 		case 4: tonemapped = DX11DSK(color);  			break;
 	}
-	float4 bloom = _texture1.Sample(textureSampler1, i.texCoord); * 0.68f;// _texture1.Load(int3(i.texCoord.x* screenSize.x, i.texCoord.y* screenSize.y, 0)) * 0.2f;
+	float4 bloom = _texture1.Sample(textureSampler1, i.texCoord) * 0.60f;// _texture1.Load(int3(i.texCoord.x* screenSize.x, i.texCoord.y* screenSize.y, 0)) * 0.2f;
 	return float4(tonemapped.x, tonemapped.y, tonemapped.z, 1) + bloom;
 }

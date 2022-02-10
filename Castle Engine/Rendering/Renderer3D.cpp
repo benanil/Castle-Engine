@@ -1,75 +1,62 @@
 #pragma once
+#include <array>
+#include <vector>
+#include "../Timer.hpp"
+#include "../DirectxBackend.hpp"
 #include "Renderer3D.hpp"
 #include "ComputeShader.hpp"
 #include "Shader.hpp"
-#include <array>
-#include <vector>
-#include <glm/glm.hpp>
+#include "Skybox.hpp"
+#include "TesellatedMesh.hpp"
+#include "PostProcessing.hpp"
+#include "../DirectxBackend.hpp"
+#include "../Main/Time.hpp"
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
 
 namespace Renderer3D
 {
-	struct PostProcessVertex
-	{
-		glm::vec2 pos;
-		glm::vec2 uv;
-	};
-
-	__declspec(align(16)) struct PostCbuffer
-	{
-		int width, height, mode;
-		union {
-			struct { float saturation; };
-			struct { float treshold;   };
-		};
-	};
-
 	DXDevice* Device; DXDeviceContext* DeviceContext;
 
 	// post processing
-	Shader* postProcessShader;
-
-	DXBuffer* postVertexBuffer, * postIndexBuffer;
-	DXInputLayout* vertexLayout;
-	RenderTexture* postRenderTexture;
+	DXInputLayout* quadVertLayout;
 	DXBuffer* ScreenSizeCB;
 	
-	// post end
-	PostCbuffer postCbuffer;
 	std::vector<MeshRenderer*> meshRenderers;
+
+	DXBuffer* quadVertexBuffer, * quadIndexBuffer;
 	
-	std::array<RenderTexture*, 6> downSampleRTS; // rts = render textures
-	std::array<RenderTexture*, 6> upSampleRTS; // rts = render textures
-
-	Shader* FragPrefilter13  ;
-	Shader* FragPrefilter4   ;
-	Shader* FragDownsample13 ;
-	Shader* FragDownsample4  ;
-	Shader* FragUpsampleTent ;
-	Shader* FragUpsampleBox  ; 
-
 	DrawIndexedInfo drawInfo;
-
 	unsigned int MSAASamples;
+	
+	DXInputLayout* PBRVertLayout;
+	cbGlobal cbGlobalData;
+	cbPerObject cbPerObj;
 
-	float treshold = 0.8f;
+	DXBuffer* constantBuffer;
+	DXBuffer* uniformGlobalBuffer;
 
-	void PostModeChanged();
-	void RenderToQuad(RenderTexture* rendertTexture, Shader* shader,
-		RenderTexture* srcRendertTexture, int scale);
+	RenderTexture* renderTexture;
+	Skybox* skybox;
+	Shader* PBRshader;
+	ID3D11RasterizerState* rasterizerState;
+	ID3D11RasterizerState* WireframeRasterizerState;
+	TesellatedMesh* tessMesh;
+	FreeCamera* freeCamera;
 
-	void RenderToQuad(
-		RenderTexture* rendertTexture, Shader* shader,
-		DXShaderResourceView* srv, DXTexSampler* sampler, int scale);
+	bool Vsync = true;
 
-	void RenderToQuadUpsample(RenderTexture* rendertTexture, Shader* shader,
-		RenderTexture* miniRenderTexture, RenderTexture* biggerRenderTexture1, int scale);
+	PostProcessing* postProcessing;
 
+	// forward declarations
+	void DrawTerrain();
+	void CreateBuffers();
+	void PrepareScreenSpaceQuad();
+	
 }
 
-RenderTexture* Renderer3D::GetPostRenderTexture() { return postRenderTexture; }
+RenderTexture* Renderer3D::GetPostRenderTexture() { return postProcessing->GetPostRenderTexture(); }
 
 __forceinline static int FormatToByteSize(DXGI_FORMAT format)
 {
@@ -98,6 +85,15 @@ void Renderer3D::RenderMeshes()
 	}
 }
 
+void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
+{
+	const auto MVP = matrix * freeCamera->ViewProjection;
+	cbPerObj.MVP = XMMatrixTranspose(MVP);
+	cbPerObj.Model = XMMatrixTranspose(matrix);
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+}
+
 DXInputLayout* Renderer3D::CreateVertexInputLayout(std::vector<InputLayoutCreateInfo> infos, DXBlob* VS_Buffer)
 {
 	DXInputLayout* vertLayout;
@@ -109,33 +105,15 @@ DXInputLayout* Renderer3D::CreateVertexInputLayout(std::vector<InputLayoutCreate
 		layout[i] = { infos[i].name, 0, infos[i].format, 0, byteIndex, D3D11_INPUT_PER_VERTEX_DATA, 0 };
 		byteIndex += FormatToByteSize(infos[i].format);
 	}
-	auto device = Engine::GetDevice();
+	auto device = DirectxBackend::GetDevice();
 	device->CreateInputLayout(layout, infos.size(), VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
 	delete layout;
 	return vertLayout;
 }
 
-void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, unsigned int _msaaSamples)
+void Renderer3D::PrepareScreenSpaceQuad()
 {
-	Device = _device; DeviceContext = _deviceContext;
-	postProcessShader = new Shader("Shaders/PostProcessing.hlsl\0");
-
-	FragPrefilter13  = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragPrefilter13");
-	FragPrefilter4   = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragPrefilter4");
-	FragDownsample13 = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragDownsample13");
-	FragDownsample4  = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragDownsample4");
-	FragUpsampleTent = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragUpsampleTent");
-	FragUpsampleBox  = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragUpsampleBox");
-
-	postRenderTexture = new RenderTexture(1000, 800, MSAASamples, RenderTextureCreateFlags::None, DXGI_FORMAT_R8G8B8A8_UNORM);
-
-	for (int i = 0; i < downSampleRTS.size(); i++)
-	{
-		downSampleRTS[i] = new RenderTexture(1000 / (1 << i), 800 / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
-		upSampleRTS[i] = new RenderTexture(1000 / (1 << i), 800 / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
-	}
-
-	std::array<PostProcessVertex, 4> vertices;
+	std::array<ScreenQuadVertex, 4> vertices;
 	vertices[0] = { glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f) };
 	vertices[1] = { glm::vec2(-1.0f,  1.0f), glm::vec2(0.0f, 1.0f) };
 	vertices[2] = { glm::vec2( 1.0f, -1.0f), glm::vec2(1.0f, 0.0f) };
@@ -145,141 +123,225 @@ void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, 
 		0,1,2, 1,3,2
 	};
 
-	CSCreateVertexIndexBuffers<PostProcessVertex, uint16_t>(
+	CSCreateVertexIndexBuffers<ScreenQuadVertex, uint16_t>(
 		Device, vertices.data(), indices.data(),
-		vertices.size(), indices.size(), &postVertexBuffer, &postIndexBuffer);
+		vertices.size(), indices.size(), &quadVertexBuffer, &quadIndexBuffer);
 
 	std::vector<InputLayoutCreateInfo> vertexLayoutInfos =
 	{
 		{"POSITION", DXGI_FORMAT_R32G32_FLOAT}, {"TEXCOORD", DXGI_FORMAT_R32G32_FLOAT}
 	};
-	vertexLayout = CreateVertexInputLayout(vertexLayoutInfos, postProcessShader->VS_Buffer);
 
-	// create screen size buffer
-	DX_CREATE(D3D11_BUFFER_DESC, cbDesc);
-	cbDesc.Usage = D3D11_USAGE_DEFAULT;
-	cbDesc.ByteWidth = sizeof(PostCbuffer);
-	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
-	postCbuffer = {1000, 800, 0, 1.2f};
-	vinitData.pSysMem = &postCbuffer;
-
-	Device->CreateBuffer(&cbDesc, &vinitData, &ScreenSizeCB);
+	quadVertLayout = CreateVertexInputLayout(vertexLayoutInfos, postProcessing->GetShader()->VS_Buffer);
 
 	drawInfo =
 	{
-		DeviceContext, vertexLayout,
-		postVertexBuffer, postIndexBuffer, 6
-	};
+		DeviceContext, quadVertLayout ,
+		quadVertexBuffer, quadIndexBuffer, 6
+	};	
 }
 
-void Renderer3D::WindowScaleEvent(const int& _width, const int& _height)
+void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, unsigned int _msaaSamples, FreeCamera* camera)
 {
-	postCbuffer.width = _width; postCbuffer.height = _height;
-	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
-	postRenderTexture->Invalidate(postCbuffer.width, postCbuffer.height);
-	
-	for (int i = 0; i < downSampleRTS.size(); i++)
+	Device = _device; DeviceContext = _deviceContext;
+	freeCamera = camera;
+
+	postProcessing = new PostProcessing(Device, DeviceContext, MSAASamples);
+	PrepareScreenSpaceQuad();
+	CreateBuffers();
+
+	PBRshader = new Shader("Shaders/First.hlsl\0");
+	PBRshader->Bind();
+
+	//Create the Input Layout & Set the Input Layout
+	std::vector<InputLayoutCreateInfo> vertexLayoutInfos =
 	{
-		downSampleRTS[i]->Invalidate(_width / (1 << i), _height / (1 << i));
-		upSampleRTS[i]->Invalidate(_width / (1 << i), _height / (1 << i));
-	}
+		{ "POSITION", DXGI_FORMAT_R32G32B32_FLOAT},
+		{ "NORMAL"  , DXGI_FORMAT_R32G32B32_FLOAT},
+		{ "TEXCOORD", DXGI_FORMAT_R32G32_FLOAT   },
+		{ "TANGENT" , DXGI_FORMAT_R32G32B32_FLOAT}
+	};
+	PBRVertLayout = Renderer3D::CreateVertexInputLayout(vertexLayoutInfos, PBRshader->VS_Buffer);
+	DeviceContext->IASetInputLayout(PBRVertLayout);
+	//Set Primitive Topology
+	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Create Rasterizer 
+	DX_CREATE(D3D11_RASTERIZER_DESC, rasterizerDesc);
+	rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+	rasterizerDesc.CullMode = D3D11_CULL_BACK;
+	rasterizerDesc.MultisampleEnable = true;
+
+	DX_CHECK(
+		Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
+
+	memset(&rasterizerDesc, 0, sizeof(D3D11_RASTERIZER_DESC));
+	rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+	rasterizerDesc.CullMode = D3D11_CULL_NONE;
+	rasterizerDesc.MultisampleEnable = true;
+
+	DeviceContext->RSSetState(rasterizerState);
+
+	DX_CHECK(
+	Device->CreateRasterizerState(&rasterizerDesc, &WireframeRasterizerState), "rasterizer creation failed");
+
+	skybox = new Skybox(10, 10, MSAASamples);
+	std::cout << "skybox created" << std::endl;
+	Terrain::Initialize();
+	std::cout << "Terrain created" << std::endl;
+	TerrainCreateResult tessMeshCreateResult = Terrain::CreateSingleChunk();
+	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult.vertices, tessMeshCreateResult.indices);
+	tessMeshCreateResult.Dispose();
+
+	renderTexture = new RenderTexture(Engine::Width, Engine::Height, DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth);
 }
 
+void Renderer3D::CreateBuffers()
+{
+	cbGlobalData.ambientColor = glm::vec3(0.8f, 0.8f, 0.65f);
+	cbGlobalData.sunColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	cbGlobalData.ambientStength = .13f;
+	cbGlobalData.sunAngle = 120;
+
+	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
+	cbPerObj.Model = XMMatrixIdentity();
+
+	DXCreateConstantBuffer<cbGlobal>(Device, uniformGlobalBuffer, &cbGlobalData);
+	DXCreateConstantBuffer<cbPerObject>(Device, constantBuffer, &cbPerObj);
+	
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+#ifndef NEDITOR
+	Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
+
+	auto& viewWindowdata = Editor::GameViewWindow::GetData();
+	viewWindowdata.OnScaleChanged.Bind(new StaticMethodDel<void, float, float>([](float w, float h)
+	{
+		freeCamera->aspectRatio = w / h;
+		freeCamera->UpdateProjection(freeCamera->aspectRatio);
+		renderTexture->Invalidate((int)w, (int)h);
+		postProcessing->WindowScaleEvent((int)w, (int)h);
+		Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
+	}));
+#endif
+}
 
 #ifndef NEDITOR
 void Renderer3D::OnEditor()
 {
-	static std::array<const char*, 5> PostModes = { "ACES", "AMD", "Uncharted", "Reinhard", "DX11DSK" };
-
-	Editor::GUI::EnumField(postCbuffer.mode, PostModes.data(), 5, "Modes", PostModeChanged);
-	if (ImGui::DragFloat("Saturation", &postCbuffer.saturation, 0.001f)) PostModeChanged();
+	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
 	
-	ImGui::Text("Bloom");
-	ImGui::DragFloat("Treshold", &treshold, 0.01f);
-}
+	if (ImGui::CollapsingHeader("Lighting"))
+	{
+		ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
+		ImGui::ColorEdit4("sun Color", &cbGlobalData.sunColor.x);
+		ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle);
+		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
+	}
 
+	postProcessing->OnEditor();
+	
+	tessMesh->OnEditor();
+}
 #endif
-void Renderer3D::PostModeChanged()
-{
-	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
+
+void Renderer3D::RenderToQuad() {
+	DrawIndexed16<ScreenQuadVertex>(&drawInfo);
 }
 
-void Renderer3D::RenderToQuad(RenderTexture* renderTexture, Shader* shader,
-	RenderTexture* srcRenderTexture,  int scale) {
-	RenderToQuad(renderTexture, shader, srcRenderTexture->textureView, srcRenderTexture->sampler, scale);
+void Renderer3D::DrawTerrain()
+{
+	Terrain::BindShader();
+
+	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -1100) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
+
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+
+	cbGlobalData.additionalData = Terrain::GetTextureScale();
+	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+
+	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+	DeviceContext->RSSetState(rasterizerState);
+
+	Terrain::Draw();
 }
 
-void Renderer3D::RenderToQuad(RenderTexture* rendertTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler,  int scale)
+void Renderer3D::DrawScene()
 {
-	rendertTexture->SetAsRendererTarget();
-	shader->Bind();
-	postCbuffer.mode = scale;
-	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
-	DeviceContext->PSSetConstantBuffers(0, 1, &ScreenSizeCB);
-	DeviceContext->PSSetShaderResources(0, 1, &srv);
-	DeviceContext->PSSetSamplers(0, 1, &sampler);
+	cbGlobalData.viewPos = freeCamera->transform.position;
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 
-	DrawIndexed16<PostProcessVertex>(&drawInfo);
-}
+	// use additionalData  as time since startup
+	cbGlobalData.additionalData = Time::GetTimeSinceStartup();
 
-void Renderer3D::RenderToQuadUpsample(RenderTexture* rendertTexture, Shader* shader, 
-	RenderTexture* miniRenderTexture, RenderTexture* biggerRenderTexture, int scale)
-{
-	rendertTexture->SetAsRendererTarget();
-	shader->Bind();
-	postCbuffer.mode = scale;
+	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
+	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 
-	std::vector<DXShaderResourceView*> SRVs = { miniRenderTexture->textureView, biggerRenderTexture->textureView };
-	std::vector<DXTexSampler*> samplers     = { miniRenderTexture->sampler, biggerRenderTexture->sampler };
+#ifndef NEDITOR
+	D3D11_VIEWPORT viewPort = DirectxBackend::GetViewPort();
 
-	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
-	DeviceContext->PSSetConstantBuffers(0, 1, &ScreenSizeCB);
-	DeviceContext->PSSetShaderResources(0, 2, SRVs.data());
-	DeviceContext->PSSetSamplers(0, 2, samplers.data());
+	auto& gameVindowdata = Editor::GameViewWindow::GetData();
+	viewPort.Width = gameVindowdata.WindowScale.x;
+	viewPort.Height = gameVindowdata.WindowScale.y;
 
-	DrawIndexed16<PostProcessVertex>(&drawInfo);
-}
+	DeviceContext->RSSetViewports(1, &viewPort);
+	renderTexture->SetBlendState();
+#endif
 
-void Renderer3D::PostProcessing(DXShaderResourceView* srv, DXTexSampler* sampler, bool build)
-{
-	int startMode = postCbuffer.mode;
-	float startSaturation = postCbuffer.saturation;
-	postCbuffer.treshold = treshold;
+	//Clear our backbuffer
+	DirectxBackend::ClearBackBuffer();
+	float bgColor[4] = { .4, .4, .7, 1.0f };
+	// rendering to texture Here
+	renderTexture->ClearRenderTarget(bgColor);
+	renderTexture->SetAsRendererTarget();
 
-	RenderToQuad(downSampleRTS[0], FragPrefilter13 , srv, sampler, 1 << 0);
-	RenderToQuad(downSampleRTS[1], FragPrefilter4  , downSampleRTS[0], 1 << 1);
-	RenderToQuad(downSampleRTS[2], FragDownsample13, downSampleRTS[1], 1 << 2);
-	RenderToQuad(downSampleRTS[3], FragDownsample4 , downSampleRTS[2], 1 << 3);
-	RenderToQuad(downSampleRTS[4], FragDownsample13, downSampleRTS[3], 1 << 4);
-	RenderToQuad(downSampleRTS[5], FragDownsample4 , downSampleRTS[4], 1 << 5);
-	
-	RenderToQuadUpsample(upSampleRTS[4], FragUpsampleTent, downSampleRTS[5], downSampleRTS[4], 1 << 4);
-	RenderToQuadUpsample(upSampleRTS[3], FragUpsampleBox , upSampleRTS[4]  , downSampleRTS[3], 1 << 3);
-	RenderToQuadUpsample(upSampleRTS[2], FragUpsampleTent, upSampleRTS[3]  , downSampleRTS[2], 1 << 2);
-	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox , upSampleRTS[2]  , downSampleRTS[1], 1 << 1);
-	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1]  , downSampleRTS[0], 1 << 0);
+	DeviceContext->RSSetState(rasterizerState);
 
-	// todo combine here
+	Renderer3D::RenderMeshes();
 
-	if(!build)	
-	postRenderTexture->SetAsRendererTarget();
-	postProcessShader->Bind();
-	
-	postCbuffer.mode = startMode;
-	postCbuffer.saturation = startSaturation;
-	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
+	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
 
-	std::vector<DXShaderResourceView*> SRVs = { srv , upSampleRTS[0]->textureView };
-	std::vector<DXTexSampler*> samplers = { sampler, upSampleRTS[0]->sampler};
+	DrawTerrain();
 
-	DeviceContext->PSSetShaderResources(0, 2, SRVs.data());
-	DeviceContext->PSSetSamplers(0, 2, samplers.data());
+	DeviceContext->RSSetState(WireframeRasterizerState);
+	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(0, 0, 0) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
+	tessMesh->Render(DeviceContext, constantBuffer, cbPerObj.MVP, freeCamera->transform.GetPosition());
+	DeviceContext->RSSetState(rasterizerState);
 
-	DrawIndexed16<PostProcessVertex>(&drawInfo);
+#ifndef NEDITOR
+	postProcessing->Proceed(renderTexture->textureView, renderTexture->sampler, false);
+#endif
+	DirectxBackend::SetBackBufferAsRenderTarget();
+
+#ifdef NEDITOR
+	Renderer3D::PostProcessing(renderTexture->textureView, renderTexture->sampler, true);
+#endif
+	// set default render buffers again
+	DeviceContext->OMSetDepthStencilState(nullptr, 0);
+	DeviceContext->RSSetState(rasterizerState);
+
+	DirectxBackend::SetBackBufferAsRenderTarget();
+	DeviceContext->IASetInputLayout(PBRVertLayout);
+
+#ifndef NEDITOR
+	viewPort = DirectxBackend::GetViewPort();
+	DeviceContext->RSSetViewports(1, &viewPort);
+#endif
+
+	PBRshader->Bind();
+
+#ifndef NEDITOR
+	// Draw Imgui
+	Editor::Render();
+#endif
+
+	//Present the backbuffer to the screen
+	DirectxBackend::Present(Vsync);
 }
 
 void Renderer3D::Dispose()
 {
-	postProcessShader->Dispose();
+	postProcessing->Dispose();
 }

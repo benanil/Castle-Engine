@@ -1,5 +1,6 @@
 #pragma once
 #include "../Rendering.hpp"
+#include "../DirectxBackend.hpp"
 #include "../Engine.hpp"
 #include <D3DX11tex.h>
 
@@ -60,7 +61,7 @@ public:
 
 	void SetWrapMode(D3D11_TEXTURE_ADDRESS_MODE _wrapMode)
 	{
-		auto device = Engine::GetDevice();
+		auto device = DirectxBackend::GetDevice();
 		DX_RELEASE(textureSampler);
 		DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
 		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -75,7 +76,7 @@ public:
 private:
 	void Load(const wchar_t* _path)
 	{
-		auto device = Engine::GetDevice();
+		auto device = DirectxBackend::GetDevice();
 		
 		D3DX11_IMAGE_LOAD_INFO loadInfo;
 		DX_CHECK(

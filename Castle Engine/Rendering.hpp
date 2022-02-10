@@ -4,6 +4,7 @@
 #include <d3d11.h>
 #include <cstdlib>
 #include <xnamath.h>
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <stdexcept>
@@ -108,6 +109,23 @@ void inline DrawIndexed16(DrawIndexedInfo* drawInfo)
 	drawInfo->d3d11DevCon->IASetVertexBuffers(0, 1, &drawInfo->vertexBuffer, &stride, &offset);
 
 	drawInfo->d3d11DevCon->DrawIndexed(drawInfo->indexCount, 0, 0);
+}
+
+template<typename T>
+inline void DXCreateConstantBuffer(ID3D11Device* device, ID3D11Buffer*& buffer, T* initialData = nullptr)
+{
+	DX_CREATE(D3D11_BUFFER_DESC, cbUniformDesc);
+	cbUniformDesc.Usage = D3D11_USAGE_DEFAULT;
+	cbUniformDesc.ByteWidth = sizeof(T);
+	cbUniformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+
+	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
+	vinitData.pSysMem = initialData;
+	D3D11_SUBRESOURCE_DATA* p_vinit = initialData ? &vinitData : nullptr;
+	if (FAILED(device->CreateBuffer(&cbUniformDesc, p_vinit, &buffer)))
+	{
+		assert(0, "Constant Buffer Creation Failed!");
+	}
 }
 
 #define LAMBDA(x) { x; }

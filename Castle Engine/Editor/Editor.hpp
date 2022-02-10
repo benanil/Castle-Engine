@@ -16,6 +16,7 @@ typedef void(*FileCallback)(const char* ptr);
 
 #define HEADER_COLOR { .81f, .6f, 0, 1 }
 
+
 namespace Editor
 {
 	void Initialize(SDL_Window* window, ID3D11Device* d3d11Device, ID3D11DeviceContext* d3d11DevCon);
@@ -42,7 +43,7 @@ namespace Editor
 		void TextureField(const char* name, DXShaderResourceView* texture);
 		bool ImageButton(DXShaderResourceView* texture, const float& size = filesize);
 
-		void EnumField(int& value, const char** names, const int& count, const char* label,
+		bool EnumField(int& value, const char** names, const int& count, const char* label,
 		const Action& onSellect = NULL, const ImGuiComboFlags& flags = 0);
 
 		void RightClickPopUp(const char* name, const TitleAndAction* menuItems, const int& count);
@@ -63,7 +64,7 @@ namespace Editor
 
 		bool Hovered, Focused;
 
-		Func<Changed2f, float, float> OnScaleChanged;
+		EventEmitter<float, float> OnScaleChanged;
 
 		DXShaderResourceView* texture;
 	};

@@ -5,8 +5,6 @@
 #include "../Main/Event.hpp"
 #include "../Helper.hpp"
 
-typedef Func<std::function<void(DXShaderResourceView*)>, DXShaderResourceView*> OnTextureChanged;
-
 enum class RenderTextureCreateFlags
 {
 	None   = 0,
@@ -25,7 +23,7 @@ public:
 	DXRenderTargetView* renderTargetView;
 	DXDepthStencilView* depthStencilView;
 	DXTexture2D* depthStencilBuffer;
-	OnTextureChanged OnSizeChanged;
+	EventEmitter<DXShaderResourceView*> OnSizeChanged;
 	DXBlendState* blendState;
 	DXTexSampler* sampler;
 	UINT sampleCount;

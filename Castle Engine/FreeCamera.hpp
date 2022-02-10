@@ -2,6 +2,8 @@
 #include "Rendering.hpp"
 #include <SDL.h>
 #include "Transform.hpp"
+#include "Main/Time.hpp"
+#include "Input.hpp"
 
 #ifndef NEDITOR
 	#include "ImGui.h"
@@ -57,23 +59,23 @@ public:
 		monitorScale.y = DM.h;
 
 		UpdateProjection(_aspectRatio);
-		Update(0.0f);
+		Update();
 		
 		SetMatrix();
 	}
 
-	~FreeCamera();
+	~FreeCamera() {};
 
-	void Update(const float& dt)
+	void Update()
 	{
 		uint32_t mouseState = SDL_GetMouseState(nullptr, nullptr);
 
-		float velocity = speed * (SDL_GetModState() & KMOD_LSHIFT) ? 8.0f : 2.0f;
+		float velocity = speed * Time::GetDeltaTime() * ((SDL_GetModState() & KMOD_LSHIFT) ? 8.0f : 2.0f);
 
 		POINT mousePos;
 		GetCursorPos(&mousePos);
 		
-		if (!Engine::GetMouseButtonDown(SDL_BUTTON_RIGHT)
+		if (!Input::GetMouseButtonDown(SDL_BUTTON_RIGHT)
 #ifndef NEDITOR
 			|| !Editor::GameViewWindow::GetData().Focused)
 #else
@@ -81,11 +83,11 @@ public:
 #endif
 		{
 			oldPos = mousePos;
-			Engine::SetCursor(nullptr);
+			Input::SetCursor(nullptr);
 			return;
 		}
 
-		Engine::SetCursor(cursor);
+		Input::SetCursor(cursor);
 		
 		POINT dir{};
 		dir.x = mousePos.x - oldPos.x;
@@ -106,12 +108,12 @@ public:
 	    
 		InfiniteMouse(mousePos, oldPos);
 
-		if (Engine::GetKeyDown(SDLK_w)) transform.position += transform.GetForward() * velocity;
-		if (Engine::GetKeyDown(SDLK_s)) transform.position -= transform.GetForward() * velocity;
-		if (Engine::GetKeyDown(SDLK_d)) transform.position -= transform.GetRight() * velocity; 
-		if (Engine::GetKeyDown(SDLK_a)) transform.position += transform.GetRight() * velocity; 
-		if (Engine::GetKeyDown(SDLK_q)) transform.position -= transform.GetUP() * velocity;    
-		if (Engine::GetKeyDown(SDLK_e)) transform.position += transform.GetUP() * velocity;    
+		if (Input::GetKeyDown(KeyCode::S)) transform.position += transform.GetForward() * velocity;
+		if (Input::GetKeyDown(KeyCode::W)) transform.position -= transform.GetForward() * velocity;
+		if (Input::GetKeyDown(KeyCode::A)) transform.position -= transform.GetRight() * velocity; 
+		if (Input::GetKeyDown(KeyCode::D)) transform.position += transform.GetRight() * velocity; 
+		if (Input::GetKeyDown(KeyCode::E)) transform.position -= transform.GetUP() * velocity;    
+		if (Input::GetKeyDown(KeyCode::Q)) transform.position += transform.GetUP() * velocity;    
 
 		transform.UpdateTransform();
 
@@ -120,7 +122,7 @@ public:
 
 	void SetMatrix()
 	{
-		glm::vec3 lookPos = transform.position + transform.GetForward();
+ 		glm::vec3 lookPos = transform.position + transform.GetForward();
 
 		auto camPosition = XMVectorSet(GLM_GET_XYZ(transform.position), 0.0f);
 		auto camTarget = XMVectorSet(GLM_GET_XYZ(lookPos), 0.0f);

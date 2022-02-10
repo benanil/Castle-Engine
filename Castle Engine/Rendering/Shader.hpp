@@ -1,5 +1,7 @@
 #pragma once
 #include "../Rendering.hpp"
+#include "../DirectxBackend.hpp"
+#include "../Helper.hpp"
 #include "../Engine.hpp"
 #include <cassert>
 #include <D3DX11.h>
@@ -24,8 +26,6 @@ public:
 	DXBlob* PS_Buffer ;
 
 public:
-
-	std::string ReadAllText(const std::string& filePath);
 
 	Shader() {};
 	Shader(const char* path) 
@@ -52,8 +52,7 @@ public:
 		DX_RELEASE(PS_Buffer);
 	}
 
-	~Shader()
-	{
+	~Shader() {
 		Dispose();
 	}	
 
@@ -65,8 +64,8 @@ private:
 	{
 		Profiles profiles = GetLatestProfiles();
 		
-		DXDevice* device = Engine::GetDevice();
-		d3d11DevCon = Engine::GetDeviceContext();
+		DXDevice* device = DirectxBackend::GetDevice();
+		d3d11DevCon = DirectxBackend::GetDeviceContext();
 		
 		std::string vertexShader   = ReadAllText(std::string(vertPath));
 		std::string fragmentShader = ReadAllText(std::string(PSPath));
@@ -116,7 +115,7 @@ private:
 
 	static Profiles GetLatestProfiles()
 	{
-		const D3D_FEATURE_LEVEL featureLevel = Engine::GetDevice()->GetFeatureLevel();
+		const D3D_FEATURE_LEVEL featureLevel = DirectxBackend::GetDevice()->GetFeatureLevel();
 		switch (featureLevel)
 		{
 			case D3D_FEATURE_LEVEL_11_0: return {"vs_5_0"          , "ps_5_0"          };

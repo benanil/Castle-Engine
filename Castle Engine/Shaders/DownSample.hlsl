@@ -1,8 +1,5 @@
 #define HALF_MAX        65504.0 
 #define EPSILON         1.0e-4
-#define INT_MAX         2147483647
-#define INT_MIN        -2147483648
-#define FLOAT_MAX       1.175494351e-38
 
 struct PostProcessVertex
 {
@@ -140,7 +137,7 @@ half4 DownsampleBox13Tap(float2 texCoord, float2 texelSize)
 half4 Prefilter(half4 color, float2 uv)
 {
 	// static const float Treshold = 0.65;
-	static const float knee = 0.5f;
+	static const float knee = 0.33f;
 
 	// x: threshold value (linear), y: threshold - knee, z: knee * 2, w: 0.25 / knee
 	float4 _Threshold = float4(Treshold, Treshold - knee, knee * 2, 0.25 / knee);

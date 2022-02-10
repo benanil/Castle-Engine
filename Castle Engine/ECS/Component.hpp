@@ -18,7 +18,7 @@ namespace ECS
 		Entity* entity;
 		Transform* transform;
 	public:
-		Component() : name(std::string(typeid(this).name())), transform(new Transform()) {  }
+		Component() : name(std::string(typeid(*this).name())), transform(new Transform()) {  }
 		Component(const std::string& _name) : name(_name) {  }
 		
 		virtual void SetEntity(Entity* entity) = 0;

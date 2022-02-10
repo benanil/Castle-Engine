@@ -1,23 +1,34 @@
 #pragma once
 #include "RenderTexture.hpp"
-#include "Mesh.hpp"
+#include <xnamath.h>
 
 struct InputLayoutCreateInfo
 {
 	const char* name; DXGI_FORMAT format;
 };
 
+struct ScreenQuadVertex {
+	glm::vec2 pos;
+	glm::vec2 uv;
+};
+
+class FreeCamera;
+class MeshRenderer;
+	
 namespace Renderer3D
 {
-	void Initialize(DXDevice* device, DXDeviceContext* deviceContext, unsigned int msaaSamples);
-	void PostProcessing(DXShaderResourceView* srv, DXTexSampler* sampler, bool build);
+	void Initialize(DXDevice* device, DXDeviceContext* deviceContext, unsigned int msaaSamples, FreeCamera* freeCamera);
 	
 	DXInputLayout* CreateVertexInputLayout(std::vector<InputLayoutCreateInfo> infos, DXBlob* VS_Buffer);
 	RenderTexture* GetPostRenderTexture();
-	void WindowScaleEvent(const int& x, const int& y);
 	void AddMeshRenderer(MeshRenderer* meshRenderer);
-
+	void SetModelMatrix(const XMMATRIX& matrix);
+	void DrawScene();
 	void RenderMeshes();
+
+	//  <summary> before this ready-set your rendertexture and shaders </summary>
+	void RenderToQuad();
+
 #ifndef NEDITOR
 	void OnEditor();
 #endif

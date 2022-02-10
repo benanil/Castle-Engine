@@ -19,7 +19,7 @@
 
 namespace Terrain
 {
-	constexpr uint16_t t_width = 100, t_height = 100; 
+	constexpr uint16_t t_width = 100, t_height = 100;
 	constexpr uint16_t t_vertexCount = (t_width + 1) * (t_height + 1);
 	constexpr uint16_t leftUpper = t_vertexCount - t_width - 1;
 	constexpr uint16_t t_indexCount = t_width * t_height * 6;
@@ -27,28 +27,28 @@ namespace Terrain
 
 	std::vector<DXBuffer*> vertexBuffers;
 	std::vector<DXBuffer*> indexBuffers;
-	
+
 	DXDeviceContext* d3d11DevCon;
 	DXInputLayout* inputLayout;
 	Shader* shader;
-	
+
 	Texture* grassTexture;
 	Texture* dirtTexture;
-	
+
 	float textureScale = 0.085f;
 	float noiseScale = 1.0f;
 	float scale = 15.0f;
 	float height = 200;
 	float seaLevel = -25;
-	int seed; 
+	int seed;
 	bool isPerlin = false;
-	glm::ivec2 CuhunkSize = {5, 5};
+	glm::ivec2 CuhunkSize = { 5, 5 };
 
-	float GetTerrainScale() { return textureScale;  };
+	float GetTerrainScale() { return textureScale; };
 	void BindShader() { shader->Bind(); };
-	
+
 	void GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset);
-	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise,  glm::vec2 pos);
+	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise, glm::vec2 pos);
 	void CalculateNormals(TerrainVertex* vertices, const uint32_t* indices);
 
 	void Create();
@@ -61,9 +61,9 @@ void Terrain::Initialize()
 	shader = new Shader("Shaders/Terrain.hlsl\0");
 	grassTexture = new Texture("Textures/grass_seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
 	dirtTexture = new Texture("Textures/dirt_texture.png", D3D11_TEXTURE_ADDRESS_MIRROR);
-	
+
 	inputLayout = TerrainVertex::GetLayout(shader->VS_Buffer);
-	d3d11DevCon = Engine::GetDeviceContext();
+	d3d11DevCon = DirectxBackend::GetDeviceContext();
 	Create();
 }
 
@@ -83,30 +83,30 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices)
 			tempNormal[i] = XMVector3Cross(edge2, edge1); // smid cross
 		}
 	}
-		
+
 	{
 		CSTIMER("normal calculation speed: ")
-		//Go through each vertex
+			//Go through each vertex
 #pragma omp parallel for collapse(2), shared(vertices, indices) // 4x optimization
-		for (int32_t i = 0; i < t_vertexCount; ++i)
-		{
-			uint8_t facesUsing = 0;
-			XMVECTOR normalSum = XMVectorReplicate(0.0f);
-			//Check which triangles use this vertex
-			for (uint16_t j = 0; j < t_indexCount / 3; ++j)
+			for (int32_t i = 0; i < t_vertexCount; ++i)
 			{
-				if (indices[j * 3 + 0] == i ||
-					indices[j * 3 + 1] == i ||
-					indices[j * 3 + 2] == i)
+				uint8_t facesUsing = 0;
+				XMVECTOR normalSum = XMVectorReplicate(0.0f);
+				//Check which triangles use this vertex
+				for (uint16_t j = 0; j < t_indexCount / 3; ++j)
 				{
-					normalSum += tempNormal[j];
-					facesUsing++;
+					if (indices[j * 3 + 0] == i ||
+						indices[j * 3 + 1] == i ||
+						indices[j * 3 + 2] == i)
+					{
+						normalSum += tempNormal[j];
+						facesUsing++;
+					}
 				}
+				// smid normalize
+				vertices[i].normvec = XMVector3Normalize(XMVectorDivide(normalSum, XMVectorReplicate((float)facesUsing)));
+				vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
 			}
-			// smid normalize
-			vertices[i].normvec = XMVector3Normalize(XMVectorDivide(normalSum, XMVectorReplicate((float)facesUsing)));
-			vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
-		}
 	}
 }
 
@@ -150,31 +150,46 @@ void Terrain::CreateChunk(
 
 void Terrain::GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset)
 {
+
 	// CSTIMER("Noise generation: ");
 	generator->GenUniformGrid2D(noise, offset.x, offset.y, WidthSize, HeightSize, noiseScale * 0.01f, seed);
+}
+
+TerrainCreateResult Terrain::CreateSingleChunk()
+{
+	TerrainCreateResult result;
+	result.vertices = (TerrainVertex*)malloc(sizeof(TerrainVertex) * TERRAIN_VERTEX_COUNT);
+	result.indices  = (uint32_t*)malloc(sizeof(uint32_t) * TERRAIN_INDEX_COUNT);
+	std::vector<float> noise;
+	noise.resize(t_vertexCount);
+
+	CreateChunk(result.vertices, result.indices, noise, glm::vec2(0, 0));
+	for (uint32_t i = 0; i < TERRAIN_VERTEX_COUNT; ++i) { result.vertices[i].pos.y = 100; }
+
+	return result;
 }
 
 void Terrain::Create()
 {
 	Dispose();
-	
+
 	TerrainVertex vertices[t_vertexCount];
 	uint32_t indices[t_indexCount];
-	
+
 	// create first terrain's noise
 	std::vector<float> noise;
 	noise.resize(t_vertexCount);
-	
+
 	FastNoise::SmartNode<> fnGenerator;
-	
-	if (isPerlin) 
+
+	if (isPerlin)
 		fnGenerator = FastNoise::New<FastNoise::Perlin>();
 	else fnGenerator = FastNoise::NewFromEncodedNodeTree("DQAFAAAAAAAAQAgAAAAAAD8AAAAAAA==");
-	
+
 	vertexBuffers.resize(CuhunkSize.x * CuhunkSize.y);
-	indexBuffers.resize (CuhunkSize.x * CuhunkSize.y);
-	
-	glm::vec2 startPos    = { -((CuhunkSize.x * t_width) / 2),  -((CuhunkSize.y* t_height) / 2) };
+	indexBuffers.resize(CuhunkSize.x * CuhunkSize.y);
+
+	glm::vec2 startPos = { -((CuhunkSize.x * t_width) / 2),  -((CuhunkSize.y * t_height) / 2) };
 	glm::ivec2 i_startPos = { (int)startPos.x,  (int)startPos.y };
 
 	for (uint8_t x = 0, i = 0; x < CuhunkSize.y; ++x)
@@ -183,8 +198,8 @@ void Terrain::Create()
 		{
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
-			
-			CSCreateVertexIndexBuffers<TerrainVertex, uint32_t>(Engine::GetDevice(), vertices, indices, 
+
+			CSCreateVertexIndexBuffers<TerrainVertex, uint32_t>(DirectxBackend::GetDevice(), vertices, indices,
 				t_vertexCount, t_indexCount, &vertexBuffers[i], &indexBuffers[i]);
 		}
 	}
@@ -194,38 +209,41 @@ void Terrain::Draw()
 {
 	dirtTexture->Bind(d3d11DevCon, 0);
 	grassTexture->Bind(d3d11DevCon, 1);
-	
-	DrawIndexedInfo drawInfo {
-		d3d11DevCon, inputLayout 
+
+	DrawIndexedInfo drawInfo{
+		d3d11DevCon, inputLayout
 	};
-	
+
 	drawInfo.indexCount = t_indexCount;
-	
+
 	// todo add frustum culling: don't draw some of the cunks
 	for (uint8_t i = 0; i < vertexBuffers.size(); ++i)
 	{
-		drawInfo.vertexBuffer = vertexBuffers[i]; 
-		drawInfo.indexBuffer = indexBuffers[i]; 
-		DrawIndexed32<TerrainVertex>(&drawInfo);	
+		drawInfo.vertexBuffer = vertexBuffers[i];
+		drawInfo.indexBuffer = indexBuffers[i];
+		DrawIndexed32<TerrainVertex>(&drawInfo);
 	}
 }
 
 #ifndef NEDITOR
 void Terrain::OnEditor()
 {
-	ImGui::DragFloat("Scale", &scale, 1.0f);
-	ImGui::DragFloat("Texture Scale", &textureScale, 0.001f);
-	ImGui::DragFloat("Noise Scale", &noiseScale, 0.25f);
-	ImGui::DragFloat("height", &height, 0.25f);
-	ImGui::DragInt("Seed", &seed);
-	ImGui::DragFloat("seaLevel", &seaLevel);
-
-	ImGui::DragInt2("ChunkSize", &CuhunkSize.x);
-	ImGui::Checkbox("Perlin?", &isPerlin);
-
-	if (ImGui::Button("Recreate"))
+	if (ImGui::CollapsingHeader("Terrain")) 
 	{
-		Create();
+		ImGui::DragFloat("Scale", &scale, 1.0f);
+		ImGui::DragFloat("Texture Scale", &textureScale, 0.001f);
+		ImGui::DragFloat("Noise Scale", &noiseScale, 0.25f);
+		ImGui::DragFloat("height", &height, 0.25f);
+		ImGui::DragInt("Seed", &seed);
+		ImGui::DragFloat("seaLevel", &seaLevel);
+
+		ImGui::DragInt2("ChunkSize", &CuhunkSize.x);
+		ImGui::Checkbox("Perlin?", &isPerlin);
+
+		if (ImGui::Button("Recreate"))
+		{
+			Create();
+		}
 	}
 }
 #endif

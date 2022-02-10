@@ -1,8 +1,11 @@
 #include "Time.hpp"
 
-float DeltaTime;
-float TimeSinceStartup;
-unsigned int lastTime;
+namespace Time
+{
+	float DeltaTime;
+	float TimeSinceStartup;
+	unsigned int lastTime;
+}
 
 float Time::GetDeltaTime() { return DeltaTime; }
 float Time::GetTimeSinceStartup() { return lastTime; }

@@ -82,7 +82,7 @@
 static const Uint32 SDL_WINDOW_VULKAN = 0x10000000;
 #endif
 
-#include "../Engine.hpp"
+#include "../Input.hpp"
 
 // SDL Data
 struct ImGui_ImplSDL2_Data
@@ -429,7 +429,7 @@ static void ImGui_ImplSDL2_UpdateMouseCursor()
         return;
     ImGui_ImplSDL2_Data* bd = ImGui_ImplSDL2_GetBackendData();
 
-	auto engineCursor = Engine::GetCursor();
+	auto engineCursor = Input::GetCursor();
 	if (engineCursor)
 	{
 		SDL_SetCursor(engineCursor);

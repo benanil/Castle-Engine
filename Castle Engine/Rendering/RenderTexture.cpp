@@ -1,5 +1,6 @@
 #include "RenderTexture.hpp"
 #include "../Engine.hpp"
+#include "../DirectxBackend.hpp"
 
 RenderTexture::RenderTexture(
 	const int& textureWidth, 
@@ -8,8 +9,8 @@ RenderTexture::RenderTexture(
 	RenderTextureCreateFlags _flags,
 	DXGI_FORMAT _format) : flags(_flags), sampleCount(_sampleCount), format(_format), width(textureWidth), height(textureHeight)
 {
-	deviceContext = Engine::GetDeviceContext();
-	device        = Engine::GetDevice();
+	deviceContext = DirectxBackend::GetDeviceContext();
+	device        = DirectxBackend::GetDevice();
 
 	DX_CREATE(D3D11_BLEND_DESC, blendDesc);
 	blendDesc.AlphaToCoverageEnable = true;
@@ -77,15 +78,16 @@ void RenderTexture::Invalidate(int _width, int _height)
 
 	DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
 	
-	D3D11_FILTER filterMode = HasFlag(flags, RenderTextureCreateFlags::Linear)
-		? D3D11_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
+	bool isLinear = HasFlag(flags, RenderTextureCreateFlags::Linear);
+	D3D11_FILTER filterMode = isLinear ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_LINEAR_MAG_MIP_POINT;
+	
 	sampDesc.Filter = filterMode;
 	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
 	sampDesc.MinLOD = 0;
-	sampDesc.MaxLOD = 1;
+	sampDesc.MaxLOD = isLinear ? D3D11_FLOAT32_MAX : 1;
 	device->CreateSamplerState( &sampDesc, &sampler);
 	
 	D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc{};
@@ -128,7 +130,7 @@ void RenderTexture::Invalidate(int _width, int _height)
 		device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView), "Failed to Create depth stencil for render texture")
 	}
 	
-	OnSizeChanged(textureView);
+	OnSizeChanged.Invoke(textureView);
 }
 
 void RenderTexture::Release()

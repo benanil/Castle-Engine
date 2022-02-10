@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Rendering.hpp"
+#include "../DirectxBackend.hpp"
 #include "../Engine.hpp"
 #include <stdexcept>
 	
@@ -94,8 +95,7 @@ struct SubMesh
 	void CreateDXBuffers()
 	{
 		indiceFormat = ChoseIndiceFormat(indexCount);
-		DXDevice* d3d11Device = Engine::GetDevice();
-		DXDeviceContext* d3d11DevCon = Engine::GetDeviceContext();
+		DXDevice* d3d11Device = DirectxBackend::GetDevice();
 		// create vertex buffer		
 		DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
 		

@@ -9,12 +9,13 @@
 #include <cassert>
 #include <d3dcompiler.h>
 #include <cstdint>
+#include "../Engine.hpp"
 #ifdef _MSC_VER
 	#pragma comment(lib, "d3dcompiler") // Automatically link with d3dcompiler.lib as we are using D3DCompile() below.
 #endif
 
 #include "../Rendering.hpp"
-#include "../Engine.hpp"
+#include "../DirectxBackend.hpp"
 
 using namespace CS;
 
@@ -48,8 +49,8 @@ ComputeShader::ComputeShader(
 	const char* path, const char* CSName, uint32_t _width, uint32_t _height)
 {
 	groupCountX = _width; groupCountY = _height;
-	device = Engine::GetDevice();
-	d3d11DevCon = Engine::GetDeviceContext();
+	device = DirectxBackend::GetDevice();
+	d3d11DevCon = DirectxBackend::GetDeviceContext();
 
 	LPCSTR profile = (device->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
 	

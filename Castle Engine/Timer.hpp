@@ -15,11 +15,11 @@ struct Timer
 	std::chrono::duration<float> duration;
 	const char* message;
 
-	Timer(const char* _message) : message(_message)
+	Timer(const char* _message) : message(_message) 
 	{
 		start = std::chrono::high_resolution_clock::now();
 	}
-	~Timer()
+	~Timer() 
 	{
 		end = std::chrono::high_resolution_clock::now();
 		duration = end - start;

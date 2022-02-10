@@ -162,6 +162,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DirectxBackend.cpp" />
     <ClCompile Include="ECS\Entity.cpp" />
     <ClCompile Include="ECS\Scene.cpp" />
     <ClCompile Include="Editor\Editor.cpp" />
@@ -178,21 +179,23 @@
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Editor\GUI.cpp" />
+    <ClCompile Include="Input.cpp" />
+    <ClCompile Include="Rendering\PostProcessing.cpp" />
     <ClCompile Include="Rendering\ComputeShader.cpp" />
     <ClCompile Include="Rendering\MeshLoader.cpp" />
-    <ClCompile Include="Rendering\Pipeline.cpp" />
     <ClCompile Include="Rendering\AssetManager.cpp" />
     <ClCompile Include="Rendering\Renderer3D.cpp" />
     <ClCompile Include="Rendering\RenderTexture.cpp" />
-    <ClCompile Include="Rendering\Shader.cpp" />
     <ClCompile Include="Rendering\Terrain.cpp" />
     <ClCompile Include="Main\Time.cpp" />
+    <ClCompile Include="Rendering\TesellatedMesh.cpp" />
     <ClCompile Include="Transform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DirectxBackend.hpp" />
     <ClInclude Include="ECS\Component.hpp" />
     <ClInclude Include="ECS\ECS.hpp" />
     <ClInclude Include="ECS\Entity.hpp" />
@@ -200,13 +203,15 @@
     <ClInclude Include="Editor\Editor.hpp" />
     <ClInclude Include="FreeCamera.hpp" />
     <ClInclude Include="Helper.hpp" />
+    <ClInclude Include="Input.hpp" />
     <ClInclude Include="Math.hpp" />
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
+    <ClInclude Include="Rendering\PostProcessing.hpp" />
+    <ClInclude Include="Rendering\All.hpp" />
     <ClInclude Include="Rendering\ComputeShader.hpp" />
     <ClInclude Include="Rendering\FrameBuffer.hpp" />
     <ClInclude Include="Rendering\Material.hpp" />
-    <ClInclude Include="Rendering\Pipeline.hpp" />
     <ClInclude Include="Rendering\AssetManager.hpp" />
     <ClInclude Include="Rendering\Mesh.hpp" />
     <ClInclude Include="Rendering\MeshRenderer.hpp" />
@@ -215,10 +220,12 @@
     <ClInclude Include="Rendering.hpp" />
     <ClInclude Include="Rendering\Shader.hpp" />
     <ClInclude Include="Rendering\Skybox.hpp" />
+    <ClInclude Include="Rendering\TesellationShader.hpp" />
     <ClInclude Include="Rendering\Texture.hpp" />
     <ClInclude Include="Rendering\RenderTexture.hpp" />
     <ClInclude Include="Rendering\Terrain.hpp" />
     <ClInclude Include="Main\Time.hpp" />
+    <ClInclude Include="Rendering\TesellatedMesh.hpp" />
     <ClInclude Include="Timer.hpp" />
     <ClInclude Include="Transform.hpp" />
   </ItemGroup>

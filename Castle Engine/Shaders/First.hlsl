@@ -115,26 +115,21 @@ float3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in float3
 float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float time)
 {
 	// calculate first light
-	
-	if (distance(float3(-950, 300, 0), fragPos) < 250)
-	{
-		return float3(0.32,0.1,0.12) * 6;
-	}
-	// float3 direction = float3(-950, 300, 0) - fragPos;// float3(-950, 300, sin(time) * 500) - fragPos;
-	// float lightDist = length(direction);
-	// 
-	// float diffuseFactor = dot(normal, normalize(direction));
-	// 
-	// float3 firstLight = float3(0.5, 0.3, 0.25) * diffuseFactor * (max(500 - lightDist, 0) / 500);
-	// 
-	// // calculate second light
-	// direction = float3(0, 150, -420) - fragPos; // float3(sin(time * 0.5) * 1000, 150, -420) - fragPos;
-	// lightDist = length(direction);
-	// 
-	// diffuseFactor = dot(normal, normalize(direction));
-	// float3 secondLight = float3(0.25, 0.3, 0.5) * diffuseFactor * (max(500 - lightDist, 0) / 500);
+	float3 direction = float3(-950, 300, 0) - fragPos;
+	float lightDist = length(direction);
 
-	return float3(0, 0, 0);//firstLight * 10 + secondLight * 10;
+	float diffuseFactor = dot(normal, normalize(direction));
+
+	float3 firstLight = float3(0.5, 0.3, 0.25) * diffuseFactor * (max(500 - lightDist, 0) / 500);
+
+	// calculate second light
+	direction = float3(0, 150, -420) - fragPos;
+	lightDist = length(direction);
+
+	diffuseFactor = dot(normal, normalize(direction));
+	float3 secondLight = float3(0.25, 0.3, 0.5) * diffuseFactor * (max(500 - lightDist, 0) / 500);
+
+	return firstLight * 10 + secondLight * 10;
 }
 
 float3 CalculateNormalMap(in float3 normalMapSample,
@@ -166,7 +161,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 
 	float3 normal = CalculateNormalMap(NormalTexture.Sample(NormalSampler, input.TexCoord).xyz, input.normal, input.tangent);
 
-	float ndl = max(0.1f, dot(normal, L));
+	float ndl = max(0.1f, dot(normal, L)) * 2;
 	float ndv = max(0.0f, dot(normal, V));
 	float ndh = max(0.0f, dot(normal, H));
 	float hdv = max(0.0f, dot(H, V));

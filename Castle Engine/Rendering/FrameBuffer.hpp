@@ -8,15 +8,15 @@ using Microsoft::WRL::ComPtr;
 
 struct FrameBuffer
 {
-	ComPtr<DXTexture2D> colorTexture;
-	ComPtr<DXTexture2D> depthStencilTexture;
-	ComPtr<DXRenderTargetView> rtv;
-	ComPtr<DXShaderResourceView> srv;
-	ComPtr<DXDepthStencilView> dsv;
+	ComPtr<ID3D11Texture2D> colorTexture;
+	ComPtr<ID3D11Texture2D> depthStencilTexture;
+	ComPtr<ID3D11RenderTargetView> rtv;
+	ComPtr<ID3D11ShaderResourceView> srv;
+	ComPtr<ID3D11DepthStencilView> dsv;
 	UINT width, height;
 	UINT samples;
 
-	DXDeviceContext* deviceContext;
+	ID3D11DeviceContext* deviceContext;
 	bool depth;
 
 	void SetAsRendererTarget()

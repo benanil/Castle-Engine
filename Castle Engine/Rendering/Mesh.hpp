@@ -3,15 +3,17 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>       
 #include <assimp/postprocess.h> 
-#include <glm/glm.hpp>
-#include <cstdint>
-#include "../Rendering.hpp"
-#include "../Engine.hpp"
 #include <array>
 #include <utility>
 #include <vector>
-#include "Texture.hpp"
+#include <glm/glm.hpp>
+
+#include <cstdint>
+#include "../Rendering.hpp"
 #include "../ECS/ECS.hpp"
+#include "Renderer3D.hpp"
+#include "Texture.hpp"
+
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif NEDITOR
@@ -49,7 +51,7 @@ public:
 #endif
 	void Draw(DXDeviceContext* deviceContext)
 	{
-		Engine::SetModelMatrix(entity->transform->GetMatrix());
+		Renderer3D::SetModelMatrix(entity->transform->GetMatrix());
 		for (uint16_t i = 0; i < subMeshCount; i++)
 		{
 			materials[std::min<uint16_t>(subMeshes[i].materialIndex, materials.size() - 1)]->Bind();

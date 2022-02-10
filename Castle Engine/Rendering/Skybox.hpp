@@ -4,6 +4,8 @@
 #include <vector>
 #include "Shader.hpp"
 #include "Mesh.hpp"
+#include "../DirectxBackend.hpp"
+#include "../Engine.hpp"
 #include "../FreeCamera.hpp"
 
 // https://www.braynzarsoft.net/viewtutorial/q16390-20-cube-mapping-skybox
@@ -36,8 +38,8 @@ public:
 	{
 		mesh = CSCreateSphereVertexIndices(LatLines, LongLines);
 		
-		auto d3d11DevCon = Engine::GetDeviceContext();
-		auto d3d11Device = Engine::GetDevice();
+		auto d3d11DevCon = DirectxBackend::GetDeviceContext();
+		auto d3d11Device = DirectxBackend::GetDevice();
 		
 		CSCreateVertexIndexBuffers<SkyboxVertex, uint32_t>(d3d11Device,  
 			reinterpret_cast<SkyboxVertex*>(mesh->vertices), mesh->indices,
