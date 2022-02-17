@@ -57,14 +57,16 @@ Vertex VS(float4 Pos : POSITION, float4 normal : NORMAL)
     return o;
 }
 
-
-cbuffer TessellationBuffer : register(b1) {
+cbuffer TessellationBuffer : register(b0) {
+	float4x4 MVP;
+	float noiseScale, bias, noiseHeight; // 100, 0, 30
 	float tessellationAmount;
 	float3 camPos;
+	float sunAngle;
 };
 
 // HULL SHADER
-ConstantOutputType ColorPatchConstantFunction(
+ConstantOutputType CalcHSPatchConstants(
 	InputPatch<Vertex, OUTPUT_PATCH_SIZE> inputPatch, uint patchId : SV_PrimitiveID)
 {
     ConstantOutputType output;
@@ -76,10 +78,10 @@ ConstantOutputType ColorPatchConstantFunction(
 	return output;	
 }					
 
-[domain("tri")] [partitioning("integer")]
+[domain("tri")] [partitioning("fractional_odd")]
 [outputtopology("triangle_cw")]
-[outputcontrolpoints(3)] // [maxtessfactor(32.0)] 
-[patchconstantfunc("ColorPatchConstantFunction")]
+[outputcontrolpoints(3)] [maxtessfactor(32.0)] 
+[patchconstantfunc("CalcHSPatchConstants")]
 Vertex HS( InputPatch<Vertex, 3> patch, 
     uint pointId : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
 {
@@ -90,12 +92,6 @@ Vertex HS( InputPatch<Vertex, 3> patch,
 }
 
 // DOMAIN SHADER
-cbuffer cbPerObject : register(b0)
-{
-    float4x4 MVP;
-	float noiseScale, bias, noiseHeight, _padding; // 100, 0, 30
-	float3x4 Model; // we are not using it for now [depricated]
-};
 
 [domain("tri")]
 Vertex DS(ConstantOutputType input, float3 uvwCoord : SV_DomainLocation, 
@@ -130,10 +126,11 @@ Vertex DS(ConstantOutputType input, float3 uvwCoord : SV_DomainLocation,
 // pixel shader
 float4 PS(Vertex i) : SV_TARGET
 {
-    float3 l = float3(sin(0.2f),cos(0.2f), 0);
+    float3 l = float3(sin(sunAngle),cos(sunAngle), 0);
     float ndl = max(dot(i.normal, l),0.2f);
     float4 color = float4(0.3, 0.7, 0.2, 0) * ndl;
     color.a = 1;
+	color.xyz = i.normal;
 	color = float4(0, 0, 0, 1); // FIX MEE!
     return color;
 }

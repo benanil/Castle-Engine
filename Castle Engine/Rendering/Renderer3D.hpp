@@ -19,7 +19,7 @@ namespace Renderer3D
 {
 	void Initialize(DXDevice* device, DXDeviceContext* deviceContext, unsigned int msaaSamples, FreeCamera* freeCamera);
 	
-	DXInputLayout* CreateVertexInputLayout(std::vector<InputLayoutCreateInfo> infos, DXBlob* VS_Buffer);
+	DXInputLayout* CreateVertexInputLayout(const std::vector<InputLayoutCreateInfo>& infos, DXBlob* VS_Buffer);
 	RenderTexture* GetPostRenderTexture();
 	void AddMeshRenderer(MeshRenderer* meshRenderer);
 	void SetModelMatrix(const XMMATRIX& matrix);

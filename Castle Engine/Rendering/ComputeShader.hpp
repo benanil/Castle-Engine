@@ -11,7 +11,7 @@
 
 namespace CS {
 	struct BufferMappingResult {
-		void* data; ID3D11Buffer* mOutputDebugBuffer;
+		void* data; ID3D11Buffer* OutputBuffer;
 	};
 
 	struct TextureCreateResult {
@@ -19,7 +19,7 @@ namespace CS {
 	};
 
 	struct TextureMappingResult {
-		void* data; ID3D11Texture2D* mOutputDebugBuffer;
+		void* data; ID3D11Texture2D* OutputBuffer;
 	};
 
 	struct RWBufferHandle {

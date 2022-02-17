@@ -95,13 +95,10 @@ DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3&euler) noexcept // yaw (Z),
 	// Abbreviations for the various angular functions
 	euler *= 0.5f;
 
-	float c1 = cos(euler.x);
-	float c2 = cos(euler.y);
-	float c3 = cos(euler.z);
-	float s1 = sin(euler.x);
-	float s2 = sin(euler.y);
-	float s3 = sin(euler.z);
-
+	float c1 = cos(euler.x);  float s1 = sin(euler.x);
+	float c2 = cos(euler.y);  float s2 = sin(euler.y);
+	float c3 = cos(euler.z);  float s3 = sin(euler.z);
+	
 	xmQuaternion q{};
 
 	XMSETW(q) = (c1 * c2 * c3) - (s1 * s2 * s3);

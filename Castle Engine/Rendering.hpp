@@ -27,6 +27,7 @@ typedef ID3D11RasterizerState     DXRasterizerState;
 typedef ID3D11BlendState          DXBlendState;
 
 #define DX_RELEASE(x) if (x) { x->Release(); x = nullptr ; }
+#define DX_CREATE(_type, _name) _type _name{}; memset(&_name, 0,sizeof(_type));
 
 // const char* to wchar_t*
 static const wchar_t* GetWC(const char* c)
@@ -36,8 +37,6 @@ static const wchar_t* GetWC(const char* c)
 	mbstowcs(wc, c, cSize);
 	return wc;
 }
-#define DX_CREATE(_type, _name) _type _name{}; memset(&_name, 0,sizeof(_type));
-
 template<typename VertexT, typename IndexT>
 static inline void CSCreateVertexIndexBuffers(
 	DXDevice* d3d11Device,
@@ -68,8 +67,6 @@ static inline void CSCreateVertexIndexBuffers(
 	indexDesc.Usage = D3D11_USAGE_DEFAULT;
 	indexDesc.ByteWidth = sizeof(IndexT) * indexCount;
 	indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	indexDesc.CPUAccessFlags = 0;
-	indexDesc.MiscFlags = 0;
 
 	D3D11_SUBRESOURCE_DATA initData;
 	initData.pSysMem = indices;
@@ -89,11 +86,8 @@ void inline DrawIndexed32(DrawIndexedInfo* drawInfo)
 	drawInfo->d3d11DevCon->IASetInputLayout(drawInfo->vertexLayout);
 	drawInfo->d3d11DevCon->IASetIndexBuffer(drawInfo->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
-	// draw skybox sphere
-	UINT stride = sizeof(TVertex);
-	UINT offset = 0;
+	UINT stride = sizeof(TVertex), offset = 0;
 	drawInfo->d3d11DevCon->IASetVertexBuffers(0, 1, &drawInfo->vertexBuffer, &stride, &offset);
-
 	drawInfo->d3d11DevCon->DrawIndexed(drawInfo->indexCount, 0, 0);
 }
 
@@ -104,8 +98,7 @@ void inline DrawIndexed16(DrawIndexedInfo* drawInfo)
 	drawInfo->d3d11DevCon->IASetIndexBuffer(drawInfo->indexBuffer, DXGI_FORMAT_R16_UINT, 0);
 
 	// draw skybox sphere
-	UINT stride = sizeof(TVertex);
-	UINT offset = 0;
+	UINT stride = sizeof(TVertex), offset = 0;
 	drawInfo->d3d11DevCon->IASetVertexBuffers(0, 1, &drawInfo->vertexBuffer, &stride, &offset);
 
 	drawInfo->d3d11DevCon->DrawIndexed(drawInfo->indexCount, 0, 0);
@@ -122,11 +115,29 @@ inline void DXCreateConstantBuffer(ID3D11Device* device, ID3D11Buffer*& buffer, 
 	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
 	vinitData.pSysMem = initialData;
 	D3D11_SUBRESOURCE_DATA* p_vinit = initialData ? &vinitData : nullptr;
-	if (FAILED(device->CreateBuffer(&cbUniformDesc, p_vinit, &buffer)))
-	{
+	if (FAILED(device->CreateBuffer(&cbUniformDesc, p_vinit, &buffer))) {
 		assert(0, "Constant Buffer Creation Failed!");
 	}
 }
+
+template<typename T>
+void inline DXCreateStructuredBuffer(ID3D11Device* device, ID3D11Buffer*& buffer, unsigned int numElements, T* initialData = nullptr)
+{
+	DX_CREATE(D3D11_BUFFER_DESC, RWBufferDesc);
+	RWBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	RWBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	RWBufferDesc.StructureByteStride = sizeof(T);
+	RWBufferDesc.ByteWidth = sizeof(T) * numElements;
+	RWBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	RWBufferDesc.CPUAccessFlags = 0;
+
+	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
+	vinitData.pSysMem = initialData;
+	D3D11_SUBRESOURCE_DATA* p_vinitData = initialData ? &vinitData : nullptr;
+	ID3D11Buffer* GpuBuffer;
+	if (FAILED(device->CreateBuffer(&RWBufferDesc, p_vinitData, &GpuBuffer))) { assert(0, "strutcured buffer creation failed"); };
+}
+
 
 #define LAMBDA(x) { x; }
 #define LAMBDAR(x) { return x;  }

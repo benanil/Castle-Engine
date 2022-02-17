@@ -5,26 +5,12 @@
 	#include "../Editor/Editor.hpp"
 #endif
 
-TesellatedMesh::TesellatedMesh(ID3D11Device* _device, TerrainVertex* vertices, 
-	unsigned int* indices) : device(_device)
+TesellatedMesh::TesellatedMesh(ID3D11Device* _device, TerrainVertex* vertices, uint32_t* indices) : device(_device)
 { 
 	shader = new TesellationShader("Shaders/Tesellation.hlsl");
 	m_layout = Renderer3D::CreateVertexInputLayout({ {"POSITION", DXGI_FORMAT_R32G32B32_FLOAT}, {"NORMAL",DXGI_FORMAT_R32G32B32_FLOAT} }, shader->VS_Buffer);
 
-	DX_CREATE(D3D11_BUFFER_DESC, hullCBufferDesc);
-	hullCBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	hullCBufferDesc.ByteWidth = sizeof(HS_CBuffer);
-	hullCBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	hullCBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	hullCBufferDesc.MiscFlags = 0;
-	hullCBufferDesc.StructureByteStride = 0;
-	
-	DX_CREATE(D3D11_SUBRESOURCE_DATA, tessBufferData);
-	tessBufferData.pSysMem = &HS_Buff;
-
-	// Create the constant buffer pointer so we can access the hull shader constant buffer from within this class.
-	DX_CHECK(
-	device->CreateBuffer(&hullCBufferDesc, &tessBufferData, &HullConstBuffer), "tesellation buffer creation failed");
+	DXCreateConstantBuffer(device, HullConstBuffer, &HS_Buff);
 	
 	DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
 		
@@ -43,7 +29,7 @@ TesellatedMesh::TesellatedMesh(ID3D11Device* _device, TerrainVertex* vertices,
 	// create index buffer
 	DX_CREATE(D3D11_BUFFER_DESC, indexDesc);
 	indexDesc.Usage = D3D11_USAGE_DEFAULT;
-	indexDesc.ByteWidth = sizeof(unsigned int) * TERRAIN_INDEX_COUNT;
+	indexDesc.ByteWidth = sizeof(uint32_t) * TERRAIN_INDEX_COUNT;
 	indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	indexDesc.CPUAccessFlags = 0;
 	indexDesc.MiscFlags = 0;
@@ -53,21 +39,20 @@ TesellatedMesh::TesellatedMesh(ID3D11Device* _device, TerrainVertex* vertices,
 	device->CreateBuffer(&indexDesc, &initData, &indexBuffer);
 }
 
-void TesellatedMesh::Render(ID3D11DeviceContext* deviceContext, ID3D11Buffer* DSConstBuffer, const XMMATRIX& mvp, const glm::vec3& camPos)
+void TesellatedMesh::Render(ID3D11DeviceContext* deviceContext, const XMMATRIX& mvp, const glm::vec3& camPos)
 {
 	shader->Bind();
 
-	DS_Buff.mvp = mvp;
+	HS_Buff.MVP = mvp;
 	HS_Buff.cameraPos = camPos;
 
 	deviceContext->UpdateSubresource(HullConstBuffer, 0, NULL, &HS_Buff, 0, 0);
-	deviceContext->UpdateSubresource(DSConstBuffer  , 0, NULL, &DS_Buff, 0, 0);
 	
-	deviceContext->VSSetConstantBuffers(1, 1, &HullConstBuffer);
-	deviceContext->HSSetConstantBuffers(1, 1, &HullConstBuffer);
-	deviceContext->VSSetConstantBuffers(1, 1, &HullConstBuffer);
-	deviceContext->PSSetConstantBuffers(1, 1, &HullConstBuffer);
-	deviceContext->DSSetConstantBuffers(0, 1, &DSConstBuffer);
+	deviceContext->VSSetConstantBuffers(0, 1, &HullConstBuffer);
+	deviceContext->HSSetConstantBuffers(0, 1, &HullConstBuffer);
+	deviceContext->VSSetConstantBuffers(0, 1, &HullConstBuffer);
+	deviceContext->PSSetConstantBuffers(0, 1, &HullConstBuffer);
+	deviceContext->DSSetConstantBuffers(0, 1, &HullConstBuffer);
 
 	const UINT stride = sizeof(TerrainVertex), offset = 0;
 	// set index vertex buffers
@@ -92,9 +77,10 @@ void TesellatedMesh::OnEditor()
 	{
 		ImGui::DragFloat("TessellationAmount", &HS_Buff.tessellationAmount, 0.1f);
 		
-		ImGui::DragFloat("noiseScale",  &DS_Buff.noiseScale , 0.01f);
-		ImGui::DragFloat("bias", 		&DS_Buff.bias	    , 0.1f);
-		ImGui::DragFloat("noiseHeight", &DS_Buff.noiseHeight, 0.1f);
+		ImGui::DragFloat("noiseScale",  &HS_Buff.noiseScale , 0.01f);
+		ImGui::DragFloat("bias"      ,  &HS_Buff.bias	    , 0.1f);
+		ImGui::DragFloat("SunAngle"  ,  &HS_Buff.sunAngle, 0.1f);
+		ImGui::DragFloat("noiseHeight", &HS_Buff.noiseHeight, 0.1f);
 	}
 }
 #endif

@@ -3,8 +3,9 @@
 #include "../DirectxBackend.hpp"
 #include "Shader.hpp"
 
-#define TERRAIN_VERTEX_COUNT (100 + 1) * (100 + 1)
-#define TERRAIN_INDEX_COUNT   100 * 100 * 6
+#define TERRAIN_VERTEX_COUNT ((100 + 1) * (100 + 1))
+#define TERRAIN_INDEX_COUNT   (100 * 100 * 6)
+#define TERRAIN_GRASS_PER_CHUNK ((TERRAIN_INDEX_COUNT / 3) * 2)
 
 __declspec(align(32)) struct TerrainVertex
 {
@@ -48,6 +49,8 @@ namespace Terrain
 	void Initialize();
 
 	void Draw();
+	void SetGrassShader();
+	void DrawGrasses();
 	void Dispose();
 	void OnEditor();
 

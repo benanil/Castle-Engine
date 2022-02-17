@@ -22,11 +22,15 @@ Texture2D _texture1 : register(t1);
 SamplerState texSampler : register(s0);
 SamplerState texSampler1 : register(s1);
 
-PostProcessVertex VS(float4 pos : POSITION, float2 uv : TEXCOORD)
+PostProcessVertex VS(uint id : SV_VERTEXID)
 {
 	PostProcessVertex o;
-	o.pos = pos;
-	o.texCoord = uv;
+	o.pos.x = (float)(id / 2) * 4 - 1;
+	o.pos.y = (float)(id % 2) * 4 - 1;
+	o.pos.z = 0.0; o.pos.w = 1.0;
+	
+	o.texCoord.x = (float)(id / 2) * 2.0;
+	o.texCoord.y = (float)(id % 2) * 2.0;
 	return o;
 }
 
@@ -199,5 +203,5 @@ half4 FragUpsampleBox(PostProcessVertex i) : SV_Target
 	i.texCoord.y = 1 - i.texCoord.y;
 	i.texCoord *= mode;
 	half4 bloom = UpsampleBox(i.texCoord * 0.5, texelSize);
-	return bloom + _texture1.Sample(texSampler1, i.texCoord);
+	return bloom +_texture1.Sample(texSampler1, i.texCoord);
 }

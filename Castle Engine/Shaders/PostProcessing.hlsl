@@ -8,17 +8,22 @@ struct PostProcessVertex
 //Texture2D _texture ;
 #else
 Texture2D _texture  : register(t0);
-Texture2D _texture1 : register(t1);
+Texture2D bloomTexture : register(t1);
 #endif
 SamplerState textureSampler : register(s0);
 SamplerState textureSampler1 : register(s1);
 
 
-PostProcessVertex VS(float4 pos : POSITION, float2 uv : TEXCOORD)
+PostProcessVertex VS(uint id : SV_VERTEXID)
 {
 	PostProcessVertex o;
-	o.pos = pos;
-	o.texCoord = uv;
+	
+	o.pos.x = (float)(id / 2) * 4 - 1;
+	o.pos.y = (float)(id % 2) * 4 - 1;
+	o.pos.z = 0.0; o.pos.w = 1.0;
+	
+	o.texCoord.x = (float)(id / 2) * 2.0;
+	o.texCoord.y = (float)(id % 2) * 2.0;
 
 	return o;
 }
@@ -182,7 +187,7 @@ cbuffer ScreenSizeCB : register(b0)
 
 float4 PS(PostProcessVertex i) : SV_Target
 {
-	float3 color = Saturation(_texture.Sample(textureSampler, i.texCoord).xyz * 0.82, saturation);// Saturation(_texture.Load(int3(i.texCoord.x * screenSize.x, i.texCoord.y * screenSize.y, 0)).xyz * 0.82, saturation);
+	float3 color = Saturation(_texture.Sample(textureSampler, i.texCoord).xyz * 0.82, saturation);
 	float3 tonemapped = color;
 	switch (mode)
 	{
@@ -192,6 +197,6 @@ float4 PS(PostProcessVertex i) : SV_Target
 		case 3: tonemapped = Reinhard(color);  			break;
 		case 4: tonemapped = DX11DSK(color);  			break;
 	}
-	float4 bloom = _texture1.Sample(textureSampler1, i.texCoord) * 0.60f;// _texture1.Load(int3(i.texCoord.x* screenSize.x, i.texCoord.y* screenSize.y, 0)) * 0.2f;
+	float4 bloom = bloomTexture.Sample(textureSampler1, i.texCoord) * 0.60f;
 	return float4(tonemapped.x, tonemapped.y, tonemapped.z, 1) + bloom;
 }

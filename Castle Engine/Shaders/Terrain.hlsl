@@ -30,8 +30,9 @@ SamplerState grassSampler : register(s1);
 VS_OUTPUT VS(float4 Pos : POSITION, float4 normal : NORMAL)
 {
 	VS_OUTPUT o;
+	normal.w = 0;
 	o.Pos = mul(Pos, MVP);
-	o.normal = normal.xyz;
+	o.normal = normal.xyz;//mul(normal, Model);
 	o.vertexPos = Pos.xyz;
 	return o;
 }
@@ -57,5 +58,5 @@ float4 PS(VS_OUTPUT input) : SV_Target
 		result.xyz *= ndl;	
 	}
 	
-	return result;
+	return  result;
 }

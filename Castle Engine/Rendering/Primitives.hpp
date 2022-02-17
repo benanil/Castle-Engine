@@ -129,8 +129,7 @@ struct SubMesh
 	{
 		d3d11DevCon->IASetIndexBuffer(indexBuffer, indiceFormat , 0);
 		//Set the vertex buffer
-		UINT stride = sizeof(Vertex);
-		UINT offset = 0;
+		UINT stride = sizeof(Vertex), offset = 0;
 		d3d11DevCon->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
 		d3d11DevCon->DrawIndexed(indexCount, 0, 0);
 	}

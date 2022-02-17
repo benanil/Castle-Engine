@@ -16,34 +16,9 @@
 
 #include "../Rendering.hpp"
 #include "../DirectxBackend.hpp"
+#include "../Helper.hpp"
 
 using namespace CS;
-
-// byte order mask veierd thing at start of the text file
-static void SkipBOM(std::ifstream& in)
-{
-	char test[3] = { 0 };
-	in.read(test, 3);
-	if ((unsigned char)test[0] == 0xEF && (unsigned char)test[1] == 0xBB && (unsigned char)test[2] == 0xBF) {
-		return;
-	}
-	in.seekg(0);
-}
-
-static std::string ReadAllText(const std::string& filePath)
-{
-	if (!std::filesystem::exists(filePath)) {
-		spdlog::warn("file is not exist! {0} ", filePath);
-	}
-	
-	std::ifstream f(filePath, std::ios::in | std::ios::binary | std::ios::failbit);
-	SkipBOM(f);
-	const auto sz = std::filesystem::file_size(filePath);
-	std::string result(sz, '\0');
-	f.read(result.data(), sz);
-	
-	return std::move(result);
-}
 
 ComputeShader::ComputeShader(
 	const char* path, const char* CSName, uint32_t _width, uint32_t _height)
@@ -117,7 +92,7 @@ RWBufferHandle ComputeShader::RWCreateUAVBuffer(unsigned int stride, unsigned in
 	DX_CREATE(D3D11_UNORDERED_ACCESS_VIEW_DESC, uavDesc) ;
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_APPEND;
+	uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_COUNTER;
 	uavDesc.Buffer.FirstElement = 0;
 	uavDesc.Buffer.NumElements = numElements;
 	
@@ -143,23 +118,23 @@ BufferMappingResult ComputeShader::RWMapUAVBuffer(const RWBufferHandle& creation
 	outputDesc.CPUAccessFlags = MapModeToCPUAccesFlag(mappingMode);
 	outputDesc.StructureByteStride = creationResult.stride;
 	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	ID3D11Buffer* mOutputDebugBuffer;
-	DX_CHECK(device->CreateBuffer(&outputDesc, 0, &mOutputDebugBuffer), "RW UAV buffer mapping staging buffer creation failed!");
+	ID3D11Buffer* OutputBuffer;
+	DX_CHECK(device->CreateBuffer(&outputDesc, 0, &OutputBuffer), "RW UAV buffer mapping staging buffer creation failed!");
 	ID3D11Resource* resource;
 	UAV->GetResource(&resource);
 
-	d3d11DevCon->CopyResource(mOutputDebugBuffer, resource);
-	if (mOutputDebugBuffer == nullptr) {
+	d3d11DevCon->CopyResource(OutputBuffer, resource);
+	if (OutputBuffer == nullptr) {
 		std::cout << "mOutputDebugBuffer is null" << std::endl;
 	}
 
 	DX_CREATE(D3D11_MAPPED_SUBRESOURCE, mappedData);
 	CS::BufferMappingResult result{};
-	if (!FAILED(d3d11DevCon->Map(mOutputDebugBuffer, 0, mappingMode, 0, &mappedData)))
+	if (!FAILED(d3d11DevCon->Map(OutputBuffer, 0, mappingMode, 0, &mappedData)))
 	{
 		result.data = mappedData.pData;
 	} else assert(1, "RW UAV mapping failed!");
-	result.mOutputDebugBuffer = mOutputDebugBuffer;
+	result.OutputBuffer = OutputBuffer;
 	return result;
 }
 
@@ -182,30 +157,22 @@ TextureCreateResult ComputeShader::RWCreateUAVTexture(uint32_t width, uint32_t h
 	vinitData.pSysMem = pixels;
 	D3D11_SUBRESOURCE_DATA* p_vinitData = pixels ? &vinitData : nullptr;
 
-	HRESULT hr = device->CreateTexture2D(&textureDesc, p_vinitData, &texture);
-	// if (FAILED(device->CreateTexture2D(&textureDesc, p_vinitData, &texture))) {
-	// 	std::cout << "RWUAV texture creation failed!" << std::endl;
-	// }
+	DX_CHECK(device->CreateTexture2D(&textureDesc, p_vinitData, &texture), "uav creation failed!") ;
+
 	DX_CREATE(D3D11_SHADER_RESOURCE_VIEW_DESC, srvDesc);
 	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = 1;
 	ID3D11ShaderResourceView* mOutputTexSRV;
-	hr = device->CreateShaderResourceView(texture, &srvDesc, &mOutputTexSRV);
-	// if (FAILED(device->CreateShaderResourceView(texture, &srvDesc, &mOutputTexSRV))) {
-	// 	std::cout << "RWUAV texture resource view creation failed!" << std::endl;
-	// }
+	DX_CHECK(device->CreateShaderResourceView(texture, &srvDesc, &mOutputTexSRV), "uav creation failed!") ;
 	
 	DX_CREATE(D3D11_UNORDERED_ACCESS_VIEW_DESC, uavDesc);
 	uavDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Texture2D.MipSlice = 0;
 	ID3D11UnorderedAccessView* mOutputTexUAV;
-	hr = device->CreateUnorderedAccessView(texture, &uavDesc, &mOutputTexUAV);
-	// if (FAILED(device->CreateUnorderedAccessView(texture, &uavDesc, &mOutputTexUAV))) {
-	// 	std::cout << "RWUAV texture UAV creation failed!" << std::endl;
-	// }
+	DX_CHECK(device->CreateUnorderedAccessView(texture, &uavDesc, &mOutputTexUAV), "uav creation failed!");
 
 	TextureCreateResult result{ mOutputTexSRV, UAVs.size() , width, height};
 	Textures.push_back(texture);
@@ -229,23 +196,21 @@ TextureMappingResult ComputeShader::RWMapUAVTexture(const TextureCreateResult& t
 	outputDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
 	outputDesc.CPUAccessFlags = MapModeToCPUAccesFlag(mappingMode);
 	outputDesc.MiscFlags = 0;
-	ID3D11Texture2D* mOutputDebugBuffer;
-	DX_CHECK(device->CreateTexture2D(&outputDesc, 0, &mOutputDebugBuffer), "RW UAV texture creation failed!");
+	ID3D11Texture2D* OutputBuffer;
+	DX_CHECK(device->CreateTexture2D(&outputDesc, 0, &OutputBuffer), "RW UAV texture creation failed!");
 	ID3D11Resource* resource;
 	UAV->GetResource(&resource);
 
-	d3d11DevCon->CopyResource(mOutputDebugBuffer, resource);
+	d3d11DevCon->CopyResource(OutputBuffer, resource);
 	D3D11_MAPPED_SUBRESOURCE mappedData;
-	if (mOutputDebugBuffer == nullptr) {
+	if (OutputBuffer == nullptr) {
 		std::cout << "mOutputDebugBuffer is null" << std::endl;
 	}
 	CS::TextureMappingResult result{};
-	if (!FAILED(d3d11DevCon->Map(mOutputDebugBuffer, 0, mappingMode, 0, &mappedData)))
-
-	{
+	if (!FAILED(d3d11DevCon->Map(OutputBuffer, 0, mappingMode, 0, &mappedData))) {
 		result.data = mappedData.pData;
 	}
-	result.mOutputDebugBuffer = mOutputDebugBuffer;
+	result.OutputBuffer = OutputBuffer;
 	return result;
 }
 
@@ -298,11 +263,7 @@ ID3D11UnorderedAccessView* ComputeShader::CreateUAVFromResourceView(ID3D11Shader
 	uavDesc.Texture2D.MipSlice = 0;
 	ID3D11Resource* textureBuffer;
 	resourceView->GetResource(&textureBuffer);
-	HRESULT hr = device->CreateUnorderedAccessView(textureBuffer, &uavDesc, &result);
-	// if (FAILED(device->CreateUnorderedAccessView(textureBuffer, &uavDesc, &result))) {
-	// 	std::cout << "RWUAV texture UAV creation failed!" << std::endl;
-	// }
-	
+	DX_CHECK(device->CreateUnorderedAccessView(textureBuffer, &uavDesc, &result), "");
 	return result;
 }
 
@@ -328,8 +289,6 @@ StructuredBufferHandle ComputeShader::CreateStructuredBuffer(
 	DX_CREATE(D3D11_SHADER_RESOURCE_VIEW_DESC, srvDesc);
 	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
-	srvDesc.BufferEx.FirstElement = 0;
-	srvDesc.BufferEx.Flags = 0;
 	srvDesc.BufferEx.NumElements = numElements;
 
 	ID3D11ShaderResourceView* srv;
@@ -350,7 +309,7 @@ BufferMappingResult ComputeShader::MapStructuredBuffer(StructuredBufferHandle SB
 	{
 		result.data = mappedData.pData;
 	}
-	result.mOutputDebugBuffer = GPUBuffers[SBCreateResult.GPUBufferIndex];
+	result.OutputBuffer = GPUBuffers[SBCreateResult.GPUBufferIndex];
 	return result;
 }
 

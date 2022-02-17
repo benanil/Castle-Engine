@@ -25,8 +25,6 @@ namespace Renderer3D
 	
 	std::vector<MeshRenderer*> meshRenderers;
 
-	DXBuffer* quadVertexBuffer, * quadIndexBuffer;
-	
 	DrawIndexedInfo drawInfo;
 	unsigned int MSAASamples;
 	
@@ -34,29 +32,23 @@ namespace Renderer3D
 	cbGlobal cbGlobalData;
 	cbPerObject cbPerObj;
 
-	DXBuffer* constantBuffer;
-	DXBuffer* uniformGlobalBuffer;
-
+	DXBuffer* constantBuffer, * uniformGlobalBuffer;
+	
 	RenderTexture* renderTexture;
 	Skybox* skybox;
 	Shader* PBRshader;
-	ID3D11RasterizerState* rasterizerState;
-	ID3D11RasterizerState* WireframeRasterizerState;
+	ID3D11RasterizerState* rasterizerState, * WireframeRasterizerState;
 	TesellatedMesh* tessMesh;
 	FreeCamera* freeCamera;
-
+	
 	bool Vsync = true;
-
-	PostProcessing* postProcessing;
 
 	// forward declarations
 	void DrawTerrain();
 	void CreateBuffers();
-	void PrepareScreenSpaceQuad();
-	
 }
 
-RenderTexture* Renderer3D::GetPostRenderTexture() { return postProcessing->GetPostRenderTexture(); }
+RenderTexture* Renderer3D::GetPostRenderTexture() { return PostProcessing::GetPostRenderTexture(); }
 
 __forceinline static int FormatToByteSize(DXGI_FORMAT format)
 {
@@ -66,6 +58,7 @@ __forceinline static int FormatToByteSize(DXGI_FORMAT format)
 	case DXGI_FORMAT_R32G32B32_FLOAT: return 12;
 	case DXGI_FORMAT_R32G32_FLOAT: return 8;
 	case DXGI_FORMAT_R32G32_SINT: return 8;
+	case DXGI_FORMAT_R16G16_FLOAT: return 4;
 	case DXGI_FORMAT_R32_FLOAT: return 4;
 	case DXGI_FORMAT_R32_SINT: return 4;
 	default: return -1;
@@ -94,7 +87,7 @@ void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 }
 
-DXInputLayout* Renderer3D::CreateVertexInputLayout(std::vector<InputLayoutCreateInfo> infos, DXBlob* VS_Buffer)
+DXInputLayout* Renderer3D::CreateVertexInputLayout(const std::vector<InputLayoutCreateInfo>& infos, DXBlob* VS_Buffer)
 {
 	DXInputLayout* vertLayout;
 
@@ -111,43 +104,12 @@ DXInputLayout* Renderer3D::CreateVertexInputLayout(std::vector<InputLayoutCreate
 	return vertLayout;
 }
 
-void Renderer3D::PrepareScreenSpaceQuad()
-{
-	std::array<ScreenQuadVertex, 4> vertices;
-	vertices[0] = { glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f) };
-	vertices[1] = { glm::vec2(-1.0f,  1.0f), glm::vec2(0.0f, 1.0f) };
-	vertices[2] = { glm::vec2( 1.0f, -1.0f), glm::vec2(1.0f, 0.0f) };
-	vertices[3] = { glm::vec2( 1.0f,  1.0f), glm::vec2(1.0f, 1.0f) };
-
-	std::array<uint16_t, 6> indices = {
-		0,1,2, 1,3,2
-	};
-
-	CSCreateVertexIndexBuffers<ScreenQuadVertex, uint16_t>(
-		Device, vertices.data(), indices.data(),
-		vertices.size(), indices.size(), &quadVertexBuffer, &quadIndexBuffer);
-
-	std::vector<InputLayoutCreateInfo> vertexLayoutInfos =
-	{
-		{"POSITION", DXGI_FORMAT_R32G32_FLOAT}, {"TEXCOORD", DXGI_FORMAT_R32G32_FLOAT}
-	};
-
-	quadVertLayout = CreateVertexInputLayout(vertexLayoutInfos, postProcessing->GetShader()->VS_Buffer);
-
-	drawInfo =
-	{
-		DeviceContext, quadVertLayout ,
-		quadVertexBuffer, quadIndexBuffer, 6
-	};	
-}
-
 void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, unsigned int _msaaSamples, FreeCamera* camera)
 {
 	Device = _device; DeviceContext = _deviceContext;
 	freeCamera = camera;
-
-	postProcessing = new PostProcessing(Device, DeviceContext, MSAASamples);
-	PrepareScreenSpaceQuad();
+	
+	PostProcessing::Initialize(Device, DeviceContext, MSAASamples);
 	CreateBuffers();
 
 	PBRshader = new Shader("Shaders/First.hlsl\0");
@@ -173,7 +135,7 @@ void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, 
 	rasterizerDesc.MultisampleEnable = true;
 
 	DX_CHECK(
-		Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
+	Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
 
 	memset(&rasterizerDesc, 0, sizeof(D3D11_RASTERIZER_DESC));
 	rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
@@ -188,7 +150,6 @@ void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, 
 	skybox = new Skybox(10, 10, MSAASamples);
 	std::cout << "skybox created" << std::endl;
 	Terrain::Initialize();
-	std::cout << "Terrain created" << std::endl;
 	TerrainCreateResult tessMeshCreateResult = Terrain::CreateSingleChunk();
 	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult.vertices, tessMeshCreateResult.indices);
 	tessMeshCreateResult.Dispose();
@@ -200,14 +161,14 @@ void Renderer3D::CreateBuffers()
 {
 	cbGlobalData.ambientColor = glm::vec3(0.8f, 0.8f, 0.65f);
 	cbGlobalData.sunColor = glm::vec3(1.0f, 1.0f, 1.0f);
-	cbGlobalData.ambientStength = .13f;
+	cbGlobalData.ambientStength = .120f;
 	cbGlobalData.sunAngle = 120;
 
 	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
 	cbPerObj.Model = XMMatrixIdentity();
 
-	DXCreateConstantBuffer<cbGlobal>(Device, uniformGlobalBuffer, &cbGlobalData);
-	DXCreateConstantBuffer<cbPerObject>(Device, constantBuffer, &cbPerObj);
+	DXCreateConstantBuffer(Device, uniformGlobalBuffer, &cbGlobalData);
+	DXCreateConstantBuffer(Device, constantBuffer, &cbPerObj);
 	
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
@@ -220,7 +181,7 @@ void Renderer3D::CreateBuffers()
 		freeCamera->aspectRatio = w / h;
 		freeCamera->UpdateProjection(freeCamera->aspectRatio);
 		renderTexture->Invalidate((int)w, (int)h);
-		postProcessing->WindowScaleEvent((int)w, (int)h);
+		PostProcessing::WindowScaleEvent((int)w, (int)h);
 		Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
 	}));
 #endif
@@ -239,21 +200,26 @@ void Renderer3D::OnEditor()
 		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
 	}
 
-	postProcessing->OnEditor();
+	PostProcessing::OnEditor();
 	
 	tessMesh->OnEditor();
 }
 #endif
 
 void Renderer3D::RenderToQuad() {
-	DrawIndexed16<ScreenQuadVertex>(&drawInfo);
+	DeviceContext->IASetInputLayout(nullptr);
+	DeviceContext->IASetIndexBuffer(nullptr, (DXGI_FORMAT)0, 0);
+	DeviceContext->IASetInputLayout(nullptr);
+	DeviceContext->IASetVertexBuffers(0, 0, nullptr, nullptr, nullptr);
+
+	DeviceContext->Draw(3, 0);
 }
 
 void Renderer3D::DrawTerrain()
 {
 	Terrain::BindShader();
 
-	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -1100) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
+	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
 
 	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
@@ -265,6 +231,17 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->RSSetState(rasterizerState);
 
 	Terrain::Draw();
+
+	Terrain::SetGrassShader();
+	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(700, 700, 700) * freeCamera->ViewProjection);
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+	
+	Terrain::DrawGrasses();
+
+	DeviceContext->RSSetState(rasterizerState);
 }
 
 void Renderer3D::DrawScene()
@@ -300,19 +277,19 @@ void Renderer3D::DrawScene()
 	DeviceContext->RSSetState(rasterizerState);
 
 	Renderer3D::RenderMeshes();
-
+	
 	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
-
 	DrawTerrain();
 
 	DeviceContext->RSSetState(WireframeRasterizerState);
 	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(0, 0, 0) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
-	tessMesh->Render(DeviceContext, constantBuffer, cbPerObj.MVP, freeCamera->transform.GetPosition());
+	tessMesh->Render(DeviceContext, cbPerObj.MVP, freeCamera->transform.GetPosition());
 	DeviceContext->RSSetState(rasterizerState);
 
 #ifndef NEDITOR
-	postProcessing->Proceed(renderTexture->textureView, renderTexture->sampler, false);
+	PostProcessing::Proceed(renderTexture->textureView, renderTexture->sampler, false);
 #endif
+	
 	DirectxBackend::SetBackBufferAsRenderTarget();
 
 #ifdef NEDITOR
@@ -343,5 +320,5 @@ void Renderer3D::DrawScene()
 
 void Renderer3D::Dispose()
 {
-	postProcessing->Dispose();
+	PostProcessing::Dispose();
 }

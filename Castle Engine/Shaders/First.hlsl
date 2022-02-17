@@ -43,8 +43,7 @@ VS_OUTPUT VS(float4 inPos : POSITION, float2 inTexCoord : TEXCOORD, float4 inNor
 {
 	VS_OUTPUT output;
 	inPos.w = 1;
-	inNormal.w = 0;
-	inTangent.w = 0;
+	inNormal.w = 0; inTangent.w = 0;
 	output.Pos = mul(inPos, MVP);
 	output.normal = mul(inNormal, Model).xyz;
 	output.TexCoord = inTexCoord;
@@ -112,24 +111,21 @@ float3 cooktorrance_specular(in float NdL, in float NdV, in float NdH, in float3
 
 #define SCALAR3f(x) float3(x, x, x)
 
-float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float time)
+float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float3 specTex, in float time)
 {
 	// calculate first light
 	float3 direction = float3(-950, 300, 0) - fragPos;
 	float lightDist = length(direction);
 
 	float diffuseFactor = dot(normal, normalize(direction));
-
-	float3 firstLight = float3(0.5, 0.3, 0.25) * diffuseFactor * (max(500 - lightDist, 0) / 500);
-
-	// calculate second light
-	direction = float3(0, 150, -420) - fragPos;
-	lightDist = length(direction);
-
-	diffuseFactor = dot(normal, normalize(direction));
-	float3 secondLight = float3(0.25, 0.3, 0.5) * diffuseFactor * (max(500 - lightDist, 0) / 500);
-
-	return firstLight * 10 + secondLight * 10;
+	float lightFactor = diffuseFactor * (max(500 - lightDist, 0) / 500);
+	float3 firstLight = float3(0.5, 0.3, 0.25) * lightFactor;
+	float3 viewDirection = normalize(fragPos - viewPos);
+	
+	// float3 specular = firstLight * pow(max(0, dot(reflect(direction, normal), viewDirection)), 0.2) * specTex * 0.33;
+	float3 specular = firstLight * pow(saturate(dot(normalize(direction + viewDirection), normal)), 0.2) * specTex*0.5;
+	
+	return firstLight + specular * 3; // + secondLight * 10;
 }
 
 float3 CalculateNormalMap(in float3 normalMapSample,
@@ -161,7 +157,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 
 	float3 normal = CalculateNormalMap(NormalTexture.Sample(NormalSampler, input.TexCoord).xyz, input.normal, input.tangent);
 
-	float ndl = max(0.1f, dot(normal, L)) * 2;
+	float ndl = max(0.1f, dot(normal, L));
 	float ndv = max(0.0f, dot(normal, V));
 	float ndh = max(0.0f, dot(normal, H));
 	float hdv = max(0.0f, dot(H, V));
@@ -179,7 +175,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 	float4 result = float4(0, 0, 0, 1);
 	result.xyz = albedo.xyz * (ndl * sunColor) + specular + ambient;
 
-	result.xyz += CalculatePointLight(normal, input.fragPos, time);
+	result.xyz += CalculatePointLight(normal, input.fragPos, specularTex.xyz, time);
 
 	return result;
 }

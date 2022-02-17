@@ -20,8 +20,10 @@
 
 #include "AssetManager.hpp"
 #include "Material.hpp"
-
 #include "Primitives.hpp"
+
+#include <chrono>
+#include <iostream>
 
 class MeshRenderer : ECS::Component
 {

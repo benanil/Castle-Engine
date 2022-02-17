@@ -2,19 +2,56 @@
 #include "../Rendering.hpp"
 #include "../Editor/Editor.hpp"
 
-PostProcessing::~PostProcessing() { Dispose(); }
-
-PostProcessing::PostProcessing(ID3D11Device* _Device, ID3D11DeviceContext* _DeviceContext, unsigned int MSAASamples)
-	: Device(_Device), DeviceContext(_DeviceContext)
+namespace PostProcessing
 {
-	postProcessShader = new Shader("Shaders/PostProcessing.hlsl\0");
+	__declspec(align(16)) struct PostCbuffer
+	{
+		int width, height, mode;
+		union {
+			struct { float saturation; };
+			struct { float treshold; };
+		};
+	};
 
-	FragPrefilter13  = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragPrefilter13");
-	FragPrefilter4   = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragPrefilter4");
-	FragDownsample13 = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragDownsample13");
-	FragDownsample4  = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragDownsample4");
-	FragUpsampleTent = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragUpsampleTent");
-	FragUpsampleBox  = new Shader("Shaders/DownSample.hlsl", "Shaders/DownSample.hlsl", "VS", "FragUpsampleBox");
+	void RenderToQuad(RenderTexture* renderTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler, int scale);
+	void RenderToQuad(RenderTexture* renderTexture, Shader* shader, RenderTexture* beforeTexture, int scale);
+	void RenderToQuadUpsample(RenderTexture* renderTexture, Shader* shader, 
+		RenderTexture* miniRenderTexture, RenderTexture* biggerRenderTexture, int scale);
+	void PostModeChanged();
+	bool disposed;
+	float treshold = 0.95f;
+
+	DXDevice* Device; DXDeviceContext* DeviceContext;
+
+	Shader* postProcessShader;
+	RenderTexture* postRenderTexture;
+	DXBuffer* ScreenSizeCB;
+
+	PostCbuffer postCbuffer;
+	std::vector<MeshRenderer*> meshRenderers;
+
+	std::array<RenderTexture*, 6> downSampleRTS; // rts = render textures
+	std::array<RenderTexture*, 6> upSampleRTS; // rts = render textures
+
+	Shader* FragPrefilter13, * FragPrefilter4,
+		* FragDownsample13, * FragDownsample4,
+		* FragUpsampleTent, * FragUpsampleBox;
+}	
+
+Shader* PostProcessing::GetShader() { return postProcessShader; };
+RenderTexture* PostProcessing::GetPostRenderTexture() { return postRenderTexture; };
+
+void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _DeviceContext, unsigned int MSAASamples)
+{
+	Device = _Device; DeviceContext = _DeviceContext;
+	
+	postProcessShader = new Shader("Shaders/PostProcessing.hlsl\0");
+	FragPrefilter13  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter13");
+	FragPrefilter4   = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter4");
+	FragDownsample13 = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragDownsample13");
+	FragDownsample4  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragDownsample4");
+	FragUpsampleTent = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleTent");
+	FragUpsampleBox  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleBox");
 
 	postRenderTexture = new RenderTexture(1000, 800, MSAASamples, RenderTextureCreateFlags::None, DXGI_FORMAT_R8G8B8A8_UNORM);
 
@@ -42,6 +79,7 @@ void PostProcessing::Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, b
 	float startSaturation = postCbuffer.saturation;
 	postCbuffer.treshold = treshold;
 
+	// proceed bloom
 	RenderToQuad(downSampleRTS[0], FragPrefilter13 , srv, sampler, 1 << 0);
 	RenderToQuad(downSampleRTS[1], FragPrefilter4  , downSampleRTS[0], 1 << 1);
 	RenderToQuad(downSampleRTS[2], FragDownsample13, downSampleRTS[1], 1 << 2);
@@ -57,6 +95,7 @@ void PostProcessing::Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, b
 
 	if(!build)	
 		postRenderTexture->SetAsRendererTarget();
+	// render post processing
 	postProcessShader->Bind();
 	
 	postCbuffer.mode = startMode;

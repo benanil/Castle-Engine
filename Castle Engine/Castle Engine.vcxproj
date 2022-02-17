@@ -29,26 +29,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -180,6 +180,7 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Editor\GUI.cpp" />
     <ClCompile Include="Input.cpp" />
+    <ClCompile Include="Rendering\GrassRenderer.cpp" />
     <ClCompile Include="Rendering\PostProcessing.cpp" />
     <ClCompile Include="Rendering\ComputeShader.cpp" />
     <ClCompile Include="Rendering\MeshLoader.cpp" />
@@ -201,12 +202,16 @@
     <ClInclude Include="ECS\Entity.hpp" />
     <ClInclude Include="ECS\Scene.hpp" />
     <ClInclude Include="Editor\Editor.hpp" />
+    <ClInclude Include="Extern\SDL_stbimage.h" />
+    <ClInclude Include="Extern\stb_image.h" />
     <ClInclude Include="FreeCamera.hpp" />
+    <ClInclude Include="Rendering\GrassGroup.hpp" />
     <ClInclude Include="Helper.hpp" />
     <ClInclude Include="Input.hpp" />
     <ClInclude Include="Math.hpp" />
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
+    <ClInclude Include="Rendering\Grassrenderer.hpp" />
     <ClInclude Include="Rendering\PostProcessing.hpp" />
     <ClInclude Include="Rendering\All.hpp" />
     <ClInclude Include="Rendering\ComputeShader.hpp" />
@@ -238,6 +243,8 @@
     <Import Project="..\packages\glm.0.9.9.800\build\native\glm.targets" Condition="Exists('..\packages\glm.0.9.9.800\build\native\glm.targets')" />
     <Import Project="..\packages\sdl2.redist.2.0.5\build\native\sdl2.redist.targets" Condition="Exists('..\packages\sdl2.redist.2.0.5\build\native\sdl2.redist.targets')" />
     <Import Project="..\packages\sdl2.2.0.5\build\native\sdl2.targets" Condition="Exists('..\packages\sdl2.2.0.5\build\native\sdl2.targets')" />
+    <Import Project="..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets" Condition="Exists('..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets')" />
+    <Import Project="..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets" Condition="Exists('..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -247,5 +254,7 @@
     <Error Condition="!Exists('..\packages\glm.0.9.9.800\build\native\glm.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\glm.0.9.9.800\build\native\glm.targets'))" />
     <Error Condition="!Exists('..\packages\sdl2.redist.2.0.5\build\native\sdl2.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.redist.2.0.5\build\native\sdl2.redist.targets'))" />
     <Error Condition="!Exists('..\packages\sdl2.2.0.5\build\native\sdl2.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.2.0.5\build\native\sdl2.targets'))" />
+    <Error Condition="!Exists('..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets'))" />
+    <Error Condition="!Exists('..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets'))" />
   </Target>
 </Project>
