@@ -76,9 +76,9 @@ void GrassRenderer::SetShader()
 	grassTexture->Bind(DeviceContext, 0);
 }
 
-void GrassRenderer::Render(ID3D11Buffer* instancingSRV)
+void GrassRenderer::Render(ID3D11Buffer* instancingBuffer)
 {
 	UINT stride = sizeof(glm::vec3), offset = 0;
-	DeviceContext->IASetVertexBuffers(1, 1, &instancingSRV, &stride, &offset);
+	DeviceContext->IASetVertexBuffers(1, 1, &instancingBuffer, &stride, &offset);
 	DeviceContext->DrawIndexedInstanced(6, TERRAIN_GRASS_PER_CHUNK, 0, 0, 0);
 }
