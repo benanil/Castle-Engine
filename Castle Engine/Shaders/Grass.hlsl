@@ -4,15 +4,15 @@ cbuffer cbPerObject : register(b0)
 	float4x4 Model;
 };
 
-cbuffer cbGlobal : register(b2)
-{
-	float sunAngle;
-	float3 ambientColor;  // 16
-	float3 sunColor;
-	float textureScale;   // 32
-	float3 viewPos;
-	float ambientStength; // 48
-};
+// cbuffer cbGlobal : register(b2)
+// {
+// 	float sunAngle;
+// 	float3 ambientColor;  // 16
+// 	float3 sunColor;
+// 	float textureScale;   // 32
+// 	float3 viewPos;
+// 	float ambientStength; // 48
+// };
 
 struct VS_OUT {
 	float4 position : SV_POSITION;
