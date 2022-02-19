@@ -9,8 +9,12 @@
 #include "Skybox.hpp"
 #include "TesellatedMesh.hpp"
 #include "PostProcessing.hpp"
+#include "LineDrawer.hpp"
 #include "../DirectxBackend.hpp"
 #include "../Main/Time.hpp"
+#include <array>
+#include "Terrain.hpp"
+#include "Grassrenderer.hpp"
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
@@ -78,6 +82,7 @@ void Renderer3D::RenderMeshes()
 	}
 }
 
+// do not send matrix transposed!
 void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
 {
 	const auto MVP = matrix * freeCamera->ViewProjection;
@@ -87,43 +92,32 @@ void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 }
 
-DXInputLayout* Renderer3D::CreateVertexInputLayout(const std::vector<InputLayoutCreateInfo>& infos, DXBlob* VS_Buffer)
-{
-	DXInputLayout* vertLayout;
-
-	D3D11_INPUT_ELEMENT_DESC* layout = (D3D11_INPUT_ELEMENT_DESC*)malloc(infos.size() * sizeof(D3D11_INPUT_ELEMENT_DESC));
-	unsigned int byteIndex = 0;
-	for (int i = 0; i < infos.size(); ++i)
-	{
-		layout[i] = { infos[i].name, 0, infos[i].format, 0, byteIndex, D3D11_INPUT_PER_VERTEX_DATA, 0 };
-		byteIndex += FormatToByteSize(infos[i].format);
-	}
-	auto device = DirectxBackend::GetDevice();
-	device->CreateInputLayout(layout, infos.size(), VS_Buffer->GetBufferPointer(), VS_Buffer->GetBufferSize(), &vertLayout);
-	delete layout;
-	return vertLayout;
-}
-
 void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, unsigned int _msaaSamples, FreeCamera* camera)
 {
 	Device = _device; DeviceContext = _deviceContext;
 	freeCamera = camera;
 	
 	PostProcessing::Initialize(Device, DeviceContext, MSAASamples);
+	LineDrawer::Initialize(Device, DeviceContext);
+	GrassRenderer::Initialize(Device, DeviceContext);
 	CreateBuffers();
 
 	PBRshader = new Shader("Shaders/First.hlsl\0");
 	PBRshader->Bind();
 
 	//Create the Input Layout & Set the Input Layout
-	std::vector<InputLayoutCreateInfo> vertexLayoutInfos =
+	D3D11_INPUT_ELEMENT_DESC pbrLayoutInfos[] =
 	{
-		{ "POSITION", DXGI_FORMAT_R32G32B32_FLOAT},
-		{ "NORMAL"  , DXGI_FORMAT_R32G32B32_FLOAT},
-		{ "TEXCOORD", DXGI_FORMAT_R32G32_FLOAT   },
-		{ "TANGENT" , DXGI_FORMAT_R32G32B32_FLOAT}
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{ "NORMAL"  , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT   , 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{ "TANGENT" , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
-	PBRVertLayout = Renderer3D::CreateVertexInputLayout(vertexLayoutInfos, PBRshader->VS_Buffer);
+
+	DirectxBackend::GetDevice()->CreateInputLayout(
+		pbrLayoutInfos, 4, PBRshader->VS_Buffer->GetBufferPointer(),
+		PBRshader->VS_Buffer->GetBufferSize(), &PBRVertLayout);
+
 	DeviceContext->IASetInputLayout(PBRVertLayout);
 	//Set Primitive Topology
 	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -150,9 +144,10 @@ void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, 
 	skybox = new Skybox(10, 10, MSAASamples);
 	std::cout << "skybox created" << std::endl;
 	Terrain::Initialize();
-	TerrainCreateResult tessMeshCreateResult = Terrain::CreateSingleChunk();
-	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult.vertices, tessMeshCreateResult.indices);
-	tessMeshCreateResult.Dispose();
+
+	PointsAndIndices32  tessMeshCreateResult = CSCreatePlanePoints(100, 100, {0,0});
+	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult);
+	tessMeshCreateResult.Clear();
 
 	renderTexture = new RenderTexture(Engine::Width, Engine::Height, DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth);
 }
@@ -206,6 +201,7 @@ void Renderer3D::OnEditor()
 }
 #endif
 
+// screen space quad for post processing and other stuff
 void Renderer3D::RenderToQuad() {
 	DeviceContext->IASetInputLayout(nullptr);
 	DeviceContext->IASetIndexBuffer(nullptr, (DXGI_FORMAT)0, 0);
@@ -219,10 +215,7 @@ void Renderer3D::DrawTerrain()
 {
 	Terrain::BindShader();
 
-	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
-
-	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
 
 	cbGlobalData.additionalData = Terrain::GetTextureScale();
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
@@ -231,14 +224,8 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->RSSetState(rasterizerState);
 
 	Terrain::Draw();
-
-	Terrain::SetGrassShader();
-	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(700, 700, 700) * freeCamera->ViewProjection);
-	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-
-	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
-	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
-	
+	GrassRenderer::SetShader();
+	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
 	Terrain::DrawGrasses();
 
 	DeviceContext->RSSetState(rasterizerState);
@@ -275,16 +262,26 @@ void Renderer3D::DrawScene()
 	renderTexture->SetAsRendererTarget();
 
 	DeviceContext->RSSetState(rasterizerState);
-
 	Renderer3D::RenderMeshes();
-	
-	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
-	DrawTerrain();
 
 	DeviceContext->RSSetState(WireframeRasterizerState);
-	cbPerObj.MVP = XMMatrixTranspose(XMMatrixTranslation(0, 0, 0) * XMMatrixScaling(7, 7, 7) * freeCamera->ViewProjection);
+	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
 	tessMesh->Render(DeviceContext, cbPerObj.MVP, freeCamera->transform.GetPosition());
 	DeviceContext->RSSetState(rasterizerState);
+	
+	// line drawing test we can call it everywhere
+	LineDrawer::DrawLine({ 0000, 0000, 0 }, { 0000, 1000, 0 });
+	LineDrawer::DrawLine({ 0000, 1000, 0 }, { 1000, 1000, 0 });
+	LineDrawer::DrawLine({ 1000, 1000, 0 }, { 1000, 0000, 0 });
+	LineDrawer::DrawLine({ 1000, 0000, 0 }, { 0000, 0000, 0 });
+
+	LineDrawer::SetShader();
+	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(1, 1, 1));
+	LineDrawer::Render();
+
+	DrawTerrain();
+	
+	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
 
 #ifndef NEDITOR
 	PostProcessing::Proceed(renderTexture->textureView, renderTexture->sampler, false);

@@ -21,6 +21,7 @@ struct cbPerObject
 	XMMATRIX  Model;
 };
 
+// pbr vertex
 struct Vertex
 {
 	glm::vec3 pos;

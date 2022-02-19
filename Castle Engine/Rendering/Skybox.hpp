@@ -45,10 +45,12 @@ public:
 			reinterpret_cast<SkyboxVertex*>(mesh->vertices), mesh->indices,
 			mesh->vertexCount, mesh->indexCount, &vertexBuffer, &indexBuffer);
 
-		std::vector<InputLayoutCreateInfo> vertexLayoutInfos = { { "POSITION", DXGI_FORMAT_R32G32B32_FLOAT } };
-			
-		vertexLayout = Renderer3D::CreateVertexInputLayout(vertexLayoutInfos, shader.VS_Buffer);
+		D3D11_INPUT_ELEMENT_DESC inputLayoutInfo = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0};
 
+		DirectxBackend::GetDevice()->CreateInputLayout(
+			&inputLayoutInfo, 1, shader.VS_Buffer->GetBufferPointer(),
+			shader.VS_Buffer->GetBufferSize(), &vertexLayout);
+			
 		// loading cubemap
 		D3DX11_IMAGE_LOAD_INFO loadSMInfo;
 		loadSMInfo.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
@@ -122,6 +124,8 @@ public:
 		};
 		
 		DrawIndexed32<SkyboxVertex>(&drawInfo);
+
+		DeviceContext->OMSetDepthStencilState(nullptr, 0);
 	}
 
 	~Skybox()

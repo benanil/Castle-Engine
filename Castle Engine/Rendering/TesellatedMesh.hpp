@@ -1,6 +1,6 @@
 #pragma once
 #include "TesellationShader.hpp"
-#include "Terrain.hpp"
+#include "Mesh.hpp"
 
 class TesellatedMesh
 {
@@ -15,14 +15,15 @@ public:
 	} HS_Buff;
 	
 	TesellatedMesh(){};
-	TesellatedMesh(ID3D11Device* _device, TerrainVertex* vertices, uint32_t* indices);
+	TesellatedMesh(ID3D11Device* _device, const PointsAndIndices32& mesh);
 	void Render(ID3D11DeviceContext* deviceContext, const XMMATRIX& mvp, const glm::vec3& position);
 	void OnEditor();
 private:
 	TesellationShader* shader;
-	ID3D11InputLayout* m_layout;
+	ID3D11InputLayout* layout;
 	ID3D11Device* device;
 	ID3D11Buffer* HullConstBuffer;
 	DXBuffer* vertexBuffer, *indexBuffer;
+	uint32_t indexCount;
 };
 

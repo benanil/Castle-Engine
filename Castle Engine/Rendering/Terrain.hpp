@@ -5,7 +5,16 @@
 
 #define TERRAIN_VERTEX_COUNT ((100 + 1) * (100 + 1))
 #define TERRAIN_INDEX_COUNT   (100 * 100 * 6)
-#define TERRAIN_GRASS_PER_CHUNK ((TERRAIN_INDEX_COUNT / 3) * 2)
+#define TERRAIN_TRIANGLE_COUNT (TERRAIN_INDEX_COUNT / 3)
+#define TERRAIN_GRASS_PER_CHUNK (TERRAIN_TRIANGLE_COUNT * 3)
+// #define TERRAIN_GRASS_PER_CHUNK ((TERRAIN_INDEX_COUNT / 3) * 2)
+
+struct GrassVertex
+{
+	glm::vec3 position;
+	glm::vec2 uv;
+	GrassVertex(const glm::vec3& _position, glm::vec2 _uv) : position(_position), uv(_uv) { };
+};
 
 __declspec(align(32)) struct TerrainVertex
 {
@@ -37,24 +46,14 @@ __declspec(align(32)) struct TerrainVertex
 	}
 };
 
-struct TerrainCreateResult
-{
-	TerrainVertex* vertices;
-	uint32_t*	   indices;
-	void Dispose() { free(vertices); free(indices); }
-};
-
 namespace Terrain
 {
 	void Initialize();
 
 	void Draw();
-	void SetGrassShader();
 	void DrawGrasses();
 	void Dispose();
 	void OnEditor();
-
-	TerrainCreateResult CreateSingleChunk();
 
 	float GetTextureScale();
 	void BindShader();

@@ -22,6 +22,7 @@ namespace Renderer3D
 	DXInputLayout* CreateVertexInputLayout(const std::vector<InputLayoutCreateInfo>& infos, DXBlob* VS_Buffer);
 	RenderTexture* GetPostRenderTexture();
 	void AddMeshRenderer(MeshRenderer* meshRenderer);
+	// do not send matrix transposed!
 	void SetModelMatrix(const XMMATRIX& matrix);
 	void DrawScene();
 	void RenderMeshes();

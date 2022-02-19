@@ -181,6 +181,7 @@
     <ClCompile Include="Editor\GUI.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Rendering\GrassRenderer.cpp" />
+    <ClCompile Include="Rendering\LineDrawer.cpp" />
     <ClCompile Include="Rendering\PostProcessing.cpp" />
     <ClCompile Include="Rendering\ComputeShader.cpp" />
     <ClCompile Include="Rendering\MeshLoader.cpp" />
@@ -212,10 +213,10 @@
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
     <ClInclude Include="Rendering\Grassrenderer.hpp" />
+    <ClInclude Include="Rendering\LineDrawer.hpp" />
     <ClInclude Include="Rendering\PostProcessing.hpp" />
     <ClInclude Include="Rendering\All.hpp" />
     <ClInclude Include="Rendering\ComputeShader.hpp" />
-    <ClInclude Include="Rendering\FrameBuffer.hpp" />
     <ClInclude Include="Rendering\Material.hpp" />
     <ClInclude Include="Rendering\AssetManager.hpp" />
     <ClInclude Include="Rendering\Mesh.hpp" />

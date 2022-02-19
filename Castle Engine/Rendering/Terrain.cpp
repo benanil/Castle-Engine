@@ -27,10 +27,10 @@ namespace Terrain
 {
 	constexpr uint16_t t_width = 100, t_height = 100;
 	constexpr uint16_t t_vertexCount = (t_width + 1) * (t_height + 1);
-	constexpr uint16_t leftUpper = t_vertexCount - t_width - 1;
 	constexpr uint16_t t_indexCount = t_width * t_height * 6;
 	constexpr uint16_t WidthSize = t_width + 1, HeightSize = t_height + 1;
-	constexpr uint16_t GrassPerChunk = (t_indexCount / 3) * 2;
+	constexpr uint16_t GrassPerChunk = TERRAIN_GRASS_PER_CHUNK ;
+	// constexpr uint16_t GrassPerChunk = (t_indexCount / 3) * 2;
 
 	std::vector<DXBuffer*> vertexBuffers;
 	std::vector<DXBuffer*> indexBuffers;
@@ -84,7 +84,6 @@ void Terrain::Initialize()
 
 	inputLayout = TerrainVertex::GetLayout(shader->VS_Buffer);
 	d3d11DevCon = DirectxBackend::GetDeviceContext();
-	GrassRenderer::Initialize(DirectxBackend::GetDevice(), d3d11DevCon);
 	Create();
 }
 
@@ -109,22 +108,22 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices)
 		CSTIMER("normal calculation speed: ")
 			//Go through each vertex
 #pragma omp parallel for collapse(2), shared(vertices, indices) // 4x optimization
-			for (int32_t i = 0; i < t_vertexCount; ++i)
+		for (int32_t i = 0; i < t_vertexCount; ++i)
+		{
+			XMVECTOR normalSum = XMVectorReplicate(0.0f);
+			//Check which triangles use this vertex
+			for (uint16_t j = 0; j < t_indexCount / 3; ++j)
 			{
-				XMVECTOR normalSum = XMVectorReplicate(0.0f);
-				//Check which triangles use this vertex
-				for (uint16_t j = 0; j < t_indexCount / 3; ++j)
+				// if (indices[j * 3 + 0] == i || indices[j * 3 + 1] == i || indices[j * 3 + 2] == i)
+				if(_mm_movemask_epi8(_mm_cmpeq_epi32(_mm_set1_epi32(i), _mm_loadu_epi32(indices + (j * 3)))))
 				{
-					// if (indices[j * 3 + 0] == i || indices[j * 3 + 1] == i || indices[j * 3 + 2] == i)
-					if(_mm_movemask_epi8(_mm_cmpeq_epi32(_mm_set1_epi32(i), _mm_loadu_epi32(indices + (j * 3)))))
-					{
-						normalSum += tempNormal[j];
-					}
+					normalSum += tempNormal[j];
 				}
-				// smid normalize
-				vertices[i].normvec = XMVector3Normalize(normalSum);
-				vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
 			}
+			// smid normalize
+			vertices[i].normvec = XMVector3Normalize(normalSum);
+			vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
+		}
 	}
 }
 
@@ -135,11 +134,10 @@ void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t
 	computeShader->UnmapBuffer(vertexMapResult.OutputBuffer);
 
 	auto indexMapResult = computeShader->MapStructuredBuffer(grassIndicesHandle);
-	memcpy(indexMapResult.data, indices, sizeof(int32_t) * t_indexCount);
+	memcpy(indexMapResult.data, indices, sizeof(uint32_t) * t_indexCount);
 	computeShader->UnmapBuffer(indexMapResult.OutputBuffer);
 	
-	// computeShader->Dispatch((t_indexCount / 6) / 8, (t_indexCount / 6) / 8);
-	computeShader->Dispatch((t_indexCount / 3) / 64, 1);
+	computeShader->Dispatch(TERRAIN_TRIANGLE_COUNT / 64, 1);
 	glm::vec3* result = (glm::vec3*)malloc(GrassPerChunk * sizeof(glm::vec3));
 	
 	auto computeResult = computeShader->RWMapUAVBuffer(grassResultHandle, D3D11_MAP_READ);
@@ -148,10 +146,7 @@ void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t
 	
 	grassGroups.push_back(new GrassGroup(result, DirectxBackend::GetDevice()));
 
-	free(result);
-	// for (int i = 0; i < 64; ++i) {
-	// 	std::cout << result[i].x << " " << result[i].y << " " << result[i].z << std::endl;
-	// }
+	free(result); result = nullptr;
 	shader->Bind();
 }
 
@@ -199,20 +194,6 @@ void Terrain::GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm:
 	generator->GenUniformGrid2D(noise, offset.x, offset.y, WidthSize, HeightSize, noiseScale * 0.01f, seed);
 }
 
-TerrainCreateResult Terrain::CreateSingleChunk()
-{
-	TerrainCreateResult result;
-	result.vertices = (TerrainVertex*)malloc(sizeof(TerrainVertex) * TERRAIN_VERTEX_COUNT);
-	result.indices  = (uint32_t*)malloc(sizeof(uint32_t) * TERRAIN_INDEX_COUNT);
-	std::vector<float> noise;
-	noise.resize(t_vertexCount);
-
-	CreateChunk(result.vertices, result.indices, noise, glm::vec2(0, 0));
-	for (uint32_t i = 0; i < TERRAIN_VERTEX_COUNT; ++i) { result.vertices[i].pos.y = 100; }
-
-	return result;
-}
-
 void Terrain::Create()
 {
 	Dispose();
@@ -250,16 +231,11 @@ void Terrain::Create()
 	}
 }
 
-void Terrain::SetGrassShader()
-{
-	GrassRenderer::SetShader();
-}
-
 void Terrain::DrawGrasses()
 {
 	for (auto& group : grassGroups)
 	{
-		GrassRenderer::Render(group->srv);
+		GrassRenderer::Render(*group);
 	}
 }
 
@@ -305,6 +281,11 @@ void Terrain::OnEditor()
 
 void Terrain::Dispose()
 {
+	for (uint32_t i = 0; i < grassGroups.size(); ++i) {
+		grassGroups[i]->~GrassGroup();
+		grassGroups[i] = nullptr;
+	}
+	grassGroups.clear();
 	for (uint32_t i = 0; i < indexBuffers.size(); i++)
 	{
 		DX_RELEASE(indexBuffers[i]);

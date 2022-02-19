@@ -200,6 +200,60 @@ static SubMesh* CSCreateSphere(uint16_t LatLines, uint16_t LongLines)
 	return result;
 }
 
+struct PointsAndIndices32 {
+	glm::vec3* vertices;
+	uint32_t* indices;
+	uint32_t vertexCount, indexCount;
+	void Clear() {
+		free(vertices); free(indices);
+	}
+};
+
+static inline PointsAndIndices32 
+CSCreatePlanePoints(uint32_t width, uint32_t height, glm::vec2 pos, float scale = 15.0f)
+{
+	uint32_t vertexCount = (width + 1) * (height + 1);
+	uint32_t indexCount = width * height * 6;
+
+	PointsAndIndices32 result  { 
+		(glm::vec3*)malloc(sizeof(glm::vec3) * vertexCount), 
+		(uint32_t*)malloc(sizeof(uint32_t) * indexCount) 
+	};
+	
+	pos *= scale;
+	// calculate positions
+	for (uint32_t h = 0, i = 0; h < height + 1; h++)
+	{
+		for (uint32_t w = 0; w < width + 1; w++, i++)
+		{
+			result.vertices[i].x = w * scale;
+			result.vertices[i].z = h * scale;
+			result.vertices[i].y = 0;
+
+			result.vertices[i].x += pos.x;
+			result.vertices[i].z += pos.y;
+		}
+	}
+
+	// calculate indices
+	for (uint32_t ti = 0, vi = 0, y = 0; y < height; y++, vi++)
+	{
+		for (uint32_t x = 0; x < width; x++, ti += 6, vi++)
+		{
+			result.indices[ti] = vi;
+			result.indices[ti + 1] = vi + width + 1;
+			result.indices[ti + 2] = vi + 1;
+
+			result.indices[ti + 3] = vi + 1;
+			result.indices[ti + 4] = vi + width + 1;
+			result.indices[ti + 5] = vi + width + 2;
+		}
+	}
+	result.vertexCount = vertexCount;
+	result.indexCount = indexCount;
+	return result;
+}
+
 namespace MeshLoader
 {
 	[[nodiscard]] inline
