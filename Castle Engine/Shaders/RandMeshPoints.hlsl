@@ -1,3 +1,42 @@
+#define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
+
+// noise from fadookie: https://gist.github.com/fadookie/25adf86ae7e2753d717c
+float mod289(float x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
+float2 mod289(float2 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
+float3 mod289(float3 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
+float4 mod289(float4 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
+float permute(float x) { return mod289(x * x * 34.0 + x); }
+float3 permute(float3 x) { return mod289(x * x * 34.0 + x); }
+float4 permute(float4 x) { return mod289(x * x * 34.0 + x); }
+float4 grad4(float j, float4 ip) {
+	const float4 ones = float4(1.0, 1.0, 1.0, -1.0);
+	float4 p, s;
+	p.xyz = floor(frac(j * ip.xyz) * 7.0) * ip.z - 1.0;
+	p.w = 1.5 - dot(abs(p.xyz), ones.xyz);
+	p.xyz -= sign(p.xyz) * (p.w < 0);
+	return p;
+}
+float snoise(float2 v) {
+	const float4 C = float4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+	float2 i = floor(v + dot(v, C.yy));
+	float2 x0 = v - i + dot(i, C.xx);
+	int2 i1 = (x0.x > x0.y) ? float2(1.0, 0.0) : float2(0.0, 1.0);
+	float4 x12 = x0.xyxy + C.xxzz;
+	x12.xy -= i1; i = mod289(i); // Avoid truncation effects in permutation
+	float3 p = permute(permute(i.y + float3(0.0, i1.y, 1.0)) + i.x + float3(0.0, i1.x, 1.0));
+	float3 m = max(0.5 - float3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+	m = m * m; m = m * m;
+	float3 x = 2.0 * frac(p * C.www) - 1.0;
+	float3 h = abs(x) - 0.5;
+	float3 ox = floor(x + 0.5);
+	float3 a0 = x - ox;
+	m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+	float3 g;
+	g.x = a0.x * x0.x + h.x * x0.y;
+	g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+	return 130.0 * dot(m, g);
+}
+
 
 struct Vertex
 {
@@ -7,7 +46,7 @@ struct Vertex
 
 StructuredBuffer<Vertex> vertices;
 StructuredBuffer<uint> indices;
-RWStructuredBuffer<float3> results;
+RWStructuredBuffer<float4x4> results;
 
 uint hash(uint x) {
 	x += (x << 10u);
@@ -18,7 +57,7 @@ uint hash(uint x) {
 	return x;
 }
 
-uint2 hash2(uint2 x) {
+uint2 hash(uint2 x) {
 	return uint2(hash(x.x), hash(x.y));
 }
 
@@ -37,42 +76,77 @@ float floatConstruct(uint2 m) {
 	float2 f2 = asfloat(m) - float2(1.0, 1.0); // Range [0:1]
 	return f2.x + f2.y * 0.5;                    // Range [0:1]
 }
+// returns number between 0-1
+float rand(uint2 v) { return floatConstruct(hash(v)); }
 
-float rand(uint2 v) { return floatConstruct(hash2(v)); }
-
-//[numthreads(8, 8, 1)]
-[numthreads(64, 1, 1)]
-void CS(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_DispatchThreadID)
-{
-	float3 v0 = vertices[indices[dispatchThreadID.x * 3 + 0]].pos;
-	float3 v1 = vertices[indices[dispatchThreadID.x * 3 + 1]].pos;
-	float3 v2 = vertices[indices[dispatchThreadID.x * 3 + 2]].pos;
-
-	float3 centerPoint = (v0 + v1 + v2) * 0.33;
-	uint2 randOffset = groupThreadID.xy * dispatchThreadID.xx;
-
-	float3 lerp0 = lerp(centerPoint, v0, rand(randOffset.xy * 33)); // randomizing differently here
-	float3 lerp1 = lerp(centerPoint, v1, rand(randOffset.yx * 66));
-	float3 lerp2 = lerp(centerPoint, v2, rand(randOffset.xy * 88));
-
-	// if we need more, we can use for loop
-	{
-		results[dispatchThreadID.x * 3 + 0] = lerp2;
-	}
-	// add two more grass position
-	{
-		lerp0 = lerp(centerPoint, v0, rand(randOffset.xy * 133)); // randomizing differently here
-		lerp1 = lerp(centerPoint, v1, rand(randOffset.yx * 166));
-		lerp2 = lerp(centerPoint, v2, rand(randOffset.xy * 188));
-
-		results[dispatchThreadID.x * 3 + 1] = lerp2;
-	}
-	{
-		lerp0 = lerp(centerPoint, v0, rand(randOffset.xy + 233));// randomizing differently here
-		lerp1 = lerp(centerPoint, v1, rand(randOffset.yx + 266));
-		lerp2 = lerp(centerPoint, v2, rand(randOffset.xy + 288));
-
-		results[dispatchThreadID.x * 3 + 2] = lerp2;
-	}
+float4x4 Scale(in float3 scale)  {
+	return float4x4(scale.x,	   0,       0, 0,
+					0      , scale.y,       0, 0,
+					0      ,       0, scale.z, 0,
+					0      ,       0,       0, 1);
 }
 
+float4x4 CreatePosMatrix(float3 pos) {
+	pos *= 4;
+	return float4x4(1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		pos.x , pos.y, pos.z, 1);
+}
+
+static const float4x4 Identity = {
+	1, 0, 0, 0,
+	0, 1, 0, 0,
+	0, 0, 1, 0,
+	0, 0, 0, 1
+};
+
+float4x4 Rotate(float angle, float3 axis) {
+	float c, s;
+	sincos(angle, s, c);
+
+	float t = 1 - c;
+	float x = axis.x;
+	float y = axis.y;
+	float z = axis.z;
+
+	return float4x4(
+		t * x * x + c, t * x * y - s * z, t * x * z + s * y, 0,
+		t * x * y + s * z, t * y * y + c, t * y * z - s * x, 0,
+		t * x * z - s * y, t * y * z + s * x, t * z * z + c, 0,
+		0,0,0,1);
+}
+
+[numthreads(64, 1, 1)]
+	void CS(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_DispatchThreadID)
+{
+	const float3 v0 = vertices[indices[dispatchThreadID.x * 3 + 0]].pos;
+	const float3 v1 = vertices[indices[dispatchThreadID.x * 3 + 1]].pos;
+	const float3 v2 = vertices[indices[dispatchThreadID.x * 3 + 2]].pos;
+
+	const float3 centerPoint = (v0 + v1 + v2) * 0.33;
+	const uint2 randOffset = groupThreadID.xy * dispatchThreadID.xx;
+
+	const float3 normalCenter = normalize(vertices[indices[dispatchThreadID.x * 3 + 0]].normal +
+										  vertices[indices[dispatchThreadID.x * 3 + 1]].normal +
+										  vertices[indices[dispatchThreadID.x * 3 + 2]].normal);
+	for (int i = 0; i < 3; ++i)
+	{
+		float3 _Rand = float3(rand(randOffset.xy + 33 * i + i),
+							  rand(randOffset.yx + 66 * i + i),
+							  rand(randOffset.xy + 88 * i + i));
+
+		float3 lerp0 = lerp(centerPoint, v0, _Rand.x);
+		float3 lerp1 = lerp(centerPoint, v1, _Rand.y);
+		float3 lerp2 = lerp(centerPoint, v2, _Rand.z);
+
+		// we dont want to draw grass everywhere so we are reducing some grass with simpliex noise here
+		if(snoise(lerp2.xz / 500) > 0.5) lerp2.y = -64;
+
+		float4x4 rotation = Rotate(rand(randOffset.xy * 133 + (i + i)), normalCenter);
+		float4x4 scale = Scale(float3(2.2, 2.2, 2.2) + (_Rand * 10 - 1.5));
+
+		results[dispatchThreadID.x * 3 + i] = 
+			mul(mul(mul(Identity, rotation), scale), CreatePosMatrix(lerp2));
+	}
+}

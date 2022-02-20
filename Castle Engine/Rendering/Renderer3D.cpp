@@ -82,16 +82,6 @@ void Renderer3D::RenderMeshes()
 	}
 }
 
-// do not send matrix transposed!
-void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
-{
-	const auto MVP = matrix * freeCamera->ViewProjection;
-	cbPerObj.MVP = XMMatrixTranspose(MVP);
-	cbPerObj.Model = XMMatrixTranspose(matrix);
-	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
-}
-
 void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, unsigned int _msaaSamples, FreeCamera* camera)
 {
 	Device = _device; DeviceContext = _deviceContext;
@@ -196,7 +186,8 @@ void Renderer3D::OnEditor()
 	}
 
 	PostProcessing::OnEditor();
-	
+	GrassRenderer::OnEditor();
+
 	tessMesh->OnEditor();
 }
 #endif
@@ -211,11 +202,21 @@ void Renderer3D::RenderToQuad() {
 	DeviceContext->Draw(3, 0);
 }
 
+// do not send matrix transposed!
+void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
+{
+	const auto MVP = matrix * freeCamera->ViewProjection;
+	cbPerObj.MVP = XMMatrixTranspose(MVP);
+	cbPerObj.Model = XMMatrixTranspose(matrix);
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+}
+
 void Renderer3D::DrawTerrain()
 {
 	Terrain::BindShader();
 
-	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
+	SetModelMatrix(XMMatrixScaling(4, 4, 4) * XMMatrixTranslation(-000, 0, -000));
 
 	cbGlobalData.additionalData = Terrain::GetTextureScale();
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
@@ -224,9 +225,10 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->RSSetState(rasterizerState);
 
 	Terrain::Draw();
-	GrassRenderer::SetShader();
-	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
+	// 600k grass in 0.07 seconds depends on sea level framerate can increase %20
+	GrassRenderer::SetShader(freeCamera->View, freeCamera->Projection);
 	Terrain::DrawGrasses();
+	GrassRenderer::EndRender();
 
 	DeviceContext->RSSetState(rasterizerState);
 }
@@ -265,8 +267,8 @@ void Renderer3D::DrawScene()
 	Renderer3D::RenderMeshes();
 
 	DeviceContext->RSSetState(WireframeRasterizerState);
-	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
-	tessMesh->Render(DeviceContext, cbPerObj.MVP, freeCamera->transform.GetPosition());
+	// SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
+	// tessMesh->Render(DeviceContext, cbPerObj.MVP, freeCamera->transform.GetPosition());
 	DeviceContext->RSSetState(rasterizerState);
 	
 	// line drawing test we can call it everywhere

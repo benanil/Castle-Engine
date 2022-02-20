@@ -22,9 +22,9 @@ public:
 	float pitch, yaw;
 	float speed = 100, senstivity = 20;
 
-private:
 	XMMATRIX View;
 	XMMATRIX Projection;
+private:
 	POINT oldPos;
 	glm::ivec2 monitorScale;
 	SDL_Cursor* cursor;

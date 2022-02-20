@@ -64,7 +64,7 @@ namespace Terrain
 	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise, glm::vec2 pos);
 	void CalculateNormals(TerrainVertex* vertices, const uint32_t* indices);
 
-	void CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices);
+	void CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices, XMMATRIX* matrices);
 
 	void Create();
 }
@@ -80,7 +80,7 @@ void Terrain::Initialize()
 	
 	grassVertexHandle  = computeShader->CreateStructuredBuffer(sizeof(TerrainVertex), t_vertexCount, nullptr, D3D11_MAP_WRITE);
 	grassIndicesHandle = computeShader->CreateStructuredBuffer(sizeof(uint32_t), t_indexCount, nullptr, D3D11_MAP_WRITE);
-	grassResultHandle  = computeShader->RWCreateUAVBuffer(sizeof(glm::vec3), GrassPerChunk, nullptr);
+	grassResultHandle  = computeShader->RWCreateUAVBuffer(sizeof(XMMATRIX), GrassPerChunk, nullptr);
 
 	inputLayout = TerrainVertex::GetLayout(shader->VS_Buffer);
 	d3d11DevCon = DirectxBackend::GetDeviceContext();
@@ -127,7 +127,7 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices)
 	}
 }
 
-void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices)
+void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices,  XMMATRIX* matrices)
 {
 	auto vertexMapResult = computeShader->MapStructuredBuffer(grassVertexHandle);
 	memcpy(vertexMapResult.data, vertices, sizeof(TerrainVertex) * t_vertexCount);
@@ -138,15 +138,13 @@ void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t
 	computeShader->UnmapBuffer(indexMapResult.OutputBuffer);
 	
 	computeShader->Dispatch(TERRAIN_TRIANGLE_COUNT / 64, 1);
-	glm::vec3* result = (glm::vec3*)malloc(GrassPerChunk * sizeof(glm::vec3));
 	
 	auto computeResult = computeShader->RWMapUAVBuffer(grassResultHandle, D3D11_MAP_READ);
-	memcpy(result, computeResult.data, sizeof(glm::vec3) * GrassPerChunk);
+	memcpy(matrices, computeResult.data, sizeof(XMMATRIX) * GrassPerChunk);
 	computeShader->UnmapBuffer(computeResult.OutputBuffer);
 	
-	grassGroups.push_back(new GrassGroup(result, DirectxBackend::GetDevice()));
+	grassGroups.push_back(new GrassGroup(matrices, DirectxBackend::GetDevice()));
 
-	free(result); result = nullptr;
 	shader->Bind();
 }
 
@@ -217,18 +215,22 @@ void Terrain::Create()
 	glm::vec2 startPos = { -((CuhunkSize.x * t_width) / 2),  -((CuhunkSize.y * t_height) / 2) };
 	glm::ivec2 i_startPos = { (int)startPos.x,  (int)startPos.y };
 
+	XMMATRIX* grassMatrices = (XMMATRIX*)malloc(GrassPerChunk * sizeof(XMMATRIX));
+
 	for (uint8_t x = 0, i = 0; x < CuhunkSize.y; ++x)
 	{
 		for (uint8_t y = 0; y < CuhunkSize.x; ++y, ++i)
 		{
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
-			CalculateGrassPoints(vertices, indices);
+			CalculateGrassPoints(vertices, indices, grassMatrices);
 
 			CSCreateVertexIndexBuffers(DirectxBackend::GetDevice(), vertices, indices,
 				t_vertexCount, t_indexCount, &vertexBuffers[i], &indexBuffers[i]);
 		}
 	}
+
+	free(grassMatrices); grassMatrices = nullptr;
 }
 
 void Terrain::DrawGrasses()

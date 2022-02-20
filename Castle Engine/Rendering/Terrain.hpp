@@ -9,13 +9,10 @@
 #define TERRAIN_GRASS_PER_CHUNK (TERRAIN_TRIANGLE_COUNT * 3)
 // #define TERRAIN_GRASS_PER_CHUNK ((TERRAIN_INDEX_COUNT / 3) * 2)
 
-struct GrassVertex
-{
+struct GrassVertex {
 	glm::vec3 position;
-	glm::vec2 uv;
-	GrassVertex(const glm::vec3& _position, glm::vec2 _uv) : position(_position), uv(_uv) { };
+	XMHALF2 uv;
 };
-
 __declspec(align(32)) struct TerrainVertex
 {
 	union {
