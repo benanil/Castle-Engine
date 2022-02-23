@@ -2,6 +2,7 @@
 #include "Shader.hpp"
 #include "spdlog/spdlog.h"
 #include "Renderer3D.hpp"
+#include "../Math.hpp"
 #include "../DirectxBackend.hpp"
 
 namespace LineDrawer {
@@ -72,6 +73,9 @@ void LineDrawer::CreateVertexBuffer(uint32_t size)
 
 void LineDrawer::DrawLine(const glm::vec3& a, const glm::vec3& b)
 {
+	if (targetVertexCount >= currentVertexCount) {
+		CreateVertexBuffer(targetVertexCount + 2);
+	}
 	lines[targetVertexCount].pos = a;
 	lines[targetVertexCount++].color = currentColor;
 	
@@ -79,8 +83,27 @@ void LineDrawer::DrawLine(const glm::vec3& a, const glm::vec3& b)
 	lines[targetVertexCount++].color = currentColor;
 }
 
-// todo add other shapes
+void LineDrawer::DrawPlus(const glm::vec3& point)
+{
+	DrawLine(point - glm::vec3(1000, 000, 000), point + glm::vec3(1000, 000, 000));
+	DrawLine(point - glm::vec3(000, 1000, 000), point + glm::vec3(000, 1000, 000));
+	DrawLine(point - glm::vec3(000, 000, 1000), point + glm::vec3(000, 000, 1000));
+}
 
+void LineDrawer::DrawAABB(const AABB& aabb, bool active)
+{
+	const std::array<glm::vec2, 5> corners = aabb.GetXZEdges();
+	
+	SetColor(active ? glm::vec3{ 0.0f, 0.8f, 0.0f} : glm::vec3{ 0.8f, 0.0f, 0.0f });
+	DrawPlus(glm::vec3(corners[0].x, 0, corners[0].y));
+	DrawPlus(glm::vec3(corners[1].x, 0, corners[1].y));
+	
+	DrawPlus(glm::vec3(corners[2].x, 1000, corners[2].y));
+	DrawPlus(glm::vec3(corners[3].x, 1000, corners[3].y));
+	DrawPlus(glm::vec3(corners[4].x, 1000, corners[4].y));
+}
+
+// todo add other shapes
 void LineDrawer::Render()
 {
 	static bool first = true;

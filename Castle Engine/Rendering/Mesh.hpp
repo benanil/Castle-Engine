@@ -6,9 +6,8 @@
 #include <array>
 #include <utility>
 #include <vector>
-#include <glm/glm.hpp>
-
 #include <cstdint>
+#include "../Math.hpp"
 #include "../Rendering.hpp"
 #include "../ECS/ECS.hpp"
 #include "Renderer3D.hpp"

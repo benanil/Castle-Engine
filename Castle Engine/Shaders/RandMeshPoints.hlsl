@@ -1,21 +1,9 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 // noise from fadookie: https://gist.github.com/fadookie/25adf86ae7e2753d717c
-float mod289(float x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
 float2 mod289(float2 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
 float3 mod289(float3 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
-float4 mod289(float4 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
-float permute(float x) { return mod289(x * x * 34.0 + x); }
 float3 permute(float3 x) { return mod289(x * x * 34.0 + x); }
-float4 permute(float4 x) { return mod289(x * x * 34.0 + x); }
-float4 grad4(float j, float4 ip) {
-	const float4 ones = float4(1.0, 1.0, 1.0, -1.0);
-	float4 p, s;
-	p.xyz = floor(frac(j * ip.xyz) * 7.0) * ip.z - 1.0;
-	p.w = 1.5 - dot(abs(p.xyz), ones.xyz);
-	p.xyz -= sign(p.xyz) * (p.w < 0);
-	return p;
-}
 float snoise(float2 v) {
 	const float4 C = float4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
 	float2 i = floor(v + dot(v, C.yy));
@@ -36,7 +24,6 @@ float snoise(float2 v) {
 	g.yz = a0.yz * x12.xz + h.yz * x12.yw;
 	return 130.0 * dot(m, g);
 }
-
 
 struct Vertex
 {
@@ -86,8 +73,8 @@ float4x4 Scale(in float3 scale)  {
 					0      ,       0,       0, 1);
 }
 
+
 float4x4 CreatePosMatrix(float3 pos) {
-	pos *= 4;
 	return float4x4(1, 0, 0, 0,
 		0, 1, 0, 0,
 		0, 0, 1, 0,
@@ -141,10 +128,10 @@ float4x4 Rotate(float angle, float3 axis) {
 		float3 lerp2 = lerp(centerPoint, v2, _Rand.z);
 
 		// we dont want to draw grass everywhere so we are reducing some grass with simpliex noise here
-		if(snoise(lerp2.xz / 500) > 0.5) lerp2.y = -64;
+		if(snoise(lerp2.xz / 10) > 0.5) lerp2.y = -64;
 
 		float4x4 rotation = Rotate(rand(randOffset.xy * 133 + (i + i)), normalCenter);
-		float4x4 scale = Scale(float3(2.2, 2.2, 2.2) + (_Rand * 10 - 1.5));
+		float4x4 scale = Scale(float3(1.5, 1.5, 1.5) + (_Rand * 1.5 - 0.5f));
 
 		results[dispatchThreadID.x * 3 + i] = 
 			mul(mul(mul(Identity, rotation), scale), CreatePosMatrix(lerp2));

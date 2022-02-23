@@ -1,4 +1,5 @@
 #include "Mesh.hpp"
+#include "spdlog/spdlog.h"
 
 namespace MeshLoader
 {
@@ -37,6 +38,12 @@ namespace MeshLoader
 
 	MeshRenderer* LoadMesh(const std::string& path)
 	{
+		if (!std::filesystem::exists(path))
+		{
+			std::cout << path;
+			assert(0, "mesh file is not exist");
+		}
+
 		if (firstImport)
 		{
 			whiteTexture = new Texture("Textures/dark_texture.png");
@@ -50,9 +57,10 @@ namespace MeshLoader
 		Assimp::Importer importer;
 		static const uint32_t flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_ConvertToLeftHanded;
 		const aiScene* scene = importer.ReadFile(path, flags);
-
+		
 		if (!scene)
 		{
+			std::cout << importer.GetErrorString() << std::endl;
 			DX_CHECK(-1, (path + std::string("MESH LOADING FAILED!")).c_str());
 			return nullptr;
 		}
@@ -80,6 +88,8 @@ namespace MeshLoader
 			}
 		}
 
+		bool isSponza = strcmp(scene->mRootNode->mName.C_Str(), "sponza.obj") == 0;
+
 		if (scene->mNumMaterials == 0)
 		{
 			mesh->materials.resize(1);
@@ -91,7 +101,7 @@ namespace MeshLoader
 
 		for (uint16_t i = 0; i < scene->mNumMeshes; i++)
 		{
-			mesh->subMeshes[i] = SubMesh(*scene->mMeshes[i]);
+			mesh->subMeshes[i] = SubMesh(*scene->mMeshes[i], isSponza);
 			mesh->subMeshes[i].materialIndex = (uint16_t)scene->mMeshes[i]->mMaterialIndex;
 		}
 		return mesh;

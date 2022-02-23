@@ -4,10 +4,12 @@
 #include "Transform.hpp"
 #include "Main/Time.hpp"
 #include "Input.hpp"
-
+#include "Math.hpp"
+#include <string>
 #ifndef NEDITOR
-	#include "ImGui.h"
+	#include "Editor/Editor.hpp"
 #endif
+#include "spdlog/spdlog.h"
 
 class FreeCamera
 {
@@ -17,19 +19,23 @@ public:
 	float fov;
 	float nearPlane; 
 	float farPlane;
-	XMMATRIX ViewProjection;
 
 	float pitch, yaw;
-	float speed = 100, senstivity = 20;
+	float speed = 3, senstivity = 20;
 
+private:
 	XMMATRIX View;
 	XMMATRIX Projection;
-private:
+	XMMATRIX ViewProjection;
 	POINT oldPos;
 	glm::ivec2 monitorScale;
 	SDL_Cursor* cursor;
 public:
-	
+
+	const XMMATRIX& GetViewProjection()  const { return ViewProjection; }
+	const XMMATRIX& GetProjection()      const { return Projection; }
+	const XMMATRIX& GetView()            const { return View; }
+	const ECS::Transform& GetTransform() const { return transform; }
 #ifndef NEDITOR
 	void EditorUpdate()
 	{
@@ -117,7 +123,8 @@ public:
 
 		transform.UpdateTransform();
 
-		SetMatrix();
+		SetMatrix();	
+		XMMATRIX comboMatrix = XMMatrixTranspose(XMMatrixIdentity() * ViewProjection);
 	}
 
 	void SetMatrix()

@@ -3,12 +3,8 @@
 #include <cstring>
 #include <d3d11.h>
 #include <cstdlib>
-#include <xnamath.h>
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE 
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <stdexcept>
-
+#include <cassert>
 // helper type definitions
 typedef ID3D11Device              DXDevice;
 typedef ID3D11DeviceContext       DXDeviceContext;
@@ -141,6 +137,3 @@ void inline DXCreateStructuredBuffer(ID3D11Device* device, ID3D11Buffer*& buffer
 
 #define LAMBDA(x) { x; }
 #define LAMBDAR(x) { return x;  }
-
-//math helpers
-#include "Math.hpp"

@@ -1,3 +1,4 @@
+
 #include "GrassRenderer.hpp"
 #include "../Rendering.hpp"
 #include "Shader.hpp"
@@ -25,7 +26,7 @@ namespace GrassRenderer
 		float time;    
 		glm::vec3 color = { 0.720f, 0.916f, 0.263f };
 		glm::vec3 windDir = { 0.2, 0, 0.8 }; 
-		float windSpeed = 1.0f;
+		float windSpeed = 0.1f;
 	} cbufferData;
 }
 
@@ -73,10 +74,10 @@ void GrassRenderer::Initialize(ID3D11Device* device, ID3D11DeviceContext* device
 
 	std::array<GrassVertex, 4> vertices;
 	memset(vertices.data(), 0, sizeof(GrassVertex) * 4);
-	vertices[1].position.y = 14.0f;
-	vertices[2].position.x = 13.0f;
-	vertices[3].position.x = 13.0f;
-	vertices[3].position.y = 14.0f;
+	vertices[1].position.y = 0.80f;
+	vertices[2].position.x = 0.50f;
+	vertices[3].position.x = 0.50f;
+	vertices[3].position.y = 0.80f;
 	vertices[0].uv = XMHALF2(0.0f, 1.1f);
 	vertices[1].uv = XMHALF2(0.0f, 0.0f);
 	vertices[2].uv = XMHALF2(1.1f, 1.1f);
@@ -115,9 +116,9 @@ void GrassRenderer::Initialize(ID3D11Device* device, ID3D11DeviceContext* device
 }
 namespace { ID3D11BlendState* oldBlendState; }
 
-void GrassRenderer::SetShader(const XMMATRIX& view, const XMMATRIX& projection)
+void GrassRenderer::SetShader(const XMMATRIX& viewProjection)
 { 
-	cbufferData.viewProjection = XMMatrixTranspose(view * projection); // this is not mvp we need view projection here
+	cbufferData.viewProjection = XMMatrixTranspose(viewProjection); // this is not mvp we need view projection here
 	cbufferData.time = Time::GetTimeSinceStartup();
 	DeviceContext->UpdateSubresource(cbuffer, 0, NULL, &cbufferData, 0, 0);
 	DeviceContext->VSSetConstantBuffers(0, 1, &cbuffer);

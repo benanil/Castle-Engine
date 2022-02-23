@@ -2,6 +2,11 @@
 #include "../Rendering.hpp"
 #include "../DirectxBackend.hpp"
 #include "Shader.hpp"
+#include "../Math.hpp"
+#include "../FreeCamera.hpp"
+#include <bitset>
+
+typedef std::bitset<128> FrustumBitset;
 
 #define TERRAIN_VERTEX_COUNT ((100 + 1) * (100 + 1))
 #define TERRAIN_INDEX_COUNT   (100 * 100 * 6)
@@ -13,6 +18,7 @@ struct GrassVertex {
 	glm::vec3 position;
 	XMHALF2 uv;
 };
+
 __declspec(align(32)) struct TerrainVertex
 {
 	union {
@@ -47,8 +53,9 @@ namespace Terrain
 {
 	void Initialize();
 
-	void Draw();
-	void DrawGrasses();
+	/// <returns> frustum culling bitset for chunks culled or not <returns/>
+	FrustumBitset Draw(const FreeCamera& camera);
+	void DrawGrasses(const FreeCamera& camera, const FrustumBitset& frustumSet);
 	void Dispose();
 	void OnEditor();
 

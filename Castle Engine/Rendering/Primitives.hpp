@@ -48,7 +48,7 @@ struct SubMesh
 	DXGI_FORMAT indiceFormat = DXGI_FORMAT_R32_UINT;
 	SubMesh(){};
 	~SubMesh() { Dispose(); };
-	SubMesh(const aiMesh& aimesh) : name(aimesh.mName.C_Str())
+	SubMesh(const aiMesh& aimesh, bool isSponza) : name(aimesh.mName.C_Str())
 	{			
 		vertexCount = aimesh.mNumVertices;
 		indexCount = aimesh.mNumFaces * 3;
@@ -74,6 +74,16 @@ struct SubMesh
 			vertices[i].tangent.z = aimesh.mBitangents[i].z;
 		}
 		
+		if (isSponza)
+		{
+			for (uint32_t i = 0; i < vertexCount; ++i)
+			{
+				vertices[i].pos.x *= 0.01f;
+				vertices[i].pos.y *= 0.01f;
+				vertices[i].pos.z *= 0.01f;
+			}
+		}
+
 		for (uint32_t i = 0; i < aimesh.mNumFaces; i++)
 		{
 			indices[i * 3 + 0] = aimesh.mFaces[i].mIndices[0];

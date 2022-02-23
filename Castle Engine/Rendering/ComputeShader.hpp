@@ -1,7 +1,6 @@
 #pragma once
 
 #include <D3DX11.h>
-#include <glm/glm.hpp>
 #include <vector>
 #include "Texture.hpp"
 #include "RenderTexture.hpp"

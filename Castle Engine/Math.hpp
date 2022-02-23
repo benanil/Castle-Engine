@@ -1,5 +1,12 @@
 #pragma once
-#include "Rendering.hpp"
+#include <windows.h>
+#include <xnamath.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/detail/_swizzle.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <cstdlib>
+#include <array>
 
 // NE means no except
 #define NELAMBDA(x) noexcept { x;  }
@@ -173,7 +180,6 @@ DX_INLINE glm::vec3 xmExtractScale(const xmMatrix& matrix) noexcept
 // https://github.com/opentk/opentk/blob/master/src/OpenTK.Mathematics/Vector/Vector3.cs
 DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const xmVector& q) noexcept
 {
-	glm::vec3 result{};
 	glm::vec3 xyz = { q.f[0], q.f[1], q.f[2] };
  	glm::vec3 temp = glm::cross(xyz, vec);
 	glm::vec3 temp1 = vec * q.f[3];
@@ -182,7 +188,7 @@ DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const xmVector& q) noe
 	return vec + temp1;
 }
 
-DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const float* q)noexcept
+DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const float* q) noexcept
 {
 	glm::vec3 result{};
 	glm::vec3 xyz = { q[0], q[1], q[2] };
@@ -255,6 +261,78 @@ DX_INLINE xmQuaternion xmExtractRotation(const xmMatrix& matrix, bool rowNormali
 	XMVector4Normalize(q);
 	return q;
 }
+
+
+struct AABB {
+	glm::vec3 min, max;
+	const glm::vec3& GetMin() const { return min; };
+	const glm::vec3& GetMax() const { return max; };
+	
+	__forceinline std::array<glm::vec3, 4> GetXYZEdges() const
+	{
+		std::array<glm::vec3, 4> result =
+		{
+			glm::vec3(min.x, min.y, min.z),
+			glm::vec3(max.x, max.y, max.z),
+			glm::vec3(max.x, max.y, min.z),
+			glm::vec3(min.x, min.y, max.z)
+		};
+		return result;
+	}
+
+	/// for terrain: returns center point aditionaly
+	__forceinline std::array<glm::vec2, 5> GetXZEdges() const
+	{
+		std::array<glm::vec2, 5> result
+		{
+			glm::vec2{min.x, min.z},
+			{max.x, max.z},
+			{max.x, min.z},
+			{min.x, max.z},
+			glm::normalize(result[1] - result[0]) * (glm::distance(result[0], result[1]) / 2)
+		};
+		return result;
+	}
+};
+
+/// <summary> this doesnt check y axis
+/// for optimization before we send camForward 
+///	ve must use a crossproduct for it (right.unitY) we dont want to calculate it for every aabb<summary/>
+/// <param name="fov">radians</param>
+static __forceinline
+bool isTerrainCulled( const AABB& aabb, const glm::vec3& camPos, const glm::vec3& camForward, float fov)
+{
+	const glm::vec3& min = aabb.GetMin();
+	const glm::vec3& max = aabb.GetMax();
+
+	if (camPos.x > min.x && camPos.x < max.x &&
+		camPos.z > min.z && camPos.z < max.z) return true; // player on terrain
+
+	// maximum fov value is pi so we are mapping fovpercent 0-1 range for dot product
+	float fovPercent = fov / glm::pi<float>();
+
+	for (const glm::vec2& edge : aabb.GetXZEdges())
+	{
+		glm::vec3 edge_to_cam = glm::normalize(glm::vec3(edge.x, 0, edge.y) - glm::vec3(camPos.x, 0, camPos.z));
+		if (glm::dot(edge_to_cam, camForward) > 1.0 - fovPercent) return true;
+	}
+	return false;
+}
+
+/// <param name="fov">radians</param>
+static __forceinline
+bool isPointCulled(const glm::vec3& pos, const glm::vec3& camPos, const glm::vec3& camRight, float fov)
+{
+	// maximum fov value is pi so we are mapping fovpercent 0-1 range for dot product
+	float fovPercent = fov / glm::pi<float>();
+	// for ignoring y axis ve are taking cross product of right vector (we only want xz)
+	// if you want to optimize you can send precalculated forward vector like code above
+	glm::vec3 camForward = glm::cross(camRight, glm::vec3(0, 1, 0)); 
+	glm::vec3 point_to_cam = glm::normalize(glm::vec3(pos.x, 0, pos.y) - glm::vec3(camPos.x, 0, camPos.z));
+	return glm::dot(point_to_cam, camForward) > 1.0 - fovPercent;
+}
+
+
 
 #undef NELAMBDAR
 #undef NELAMBDA

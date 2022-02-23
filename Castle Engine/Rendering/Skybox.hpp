@@ -103,7 +103,7 @@ public:
 	void Draw(cbPerObject& cbPerObj, DXDeviceContext* DeviceContext, DXBuffer* constantBuffer, const FreeCamera* freeCamera)
 	{
 		XMMATRIX Model = XMMatrixScaling(900000, 900000, 900000);
-		cbPerObj.MVP   = XMMatrixTranspose(Model * freeCamera->ViewProjection);
+		cbPerObj.MVP   = XMMatrixTranspose(Model * freeCamera->GetViewProjection());
 		cbPerObj.Model = XMMatrixTranspose(Model);
 		
 		DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);

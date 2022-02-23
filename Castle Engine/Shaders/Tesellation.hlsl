@@ -2,21 +2,9 @@
 #define OUTPUT_PATCH_SIZE 3
 
 // noise from fadookie: https://gist.github.com/fadookie/25adf86ae7e2753d717c
-float mod289(float x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
 float2 mod289(float2 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
 float3 mod289(float3 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
-float4 mod289(float4 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
-float permute(float x) { return mod289(x * x * 34.0 + x); }
 float3 permute(float3 x) { return mod289(x * x * 34.0 + x); }
-float4 permute(float4 x) { return mod289(x * x * 34.0 + x); }
-float4 grad4(float j, float4 ip) {
-	const float4 ones = float4(1.0, 1.0, 1.0, -1.0);
-	float4 p, s;
-	p.xyz = floor(frac(j * ip.xyz) * 7.0) * ip.z - 1.0;
-	p.w = 1.5 - dot(abs(p.xyz), ones.xyz);
-	p.xyz -= sign(p.xyz) * (p.w < 0);
-	return p;
-}
 float snoise(float2 v) {
 	const float4 C = float4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
 	float2 i = floor(v + dot(v, C.yy));

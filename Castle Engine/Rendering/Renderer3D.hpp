@@ -7,11 +7,6 @@ struct InputLayoutCreateInfo
 	const char* name; DXGI_FORMAT format;
 };
 
-struct ScreenQuadVertex {
-	glm::vec2 pos;
-	glm::vec2 uv;
-};
-
 class FreeCamera;
 class MeshRenderer;
 	

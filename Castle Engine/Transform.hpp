@@ -1,7 +1,11 @@
 #pragma once
 #include "Rendering.hpp"
+#define GLM_SWIZZLE
+#define GLM_FORCE_PURE
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #include <glm/glm.hpp>
 #include "Main/Event.hpp"
+#include "Math.hpp"
 
 namespace ECS
 {
@@ -41,10 +45,11 @@ namespace ECS
 		void OnEditor();
 		void UpdateTransform();
 
-		const glm::vec3& GetPosition()     const noexcept LAMBDAR(position)
-		const glm::vec3& GetScale()        const noexcept LAMBDAR(scale)
-		const glm::vec3& GetEulerDegree()  const noexcept LAMBDAR(GLM_RadToDeg(euler))
-		const glm::vec3& GetEulerRadians() const noexcept LAMBDAR(euler)
-		const xmMatrix& GetMatrix()        const noexcept LAMBDAR(matrix)
+		const glm::vec3& GetPosition()      const noexcept LAMBDAR(position)
+		const glm::vec3& GetScale()         const noexcept LAMBDAR(scale)
+		const glm::vec3& GetEulerDegree()   const noexcept LAMBDAR(GLM_RadToDeg(euler))
+		const glm::vec3& GetEulerRadians()  const noexcept LAMBDAR(euler)
+		const xmMatrix& GetMatrix()         const noexcept LAMBDAR(matrix)
+		const xmQuaternion& GetQuaternion() const noexcept LAMBDAR(quaternion)
 	};
 }

@@ -18,7 +18,10 @@
 #include "ComputeShader.hpp"
 #include "GrassGroup.hpp"
 #include "Grassrenderer.hpp"
+#include "LineDrawer.hpp"
+#include "../ECS/ECS.hpp"
 #include "../Timer.hpp"
+#include <limits>
 #include <omp.h>
 
 using namespace CS; // for compute shader
@@ -46,24 +49,26 @@ namespace Terrain
 	StructuredBufferHandle grassIndicesHandle, grassVertexHandle;
 	RWBufferHandle grassResultHandle;
 
-	float textureScale = 0.085f;
-	float noiseScale = 1.0f;
-	float scale = 15.0f;
-	float height = 200;
+	float textureScale = 0.5;
+	float noiseScale = 0.75;
+	float scale = 5.0f;
+	float height = 40;
 	float seaLevel = -25;
 	int seed;
 	bool isPerlin = false;
-	glm::ivec2 CuhunkSize = { 5, 5 };
+	glm::ivec2 CuhunkSize = { 6, 6 };
+	int culledTerrainCount;
 
 	std::vector<GrassGroup*> grassGroups;
+	std::vector<AABB> AABBs;
 
 	float GetTerrainScale() { return textureScale; };
 	void BindShader() { shader->Bind(); };
 
 	void GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset);
 	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise, glm::vec2 pos);
-	void CalculateNormals(TerrainVertex* vertices, const uint32_t* indices);
-
+	void CalculateNormals(TerrainVertex* vertices, const uint32_t* indices, XMVECTOR* tempNormal);
+	void CalculateAABB(const TerrainVertex* vertices);
 	void CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices, XMMATRIX* matrices);
 
 	void Create();
@@ -87,11 +92,8 @@ void Terrain::Initialize()
 	Create();
 }
 
-void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices)
+void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices, XMVECTOR* tempNormal)
 {
-	std::vector<XMVECTOR> tempNormal(t_indexCount); // xmvector is packed data = 16byte better than glm::vec3
-	tempNormal.resize(t_indexCount);
-
 	{
 		//Compute face normals
 		for (uint32_t i = 0; i < t_indexCount / 3; ++i)
@@ -182,9 +184,20 @@ void Terrain::CreateChunk(
 			indices[ti + 5] = vi + t_width + 2;
 		}
 	}
-	CalculateNormals(vertices, indices);
 }
 
+void Terrain::CalculateAABB(const TerrainVertex* vertices)
+{
+	AABB aabb;
+	aabb.min.x = vertices[0].pos.x;
+	aabb.min.y = 20;
+	aabb.min.z = vertices[0].pos.z;
+
+	aabb.max.x = aabb.min.x + (t_width * scale);
+	aabb.max.y = -20;
+	aabb.max.z = aabb.min.z + (t_width * scale);
+	AABBs.push_back(aabb);
+}
 
 void Terrain::GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset)
 {
@@ -216,6 +229,7 @@ void Terrain::Create()
 	glm::ivec2 i_startPos = { (int)startPos.x,  (int)startPos.y };
 
 	XMMATRIX* grassMatrices = (XMMATRIX*)malloc(GrassPerChunk * sizeof(XMMATRIX));
+	XMVECTOR* tempNormal = (XMVECTOR*)malloc(sizeof(XMVECTOR) * t_indexCount);
 
 	for (uint8_t x = 0, i = 0; x < CuhunkSize.y; ++x)
 	{
@@ -223,7 +237,9 @@ void Terrain::Create()
 		{
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
+			CalculateNormals(vertices, indices, tempNormal);
 			CalculateGrassPoints(vertices, indices, grassMatrices);
+			CalculateAABB(vertices);
 
 			CSCreateVertexIndexBuffers(DirectxBackend::GetDevice(), vertices, indices,
 				t_vertexCount, t_indexCount, &vertexBuffers[i], &indexBuffers[i]);
@@ -231,24 +247,38 @@ void Terrain::Create()
 	}
 
 	free(grassMatrices); grassMatrices = nullptr;
+	free(tempNormal); tempNormal = nullptr;
 }
 
-void Terrain::DrawGrasses()
+// FrustumBitset std::bitset<128> is 16 byte
+void Terrain::DrawGrasses(const FreeCamera& camera, const FrustumBitset& frustumSet)
 {
-	for (auto& group : grassGroups)
+	const glm::vec3& cameraPos = camera.transform.GetPosition();
+	glm::vec3 camForward = glm::cross(camera.transform.GetRight(), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	for (int i = 0; i < grassGroups.size(); ++i)
 	{
-		GrassRenderer::Render(*group);
+		if (!frustumSet[i]) continue;
+		GrassRenderer::Render(*grassGroups[i]);
 	}
 }
 
-void Terrain::Draw()
+FrustumBitset Terrain::Draw(const FreeCamera& camera)
 {
 	dirtTexture->Bind(d3d11DevCon, 0);
 	grassTexture->Bind(d3d11DevCon, 1);
 
+	const glm::vec3& cameraPos = camera.transform.GetPosition();
+	glm::vec3 camForward = glm::cross(camera.transform.GetRight(), glm::vec3(0.0f, 1.0f, 0.0f));
+	FrustumBitset frustumSet;
+
 	// todo add frustum culling: don't draw some of the cunks
 	for (uint8_t i = 0; i < vertexBuffers.size(); ++i)
 	{
+		frustumSet.set(i, isTerrainCulled(AABBs[i], cameraPos, camForward, camera.fov));
+		if (!frustumSet[i]) continue;
+		culledTerrainCount++;
+
 		d3d11DevCon->IASetInputLayout(inputLayout);
 		d3d11DevCon->IASetIndexBuffer(indexBuffers[i], DXGI_FORMAT_R32_UINT, 0);
 
@@ -256,6 +286,7 @@ void Terrain::Draw()
 		d3d11DevCon->IASetVertexBuffers(0, 1, &vertexBuffers[i], &stride, &offset);
 		d3d11DevCon->DrawIndexed(t_indexCount, 0, 0);
 	}
+	return frustumSet;
 }
 
 #ifndef NEDITOR
@@ -270,9 +301,10 @@ void Terrain::OnEditor()
 		ImGui::DragInt("Seed", &seed);
 		ImGui::DragFloat("seaLevel", &seaLevel);
 
-		ImGui::DragInt2("ChunkSize", &CuhunkSize.x);
+		ImGui::DragInt2("ChunkSize", &CuhunkSize.x, 1.0f, 0, 11); // 11 because this is maximum value that frustumbitset can handle for now sqrt(128)
 		ImGui::Checkbox("Perlin?", &isPerlin);
-
+		ImGui::TextColored({ .7,.4,0.0f, 1.0f }, std::to_string(culledTerrainCount).c_str());
+		culledTerrainCount = 0;
 		if (ImGui::Button("Recreate"))
 		{
 			Create();
@@ -288,6 +320,7 @@ void Terrain::Dispose()
 		grassGroups[i] = nullptr;
 	}
 	grassGroups.clear();
+	AABBs.clear();
 	for (uint32_t i = 0; i < indexBuffers.size(); i++)
 	{
 		DX_RELEASE(indexBuffers[i]);

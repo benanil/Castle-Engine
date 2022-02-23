@@ -149,7 +149,7 @@ void Renderer3D::CreateBuffers()
 	cbGlobalData.ambientStength = .120f;
 	cbGlobalData.sunAngle = 120;
 
-	cbPerObj.MVP = XMMatrixTranspose(freeCamera->ViewProjection);
+	cbPerObj.MVP = XMMatrixTranspose(freeCamera->GetViewProjection());
 	cbPerObj.Model = XMMatrixIdentity();
 
 	DXCreateConstantBuffer(Device, uniformGlobalBuffer, &cbGlobalData);
@@ -176,7 +176,6 @@ void Renderer3D::CreateBuffers()
 void Renderer3D::OnEditor()
 {
 	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
-	
 	if (ImGui::CollapsingHeader("Lighting"))
 	{
 		ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
@@ -205,7 +204,7 @@ void Renderer3D::RenderToQuad() {
 // do not send matrix transposed!
 void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
 {
-	const auto MVP = matrix * freeCamera->ViewProjection;
+	const auto MVP = matrix * freeCamera->GetViewProjection();
 	cbPerObj.MVP = XMMatrixTranspose(MVP);
 	cbPerObj.Model = XMMatrixTranspose(matrix);
 	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
@@ -216,7 +215,7 @@ void Renderer3D::DrawTerrain()
 {
 	Terrain::BindShader();
 
-	SetModelMatrix(XMMatrixScaling(4, 4, 4) * XMMatrixTranslation(-000, 0, -000));
+	SetModelMatrix(XMMatrixIdentity());
 
 	cbGlobalData.additionalData = Terrain::GetTextureScale();
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
@@ -224,10 +223,11 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 	DeviceContext->RSSetState(rasterizerState);
 
-	Terrain::Draw();
+	FrustumBitset frustumResult = Terrain::Draw(*freeCamera);
+	
 	// 600k grass in 0.07 seconds depends on sea level framerate can increase %20
-	GrassRenderer::SetShader(freeCamera->View, freeCamera->Projection);
-	Terrain::DrawGrasses();
+	GrassRenderer::SetShader(freeCamera->GetViewProjection());
+	Terrain::DrawGrasses(*freeCamera, frustumResult);
 	GrassRenderer::EndRender();
 
 	DeviceContext->RSSetState(rasterizerState);

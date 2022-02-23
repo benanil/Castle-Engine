@@ -1,5 +1,6 @@
 
 #include "Transform.hpp"
+#include "Math.hpp"
 #ifndef NEDITOR
 #	include "Editor/Editor.hpp"
 #endif

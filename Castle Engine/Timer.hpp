@@ -11,20 +11,22 @@
 
 struct Timer
 {
-	std::chrono::time_point<std::chrono::steady_clock> start, end;
-	std::chrono::duration<float> duration;
+	std::chrono::time_point<std::chrono::high_resolution_clock> start_point;
+
 	const char* message;
 
-	Timer(const char* _message) : message(_message) 
+	Timer(const char* _message) : message(_message)
 	{
-		start = std::chrono::high_resolution_clock::now();
+		start_point = std::chrono::high_resolution_clock::now();
 	}
 
-	~Timer() 
-	{	
-		end = std::chrono::high_resolution_clock::now();
-		duration = end - start;
-		float ms = duration.count() * 1000.0f;
-		std::cout << message << ms	<< "ms" << std::endl;
+	~Timer()
+	{
+		using namespace std::chrono;
+		auto end_point = high_resolution_clock::now();
+		auto start = time_point_cast<microseconds>(start_point).time_since_epoch().count();
+		auto end = time_point_cast<microseconds>(end_point).time_since_epoch().count();
+		auto _duration = end - start;
+		std::cout << message << (_duration * 0.001) << "ms" << std::endl;
 	}
 };

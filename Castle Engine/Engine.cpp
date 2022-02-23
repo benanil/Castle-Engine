@@ -61,7 +61,13 @@ void Engine::MainWindow()
 {
 	ImGui::Begin("Settings");
 
-	// ImGui::Text(std::to_string(1 / Time::GetDeltaTime()).c_str(), " fps");
+    static float fps = 0;
+    if (int(Time::GetTimeSinceStartup()) % 2 > 0)
+    {
+        fps = 1 / Time::GetDeltaTime();
+    }
+
+	ImGui::Text(std::to_string(fps).c_str(), " fps");
 
     if (ImGui::CollapsingHeader("Camera")) freeCamera->EditorUpdate();
 
