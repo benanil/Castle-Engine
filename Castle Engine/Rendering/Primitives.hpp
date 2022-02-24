@@ -4,7 +4,8 @@
 #include "../DirectxBackend.hpp"
 #include "../Engine.hpp"
 #include <stdexcept>
-	
+#include "LineDrawer.hpp"
+
 struct cbGlobal
 {
 	float sunAngle;
@@ -45,14 +46,16 @@ struct SubMesh
 	
 	uint16_t materialIndex;
 	
+	AABB aabb;
+
 	DXGI_FORMAT indiceFormat = DXGI_FORMAT_R32_UINT;
 	SubMesh(){};
 	~SubMesh() { Dispose(); };
-	SubMesh(const aiMesh& aimesh, bool isSponza) : name(aimesh.mName.C_Str())
+	SubMesh(const aiMesh& aimesh, bool isSponza) 
+	:	name(aimesh.mName.C_Str()),
+		vertexCount(aimesh.mNumVertices),
+		indexCount(aimesh.mNumFaces * 3)
 	{			
-		vertexCount = aimesh.mNumVertices;
-		indexCount = aimesh.mNumFaces * 3;
-		
 		vertices = (Vertex*)malloc(sizeof(Vertex) * vertexCount);
 		indices = (uint32_t*)malloc(sizeof(uint32_t) * indexCount);
 		
@@ -78,9 +81,9 @@ struct SubMesh
 		{
 			for (uint32_t i = 0; i < vertexCount; ++i)
 			{
-				vertices[i].pos.x *= 0.01f;
-				vertices[i].pos.y *= 0.01f;
-				vertices[i].pos.z *= 0.01f;
+				vertices[i].pos.x *= 0.0125f;
+				vertices[i].pos.y *= 0.0125f;
+				vertices[i].pos.z *= 0.0125f;
 			}
 		}
 
@@ -90,14 +93,30 @@ struct SubMesh
 			indices[i * 3 + 1] = aimesh.mFaces[i].mIndices[1];
 			indices[i * 3 + 2] = aimesh.mFaces[i].mIndices[2];
 		}
-		
+
+		CreateAABB();
 		CreateDXBuffers();
 	}
+
+	void CreateAABB()
+	{
+		aabb.min = glm::vec3(+99999.0f);
+		aabb.max = glm::vec3(-99999.0f);
+
+		for (uint32_t i = 0; i < vertexCount; ++i)
+		{
+			aabb.min = glm::max(vertices[i].pos + glm::vec3(3000.0f), aabb.min);
+			aabb.max = glm::max(vertices[i].pos + glm::vec3(3000.0f), aabb.max);
+		}
+
+		aabb.min -= glm::vec3(3000.0f);
+		aabb.max -= glm::vec3(3000.0f);
+	}
 	
-	static inline DXGI_FORMAT ChoseIndiceFormat(uint64_t indexCount)
+	static __forceinline DXGI_FORMAT ChoseIndiceFormat(uint64_t indexCount)
 	{
 		return DXGI_FORMAT_R32_UINT;
-		if 		(indexCount > UINT32_MAX) throw std::runtime_error("submesh index count is to much!");
+		if 		(indexCount > UINT32_MAX) return (DXGI_FORMAT)-1;
 		else if (indexCount > UINT16_MAX) return DXGI_FORMAT_R32_UINT;
 		else if (indexCount > UINT8_MAX)  return DXGI_FORMAT_R16_UINT;
 		else return DXGI_FORMAT_R8_UINT;
@@ -138,6 +157,7 @@ struct SubMesh
 	
 	void Draw(DXDeviceContext* d3d11DevCon)
 	{
+		LineDrawer::DrawAABB(aabb, true);
 		d3d11DevCon->IASetIndexBuffer(indexBuffer, indiceFormat , 0);
 		//Set the vertex buffer
 		UINT stride = sizeof(Vertex), offset = 0;

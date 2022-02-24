@@ -221,8 +221,6 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
 
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
-	DeviceContext->RSSetState(rasterizerState);
-
 	FrustumBitset frustumResult = Terrain::Draw(*freeCamera);
 	
 	// 600k grass in 0.07 seconds depends on sea level framerate can increase %20
@@ -271,12 +269,6 @@ void Renderer3D::DrawScene()
 	// tessMesh->Render(DeviceContext, cbPerObj.MVP, freeCamera->transform.GetPosition());
 	DeviceContext->RSSetState(rasterizerState);
 	
-	// line drawing test we can call it everywhere
-	LineDrawer::DrawLine({ 0000, 0000, 0 }, { 0000, 1000, 0 });
-	LineDrawer::DrawLine({ 0000, 1000, 0 }, { 1000, 1000, 0 });
-	LineDrawer::DrawLine({ 1000, 1000, 0 }, { 1000, 0000, 0 });
-	LineDrawer::DrawLine({ 1000, 0000, 0 }, { 0000, 0000, 0 });
-
 	LineDrawer::SetShader();
 	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(1, 1, 1));
 	LineDrawer::Render();

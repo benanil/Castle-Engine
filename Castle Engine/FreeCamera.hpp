@@ -52,7 +52,7 @@ public:
 	FreeCamera(float _fov, float _aspectRatio, float _near, float _far)
 		: fov(XM_DegToRad(_fov)), aspectRatio(_aspectRatio), nearPlane(_near), farPlane(_far)
 	{
-		transform.SetPosition(glm::vec3(500, 140, 0));
+		transform.SetPosition(glm::vec3(0, 2, 0));
 
 		POINT mousePos;
 		GetCursorPos(&mousePos);

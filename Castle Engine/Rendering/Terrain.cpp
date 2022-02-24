@@ -32,7 +32,7 @@ namespace Terrain
 	constexpr uint16_t t_vertexCount = (t_width + 1) * (t_height + 1);
 	constexpr uint16_t t_indexCount = t_width * t_height * 6;
 	constexpr uint16_t WidthSize = t_width + 1, HeightSize = t_height + 1;
-	constexpr uint16_t GrassPerChunk = TERRAIN_GRASS_PER_CHUNK ;
+	constexpr uint32_t GrassPerChunk = TERRAIN_GRASS_PER_CHUNK ;
 	// constexpr uint16_t GrassPerChunk = (t_indexCount / 3) * 2;
 
 	std::vector<DXBuffer*> vertexBuffers;
@@ -48,11 +48,12 @@ namespace Terrain
 	ComputeShader* computeShader;
 	StructuredBufferHandle grassIndicesHandle, grassVertexHandle;
 	RWBufferHandle grassResultHandle;
+	RWBufferHandle culledGrassesHandle;
 
 	float textureScale = 0.5;
 	float noiseScale = 0.75;
-	float scale = 5.0f;
-	float height = 40;
+	float scale = 3.4f;
+	float height = 30;
 	float seaLevel = -25;
 	int seed;
 	bool isPerlin = false;
@@ -69,7 +70,7 @@ namespace Terrain
 	void CreateChunk(TerrainVertex* vertices, uint32_t* indices, std::vector<float> noise, glm::vec2 pos);
 	void CalculateNormals(TerrainVertex* vertices, const uint32_t* indices, XMVECTOR* tempNormal);
 	void CalculateAABB(const TerrainVertex* vertices);
-	void CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices, XMMATRIX* matrices);
+	void CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices);
 
 	void Create();
 }
@@ -86,6 +87,7 @@ void Terrain::Initialize()
 	grassVertexHandle  = computeShader->CreateStructuredBuffer(sizeof(TerrainVertex), t_vertexCount, nullptr, D3D11_MAP_WRITE);
 	grassIndicesHandle = computeShader->CreateStructuredBuffer(sizeof(uint32_t), t_indexCount, nullptr, D3D11_MAP_WRITE);
 	grassResultHandle  = computeShader->RWCreateUAVBuffer(sizeof(XMMATRIX), GrassPerChunk, nullptr);
+	culledGrassesHandle = computeShader->RWCreateUAVBuffer(sizeof(int), TERRAIN_TRIANGLE_COUNT, nullptr);
 
 	inputLayout = TerrainVertex::GetLayout(shader->VS_Buffer);
 	d3d11DevCon = DirectxBackend::GetDeviceContext();
@@ -108,7 +110,7 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices,
 
 	{
 		CSTIMER("normal calculation speed: ")
-			//Go through each vertex
+		//Go through each vertex
 #pragma omp parallel for collapse(2), shared(vertices, indices) // 4x optimization
 		for (int32_t i = 0; i < t_vertexCount; ++i)
 		{
@@ -129,7 +131,7 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices,
 	}
 }
 
-void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices,  XMMATRIX* matrices)
+void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices)
 {
 	auto vertexMapResult = computeShader->MapStructuredBuffer(grassVertexHandle);
 	memcpy(vertexMapResult.data, vertices, sizeof(TerrainVertex) * t_vertexCount);
@@ -142,10 +144,12 @@ void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t
 	computeShader->Dispatch(TERRAIN_TRIANGLE_COUNT / 64, 1);
 	
 	auto computeResult = computeShader->RWMapUAVBuffer(grassResultHandle, D3D11_MAP_READ);
-	memcpy(matrices, computeResult.data, sizeof(XMMATRIX) * GrassPerChunk);
-	computeShader->UnmapBuffer(computeResult.OutputBuffer);
+	auto cullResult = computeShader->RWMapUAVBuffer(culledGrassesHandle, D3D11_MAP_READ);
 	
-	grassGroups.push_back(new GrassGroup(matrices, DirectxBackend::GetDevice()));
+	grassGroups.push_back(new GrassGroup((XMMATRIX*)computeResult.data, (int*)cullResult.data, DirectxBackend::GetDevice()));
+	
+	computeShader->UnmapBuffer(computeResult.OutputBuffer);
+	computeShader->UnmapBuffer(cullResult.OutputBuffer);
 
 	shader->Bind();
 }
@@ -228,7 +232,6 @@ void Terrain::Create()
 	glm::vec2 startPos = { -((CuhunkSize.x * t_width) / 2),  -((CuhunkSize.y * t_height) / 2) };
 	glm::ivec2 i_startPos = { (int)startPos.x,  (int)startPos.y };
 
-	XMMATRIX* grassMatrices = (XMMATRIX*)malloc(GrassPerChunk * sizeof(XMMATRIX));
 	XMVECTOR* tempNormal = (XMVECTOR*)malloc(sizeof(XMVECTOR) * t_indexCount);
 
 	for (uint8_t x = 0, i = 0; x < CuhunkSize.y; ++x)
@@ -238,7 +241,7 @@ void Terrain::Create()
 			GenerateNoise(fnGenerator, noise.data(), i_startPos + glm::ivec2(t_width * x, t_height * y));
 			CreateChunk(vertices, indices, noise, startPos + glm::vec2(t_width * x, t_height * y));
 			CalculateNormals(vertices, indices, tempNormal);
-			CalculateGrassPoints(vertices, indices, grassMatrices);
+			CalculateGrassPoints(vertices, indices);
 			CalculateAABB(vertices);
 
 			CSCreateVertexIndexBuffers(DirectxBackend::GetDevice(), vertices, indices,
@@ -246,7 +249,6 @@ void Terrain::Create()
 		}
 	}
 
-	free(grassMatrices); grassMatrices = nullptr;
 	free(tempNormal); tempNormal = nullptr;
 }
 
@@ -272,7 +274,7 @@ FrustumBitset Terrain::Draw(const FreeCamera& camera)
 	glm::vec3 camForward = glm::cross(camera.transform.GetRight(), glm::vec3(0.0f, 1.0f, 0.0f));
 	FrustumBitset frustumSet;
 
-	// todo add frustum culling: don't draw some of the cunks
+	// todo add frustum culling: done!
 	for (uint8_t i = 0; i < vertexBuffers.size(); ++i)
 	{
 		frustumSet.set(i, isTerrainCulled(AABBs[i], cameraPos, camForward, camera.fov));

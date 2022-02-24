@@ -34,6 +34,7 @@ struct Vertex
 StructuredBuffer<Vertex> vertices;
 StructuredBuffer<uint> indices;
 RWStructuredBuffer<float4x4> results;
+RWStructuredBuffer<int> culledTriangles;
 
 uint hash(uint x) {
 	x += (x << 10u);
@@ -61,7 +62,7 @@ float floatConstruct(uint2 m) {
 
 	Mantissa(m.x); Mantissa(m.y);
 	float2 f2 = asfloat(m) - float2(1.0, 1.0); // Range [0:1]
-	return f2.x + f2.y * 0.5;                    // Range [0:1]
+	return f2.x + f2.y * 0.5 + 0.1f;                    // Range [0:1]
 }
 // returns number between 0-1
 float rand(uint2 v) { return floatConstruct(hash(v)); }
@@ -104,6 +105,8 @@ float4x4 Rotate(float angle, float3 axis) {
 		0,0,0,1);
 }
 
+#define GRASS_PER_TRIANGLE 6
+
 [numthreads(64, 1, 1)]
 	void CS(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -117,23 +120,28 @@ float4x4 Rotate(float angle, float3 axis) {
 	const float3 normalCenter = normalize(vertices[indices[dispatchThreadID.x * 3 + 0]].normal +
 										  vertices[indices[dispatchThreadID.x * 3 + 1]].normal +
 										  vertices[indices[dispatchThreadID.x * 3 + 2]].normal);
-	for (int i = 0; i < 3; ++i)
+	
+	culledTriangles[dispatchThreadID.x] = 0;
+
+	// we dont want to draw grass everywhere so we are reducing some grass with simpliex noise here
+	if (snoise(v1.xz / 10) > 0.5 || v1.y < 0) return;
+
+	culledTriangles[dispatchThreadID.x] = 1;
+
+	for (int i = 0; i < GRASS_PER_TRIANGLE; ++i)
 	{
-		float3 _Rand = float3(rand(randOffset.xy + 33 * i + i),
-							  rand(randOffset.yx + 66 * i + i),
-							  rand(randOffset.xy + 88 * i + i));
+		float3 _Rand = float3(rand(randOffset.xy + 33.55 * i + (i * 0.55)),
+							  rand(randOffset.yx + 66.66 * i + (i * 0.66)),
+							  rand(randOffset.xy + 88.33 * i + (i * 0.33)));
 
 		float3 lerp0 = lerp(centerPoint, v0, _Rand.x);
 		float3 lerp1 = lerp(centerPoint, v1, _Rand.y);
 		float3 lerp2 = lerp(centerPoint, v2, _Rand.z);
 
-		// we dont want to draw grass everywhere so we are reducing some grass with simpliex noise here
-		if(snoise(lerp2.xz / 10) > 0.5) lerp2.y = -64;
+		float4x4 rotation = Rotate(rand(randOffset.xy * 133 + (i + i * 0.22)), normalCenter);
+		float4x4 scale = Scale(float3(1.15, 1.15, 1.15) + (_Rand * 1.7));
 
-		float4x4 rotation = Rotate(rand(randOffset.xy * 133 + (i + i)), normalCenter);
-		float4x4 scale = Scale(float3(1.5, 1.5, 1.5) + (_Rand * 1.5 - 0.5f));
-
-		results[dispatchThreadID.x * 3 + i] = 
+		results[dispatchThreadID.x * GRASS_PER_TRIANGLE + i] =
 			mul(mul(mul(Identity, rotation), scale), CreatePosMatrix(lerp2));
 	}
 }

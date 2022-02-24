@@ -279,7 +279,6 @@ struct AABB {
 		};
 		return result;
 	}
-
 	/// for terrain: returns center point aditionaly
 	__forceinline std::array<glm::vec2, 5> GetXZEdges() const
 	{
@@ -300,7 +299,7 @@ struct AABB {
 ///	ve must use a crossproduct for it (right.unitY) we dont want to calculate it for every aabb<summary/>
 /// <param name="fov">radians</param>
 static __forceinline
-bool isTerrainCulled( const AABB& aabb, const glm::vec3& camPos, const glm::vec3& camForward, float fov)
+bool isTerrainCulled(const AABB& aabb, const glm::vec3& camPos, const glm::vec3& camForward, float fov)
 {
 	const glm::vec3& min = aabb.GetMin();
 	const glm::vec3& max = aabb.GetMax();

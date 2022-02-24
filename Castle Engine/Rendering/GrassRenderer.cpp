@@ -74,10 +74,10 @@ void GrassRenderer::Initialize(ID3D11Device* device, ID3D11DeviceContext* device
 
 	std::array<GrassVertex, 4> vertices;
 	memset(vertices.data(), 0, sizeof(GrassVertex) * 4);
-	vertices[1].position.y = 0.80f;
-	vertices[2].position.x = 0.50f;
-	vertices[3].position.x = 0.50f;
-	vertices[3].position.y = 0.80f;
+	vertices[1].position.y = 1.10f;
+	vertices[2].position.x = 1.30f;
+	vertices[3].position.x = 1.30f;
+	vertices[3].position.y = 1.10f;
 	vertices[0].uv = XMHALF2(0.0f, 1.1f);
 	vertices[1].uv = XMHALF2(0.0f, 0.0f);
 	vertices[2].uv = XMHALF2(1.1f, 1.1f);
@@ -139,7 +139,7 @@ void GrassRenderer::Render(const GrassGroup& grassGroup)
 {
 	UINT stride = sizeof(glm::vec3), offset = 0;
 	DeviceContext->VSSetShaderResources(0, 1, &grassGroup.srv);
-	DeviceContext->DrawIndexedInstanced(6, TERRAIN_GRASS_PER_CHUNK, 0, 0, 0);
+	DeviceContext->DrawIndexedInstanced(6, grassGroup.cullledMatrixCount, 0, 0, 0);
 }
 
 void GrassRenderer::EndRender()

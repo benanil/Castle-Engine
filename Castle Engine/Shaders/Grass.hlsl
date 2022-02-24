@@ -12,7 +12,6 @@ cbuffer cbPerObject : register(b0)
 struct VS_OUT {
 	float4 position : SV_POSITION;
 	half2 texCoord  : TEXCOORD;
-	bool isWater : WATER;
 	float3 color    : COLOR;
 	float3 normal   : NORMAL;
 };
@@ -38,15 +37,12 @@ VS_OUT VS(float4 position : POSITION,
 	o.position = mul(position, MVP);
 	o.normal = mul(float4(0, 0, 1, 0), matrices[instanceID]).xyz;
 	o.texCoord = texCoord;
-	o.isWater = matrices[instanceID][3].y < 0;
 	o.color = color;
 	return o;
 }
 
 float4 PS(VS_OUT i, bool frontFace : SV_IsFrontFace) : SV_TARGET
 {
-	if (i.isWater) discard;
-
 	float3 normal = i.normal * (frontFace * 2 - 1);
 	float4 albedo = _texture.Sample(_sampler, i.texCoord) * float4(i.color, 1);
 	albedo.xyz *= max(1 - i.texCoord.y, 0.4);

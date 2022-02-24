@@ -85,9 +85,9 @@ void LineDrawer::DrawLine(const glm::vec3& a, const glm::vec3& b)
 
 void LineDrawer::DrawPlus(const glm::vec3& point)
 {
-	DrawLine(point - glm::vec3(1000, 000, 000), point + glm::vec3(1000, 000, 000));
-	DrawLine(point - glm::vec3(000, 1000, 000), point + glm::vec3(000, 1000, 000));
-	DrawLine(point - glm::vec3(000, 000, 1000), point + glm::vec3(000, 000, 1000));
+	DrawLine(point - glm::vec3(0.5f, 0.0f, 0.0f), point + glm::vec3(0.5f, 0.0f, 0.0f));
+	DrawLine(point - glm::vec3(0.0f, 0.5f, 0.0f), point + glm::vec3(0.0f, 0.5f, 0.0f));
+	DrawLine(point - glm::vec3(0.0f, 0.0f, 0.5f), point + glm::vec3(0.0f, 0.0f, 0.5f));
 }
 
 void LineDrawer::DrawAABB(const AABB& aabb, bool active)
@@ -95,12 +95,12 @@ void LineDrawer::DrawAABB(const AABB& aabb, bool active)
 	const std::array<glm::vec2, 5> corners = aabb.GetXZEdges();
 	
 	SetColor(active ? glm::vec3{ 0.0f, 0.8f, 0.0f} : glm::vec3{ 0.8f, 0.0f, 0.0f });
-	DrawPlus(glm::vec3(corners[0].x, 0, corners[0].y));
-	DrawPlus(glm::vec3(corners[1].x, 0, corners[1].y));
+	DrawPlus(glm::vec3(corners[0].x, corners[0].y, corners[0].y));
+	DrawPlus(glm::vec3(corners[1].x, corners[1].y, corners[1].y));
 	
-	DrawPlus(glm::vec3(corners[2].x, 1000, corners[2].y));
-	DrawPlus(glm::vec3(corners[3].x, 1000, corners[3].y));
-	DrawPlus(glm::vec3(corners[4].x, 1000, corners[4].y));
+	DrawPlus(glm::vec3(corners[2].x, corners[2].y, corners[2].y));
+	DrawPlus(glm::vec3(corners[3].x, corners[3].y, corners[3].y));
+	DrawPlus(glm::vec3(corners[4].x, corners[4].y, corners[4].y));
 }
 
 // todo add other shapes

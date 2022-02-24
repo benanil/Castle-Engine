@@ -98,7 +98,6 @@ namespace MeshLoader
 			mesh->materials[0]->specular = blackTexture;
 			mesh->materials[0]->normal = flatNormalTexture;
 		}
-
 		for (uint16_t i = 0; i < scene->mNumMeshes; i++)
 		{
 			mesh->subMeshes[i] = SubMesh(*scene->mMeshes[i], isSponza);

@@ -75,7 +75,7 @@ RWBufferHandle ComputeShader::RWCreateUAVBuffer(unsigned int stride, unsigned in
 	RWBufferDesc.StructureByteStride = stride;
 	RWBufferDesc.ByteWidth = stride * numElements;
 	RWBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	RWBufferDesc.CPUAccessFlags = 0;
+	RWBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
 	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
 	vinitData.pSysMem = data;
@@ -95,7 +95,7 @@ RWBufferHandle ComputeShader::RWCreateUAVBuffer(unsigned int stride, unsigned in
 	uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_COUNTER;
 	uavDesc.Buffer.FirstElement = 0;
 	uavDesc.Buffer.NumElements = numElements;
-	
+
 	ID3D11UnorderedAccessView* UAV;
 	hr = device->CreateUnorderedAccessView(GpuBuffer, &uavDesc, &UAV);
 	UAVs.push_back(UAV);
@@ -350,6 +350,7 @@ void ComputeShader::ReleaseGPUBuffers() {
 }
 void ComputeShader::ReleaseTextureBuffers()  {
 	for (uint8_t i = 0; i < Textures.size(); ++i) DX_RELEASE(Textures[i]);
+	for (uint8_t i = 0; i < resourceViews.size(); ++i) DX_RELEASE(resourceViews[i]);
 	Textures.clear();
 	resourceViews.clear();
 }

@@ -9,30 +9,49 @@ class GrassGroup
 public:
 	ID3D11ShaderResourceView* srv;
 	ID3D11Buffer* structuredBuffer;
-
+	uint32_t cullledMatrixCount;
 public:
 	~GrassGroup() { DX_RELEASE(structuredBuffer); DX_RELEASE(srv);  }
 
-	GrassGroup(XMMATRIX* _positions, ID3D11Device* device)
+	GrassGroup(XMMATRIX* _positions, int* cullResult, ID3D11Device* device)
 	{
+		cullledMatrixCount = 0;
+
+		for (uint32_t i = 0; i < TERRAIN_TRIANGLE_COUNT; ++i)
+		{
+			cullledMatrixCount += cullResult[i] * TERRAIN_GRASS_PER_TRIANGLE;
+		}
+
+		XMMATRIX* culledMatrices = (XMMATRIX*)malloc(sizeof(XMMATRIX) * cullledMatrixCount);
+		
+		for (uint32_t i = 0, currMat = 0; i < TERRAIN_TRIANGLE_COUNT; ++i)
+		{
+			if (cullResult[i])
+			{
+				for (int j = 0; j < TERRAIN_GRASS_PER_TRIANGLE; ++j)
+				culledMatrices[currMat++] = _positions[i * TERRAIN_GRASS_PER_TRIANGLE + j];
+			}
+		}
+
 		DX_CREATE(D3D11_BUFFER_DESC, inputDesc);
 		inputDesc.Usage = D3D11_USAGE_DEFAULT;
-		inputDesc.ByteWidth = TERRAIN_GRASS_PER_CHUNK * sizeof(XMMATRIX);
+		inputDesc.ByteWidth = cullledMatrixCount * sizeof(XMMATRIX);
 		inputDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		inputDesc.CPUAccessFlags = 0;
 		inputDesc.StructureByteStride = sizeof(XMMATRIX);
 		inputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
-		vinitData.pSysMem = _positions;
+		vinitData.pSysMem = culledMatrices;
 
 		DX_CHECK(device->CreateBuffer(&inputDesc, &vinitData, &structuredBuffer), "structured buffer creation failed");
 
 		DX_CREATE(D3D11_SHADER_RESOURCE_VIEW_DESC, srvDesc);
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
-		srvDesc.BufferEx.NumElements = TERRAIN_GRASS_PER_CHUNK;
+		srvDesc.BufferEx.NumElements = cullledMatrixCount;
 
 		DX_CHECK(device->CreateShaderResourceView(structuredBuffer, &srvDesc, &srv), "Structured Buffer SRV creation failed!");
+		
+		free(culledMatrices);
 	}
 };
-
