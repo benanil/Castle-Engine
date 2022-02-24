@@ -23,6 +23,15 @@
 
 #include <chrono>
 #include <iostream>
+#include "../Timer.hpp"
+#include <bitset>
+
+typedef std::bitset<1024> CullingBitset;
+
+struct DrawResult {
+	int CulledMeshCount = 0;
+	double milisecond = 0;
+};
 
 class MeshRenderer : ECS::Component
 {
@@ -50,11 +59,25 @@ public:
 		pushID = 0;
 	}
 #endif
-	void Draw(DXDeviceContext* deviceContext)
+
+	
+	void CalculateCullingBitset(CullingBitset& bitset, uint32_t& startIndex, AABBCullData& cullData) const
+	{
+		constexpr int MinimumVertexForCulling = 64;
+		for (uint16_t i = 0; i < subMeshCount; ++i)
+		{
+			cullData.aabb = &subMeshes[i].aabb;
+			bitset[startIndex++] = subMeshes[i].vertexCount > MinimumVertexForCulling && !CheckAABBCulled(cullData);
+		}			
+	}
+
+	void Draw(DXDeviceContext* deviceContext, CullingBitset& cullData, uint32_t& startIndex)
 	{
 		Renderer3D::SetModelMatrix(entity->transform->GetMatrix());
-		for (uint16_t i = 0; i < subMeshCount; i++)
+
+		for (uint16_t i = 0; i < subMeshCount; ++i)
 		{
+			if (cullData[startIndex++]) continue;
 			materials[std::min<uint16_t>(subMeshes[i].materialIndex, materials.size() - 1)]->Bind();
 			subMeshes[i].Draw(deviceContext);
 		}

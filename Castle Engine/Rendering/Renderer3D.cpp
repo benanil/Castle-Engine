@@ -15,6 +15,8 @@
 #include <array>
 #include "Terrain.hpp"
 #include "Grassrenderer.hpp"
+#include <future>
+#include <thread>
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
@@ -44,12 +46,16 @@ namespace Renderer3D
 	ID3D11RasterizerState* rasterizerState, * WireframeRasterizerState;
 	TesellatedMesh* tessMesh;
 	FreeCamera* freeCamera;
-	
-	bool Vsync = true;
 
+	std::future<CullingBitset> cullingThread;
+
+	bool Vsync = true;
+	int culledMeshCount = 0;
+	
 	// forward declarations
 	void DrawTerrain();
 	void CreateBuffers();
+	CullingBitset CalculateCulls();
 }
 
 RenderTexture* Renderer3D::GetPostRenderTexture() { return PostProcessing::GetPostRenderTexture(); }
@@ -76,9 +82,16 @@ void Renderer3D::AddMeshRenderer(MeshRenderer* meshRenderer)
 
 void Renderer3D::RenderMeshes()
 {
+	if(!cullingThread.valid()) return;
+
+	cullingThread.wait();
+	CullingBitset cullResult = cullingThread.get();
+	culledMeshCount = cullResult.count();
+	uint32_t startIndex = 0;
+
 	for (auto& renderer : meshRenderers)
 	{
-		renderer->Draw(DeviceContext);
+		renderer->Draw(DeviceContext, cullResult, startIndex);
 	}
 }
 
@@ -176,6 +189,9 @@ void Renderer3D::CreateBuffers()
 void Renderer3D::OnEditor()
 {
 	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
+	
+	ImGui::Text(("CulledMeshCount: " + std::to_string(culledMeshCount)).c_str());
+
 	if (ImGui::CollapsingHeader("Lighting"))
 	{
 		ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
@@ -233,6 +249,7 @@ void Renderer3D::DrawTerrain()
 
 void Renderer3D::DrawScene()
 {
+	culledMeshCount = 0;
 	cbGlobalData.viewPos = freeCamera->transform.position;
 	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
@@ -307,6 +324,30 @@ void Renderer3D::DrawScene()
 
 	//Present the backbuffer to the screen
 	DirectxBackend::Present(Vsync);
+
+	freeCamera->Update();
+	cullingThread = std::async(std::launch::async, CalculateCulls);
+}
+
+CullingBitset Renderer3D::CalculateCulls()
+{
+	CullingBitset bitset {};
+	AABBCullData cullData
+	{
+		nullptr,
+		freeCamera->transform.GetPosition(),
+		freeCamera->transform.GetForward(),
+		glm::cross(freeCamera->transform.GetRight(), freeCamera->transform.GetForward()),
+		freeCamera->fov
+	};
+	
+	uint32_t startIndex = 0;
+
+	for (auto& renderer : meshRenderers)
+	{
+		renderer->CalculateCullingBitset(bitset, startIndex, cullData);
+	}
+	return bitset;
 }
 
 void Renderer3D::Dispose()

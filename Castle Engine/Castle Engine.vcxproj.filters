@@ -221,6 +221,9 @@
     <ClInclude Include="Rendering\LineDrawer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="AngleCulling.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="braynzar.jpg">

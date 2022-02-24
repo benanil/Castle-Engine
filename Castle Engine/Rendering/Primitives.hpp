@@ -49,6 +49,7 @@ struct SubMesh
 	AABB aabb;
 
 	DXGI_FORMAT indiceFormat = DXGI_FORMAT_R32_UINT;
+
 	SubMesh(){};
 	~SubMesh() { Dispose(); };
 	SubMesh(const aiMesh& aimesh, bool isSponza) 
@@ -100,17 +101,17 @@ struct SubMesh
 
 	void CreateAABB()
 	{
-		aabb.min = glm::vec3(+99999.0f);
-		aabb.max = glm::vec3(-99999.0f);
+		aabb.min = glm::vec3(+999999.0f);
+		aabb.max = glm::vec3(-999999.0f);
 
 		for (uint32_t i = 0; i < vertexCount; ++i)
 		{
-			aabb.min = glm::max(vertices[i].pos + glm::vec3(3000.0f), aabb.min);
-			aabb.max = glm::max(vertices[i].pos + glm::vec3(3000.0f), aabb.max);
+			aabb.min = glm::min(aabb.min, vertices[i].pos + glm::vec3(30000.0f));
+			aabb.max = glm::max(aabb.max, vertices[i].pos + glm::vec3(30000.0f));
 		}
 
-		aabb.min -= glm::vec3(3000.0f);
-		aabb.max -= glm::vec3(3000.0f);
+		aabb.min -= glm::vec3(30000.0f);
+		aabb.max -= glm::vec3(30000.0f);
 	}
 	
 	static __forceinline DXGI_FORMAT ChoseIndiceFormat(uint64_t indexCount)
@@ -157,7 +158,7 @@ struct SubMesh
 	
 	void Draw(DXDeviceContext* d3d11DevCon)
 	{
-		LineDrawer::DrawAABB(aabb, true);
+		// LineDrawer::DrawAABB(aabb, true);
 		d3d11DevCon->IASetIndexBuffer(indexBuffer, indiceFormat , 0);
 		//Set the vertex buffer
 		UINT stride = sizeof(Vertex), offset = 0;

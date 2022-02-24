@@ -4,11 +4,9 @@
 #include <vector>
 #include <functional>
 #define GLM_FORCE_INLINE 
-#define GLM_SWIZZLE
 #define GLM_FORCE_PURE
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE 
 #include <glm/glm.hpp>
-#include <glm/detail/_swizzle.hpp>
 
 typedef void(*Actionf)(int);
 typedef void(*Actioni)(int);

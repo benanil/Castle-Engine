@@ -92,15 +92,14 @@ void LineDrawer::DrawPlus(const glm::vec3& point)
 
 void LineDrawer::DrawAABB(const AABB& aabb, bool active)
 {
-	const std::array<glm::vec2, 5> corners = aabb.GetXZEdges();
+	const std::array<glm::vec3, 9> corners = aabb.GetXYZEdges();
 	
 	SetColor(active ? glm::vec3{ 0.0f, 0.8f, 0.0f} : glm::vec3{ 0.8f, 0.0f, 0.0f });
-	DrawPlus(glm::vec3(corners[0].x, corners[0].y, corners[0].y));
-	DrawPlus(glm::vec3(corners[1].x, corners[1].y, corners[1].y));
-	
-	DrawPlus(glm::vec3(corners[2].x, corners[2].y, corners[2].y));
-	DrawPlus(glm::vec3(corners[3].x, corners[3].y, corners[3].y));
-	DrawPlus(glm::vec3(corners[4].x, corners[4].y, corners[4].y));
+
+	for (int i = 0; i < corners.size(); ++i)
+	{
+		DrawPlus(corners[i]);
+	}
 }
 
 // todo add other shapes

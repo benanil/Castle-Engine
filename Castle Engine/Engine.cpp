@@ -185,7 +185,6 @@ void Engine::Start()
 #endif
             Input::Proceed(&event, done);
             SceneManager::GetCurrentScene()->ProceedEvent(&event);
-            freeCamera->Update();
             done |= event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window);
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED && event.window.windowID == SDL_GetWindowID(window))
             {
@@ -195,7 +194,6 @@ void Engine::Start()
             }
         }
 
-		freeCamera->Update();
         SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
         Renderer3D::DrawScene();
         EndOfFrameEvents.Invoke();
