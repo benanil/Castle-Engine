@@ -18,9 +18,9 @@ namespace ECS
 #endif
 	void Transform::UpdateTransform()
 	{
-		xmMatrix rotation    = XMMatrixRotationRollPitchYaw(GLM_GET_XYZ(euler));
-		xmMatrix translation = XMMatrixTranslation(GLM_GET_XYZ(position));
-		xmMatrix scaleMat    = XMMatrixScaling(GLM_GET_XYZ(scale));
+		XMMATRIX rotation    = XMMatrixRotationRollPitchYaw(GLM_GET_XYZ(euler));
+		XMMATRIX translation = XMMatrixTranslation(GLM_GET_XYZ(position));
+		XMMATRIX scaleMat    = XMMatrixScaling(GLM_GET_XYZ(scale));
 		
 		XMQuaternionRotationRollPitchYaw(GLM_GET_XYZ(euler));
 
@@ -56,7 +56,7 @@ namespace ECS
 		if (notify) UpdateTransform();
 	}
 	
-	void Transform::SetMatrix(const xmMatrix& _matrix, bool notify) noexcept
+	void Transform::SetMatrix(const XMMATRIX& _matrix, bool notify) noexcept
 	{
 		matrix = _matrix;
 		SetQuaternion(xmExtractRotation(_matrix), false);

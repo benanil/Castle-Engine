@@ -26,7 +26,6 @@ std::string ReadAllText(const std::string& filePath)
 	const auto sz = std::filesystem::file_size(filePath);
 	std::string result(sz, '\0');
 	f.read(result.data(), sz);
-
-	return std::move(result);
+	return result;
 }
 

@@ -24,5 +24,5 @@ VS_OUT VS(VS_INPUT i)
 
 float4 PS(VS_OUT i) : SV_TARGET
 {
-	return float4(i.color.xyz, 1);
+	return float4(i.color, 1);
 }

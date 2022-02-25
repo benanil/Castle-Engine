@@ -25,13 +25,17 @@
 #include <iostream>
 #include "../Timer.hpp"
 #include <bitset>
+#include "../Transform.hpp"
 
-typedef std::bitset<1024> CullingBitset;
+#define MAXIMUM_MESH 1024
+
+typedef std::bitset<MAXIMUM_MESH> CullingBitset;
 
 struct DrawResult {
 	int CulledMeshCount = 0;
 	double milisecond = 0;
 };
+
 
 class MeshRenderer : ECS::Component
 {
@@ -44,7 +48,8 @@ public:
 	
 	ECS::Entity* GetEntity() { return entity; }
 	void SetEntity(ECS::Entity* _entity) { entity = _entity; }
-	
+	const ECS::Transform* GetTransform() const { return transform; };
+
 	void Update(const float& deltaTime) {}
 #ifndef NEDITOR
 	void OnEditor()
@@ -64,6 +69,9 @@ public:
 	void CalculateCullingBitset(CullingBitset& bitset, uint32_t& startIndex, AABBCullData& cullData) const
 	{
 		constexpr int MinimumVertexForCulling = 64;
+		XMMATRIX copy = entity->transform->GetMatrix();
+		cullData.matrix = &copy; // we coppy once instead of coppying every submesh
+
 		for (uint16_t i = 0; i < subMeshCount; ++i)
 		{
 			cullData.aabb = &subMeshes[i].aabb;

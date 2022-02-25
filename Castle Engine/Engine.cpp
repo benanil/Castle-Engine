@@ -154,9 +154,9 @@ void Engine::Start()
 #else
     const SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN));
 #endif
-    
+
     window = SDL_CreateWindow("Castle Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1000, 800, window_flags);
-    
+
     // The icon is attached to the window pointer
     SDL_SetWindowIcon(window, LoadLogo());
 

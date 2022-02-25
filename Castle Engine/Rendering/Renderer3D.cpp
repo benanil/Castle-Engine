@@ -329,11 +329,11 @@ void Renderer3D::DrawScene()
 	cullingThread = std::async(std::launch::async, CalculateCulls);
 }
 
-CullingBitset Renderer3D::CalculateCulls()
+// this tooks 0.23ms-0.7ms runs asyncrusly on seperate thread
+CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum culling)
 {
 	CullingBitset bitset {};
-	AABBCullData cullData
-	{
+	AABBCullData cullData {
 		nullptr,
 		freeCamera->transform.GetPosition(),
 		freeCamera->transform.GetForward(),

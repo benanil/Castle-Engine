@@ -12,7 +12,7 @@ namespace ECS
 	class Transform
 	{
 	public:
-		xmMatrix matrix;
+		XMMATRIX matrix;
 		xmQuaternion quaternion;
 
 		glm::vec3 position;
@@ -35,7 +35,7 @@ namespace ECS
 		void SetScale		(const glm::vec3& _scale   , bool notify = true) noexcept;
 		void SetEulerDegree (const glm::vec3& _euler   , bool notify = true) noexcept;
 		void SetEulerRadians(const glm::vec3& _euler   , bool notify = true) noexcept;
-		void SetMatrix		(const xmMatrix& _matrix   , bool notify = true) noexcept;
+		void SetMatrix		(const XMMATRIX& _matrix   , bool notify = true) noexcept;
 		void SetQuaternion  (const xmQuaternion& quaternion, bool notify = true) noexcept;
 
 		const glm::vec3 GetRight()   const noexcept;
@@ -49,7 +49,7 @@ namespace ECS
 		const glm::vec3& GetScale()         const noexcept LAMBDAR(scale)
 		const glm::vec3& GetEulerDegree()   const noexcept LAMBDAR(GLM_RadToDeg(euler))
 		const glm::vec3& GetEulerRadians()  const noexcept LAMBDAR(euler)
-		const xmMatrix& GetMatrix()         const noexcept LAMBDAR(matrix)
+		const XMMATRIX& GetMatrix()         const noexcept LAMBDAR(matrix)
 		const xmQuaternion& GetQuaternion() const noexcept LAMBDAR(quaternion)
 	};
 }

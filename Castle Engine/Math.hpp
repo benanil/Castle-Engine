@@ -33,7 +33,6 @@ DX_INLINE bool Approximately(float a, float b)
 
 // XMMATH
 typedef XMVECTORF32 xmVector;
-typedef XMMATRIX xmMatrix;
 typedef XMVECTORF32 xmQuaternion;
 
 DX_INLINE xmVector GlmToXM(const glm::vec3& vec) NELAMBDAR({ GLM_GET_XYZ(vec) })
@@ -43,7 +42,7 @@ DX_INLINE float* XMPTR(xmVector& vector)
 	return reinterpret_cast<float*>(&vector);
 }
 
-DX_INLINE float* XMPTR(xmMatrix& vector)
+DX_INLINE float* XMPTR(XMMATRIX& vector)
 {
 	return &vector._11;
 }
@@ -84,7 +83,7 @@ DX_INLINE glm::vec3 GLM_RadToDeg(const glm::vec3& radians) noexcept
 	degree.x = radians.x * DX_RAD_TO_DEG;
 	degree.y = radians.y * DX_RAD_TO_DEG;
 	degree.z = radians.z * DX_RAD_TO_DEG;
-	return std::move(degree);
+	return degree;
 }
 
 DX_INLINE glm::vec3 GLM_DegToRad(const glm::vec3& radians) noexcept
@@ -93,7 +92,7 @@ DX_INLINE glm::vec3 GLM_DegToRad(const glm::vec3& radians) noexcept
 	degree.x = radians.x * DX_DEG_TO_RAD;
 	degree.y = radians.y * DX_DEG_TO_RAD;
 	degree.z = radians.z * DX_DEG_TO_RAD;
-	return std::move(degree);
+	return degree;
 }
 
 DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3&euler) noexcept // yaw (Z), pitch (Y), roll (X)
@@ -111,8 +110,7 @@ DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3&euler) noexcept // yaw (Z),
 	XMSETX(q) = (s1 * c2 * c3) + (c1 * s2 * s3);
 	XMSETY(q) = (c1 * s2 * c3) - (s1 * c2 * s3);
 	XMSETZ(q) = (c1 * c2 * s3) + (s1 * s2 * c3);
-
-	return std::move(q);
+	return q;
 }
 
 DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
@@ -146,7 +144,7 @@ DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
 		eulerAngles.y = asin(2 * singularityTest / unit);
 		eulerAngles.x = atan2(2 * ((XMGETW(q) * XMGETX(q)) - (XMGETY(q) * XMGETZ(q))), sqw - sqx - sqy + sqz);
 	}
-	return std::move(eulerAngles);
+	return eulerAngles;
 }
 
 DX_INLINE float xmRepeat(const float& t, const float& length) noexcept
@@ -162,13 +160,13 @@ DX_INLINE float xmLerpAngle(const float& a, const float& b, const float& t) noex
 	return a + delta * glm::clamp(t, 0.0f, 1.0f);
 }
 
-DX_INLINE glm::vec3 xmExtractPosition(const xmMatrix& matrix) noexcept
+DX_INLINE glm::vec3 xmExtractPosition(const XMMATRIX& matrix) noexcept
 {
 	XMVECTOR row3 = matrix.r[3];
 	return { row3.m128_f32[1], row3.m128_f32[2] , row3.m128_f32[3] };
 }
 
-DX_INLINE glm::vec3 xmExtractScale(const xmMatrix& matrix) noexcept
+DX_INLINE glm::vec3 xmExtractScale(const XMMATRIX& matrix) noexcept
 {
 	XMVECTOR row0 = matrix.r[0];
 	XMVECTOR row1 = matrix.r[1];
@@ -199,7 +197,7 @@ DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const float* q) noexce
 }
 
 // https://github.com/opentk/opentk/blob/master/src/OpenTK.Mathematics/Matrix/Matrix4.cs
-DX_INLINE xmQuaternion xmExtractRotation(const xmMatrix& matrix, bool rowNormalize = true) noexcept
+DX_INLINE xmQuaternion xmExtractRotation(const XMMATRIX& matrix, bool rowNormalize = true) noexcept
 {
 	XMVECTOR row0 = matrix.r[0];
 	XMVECTOR row1 = matrix.r[1];

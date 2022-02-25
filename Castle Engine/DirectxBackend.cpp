@@ -153,9 +153,8 @@ void DirectxBackend::InitializeDirect3d11App(SDL_Window* window)
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-    DX_CHECK(
-    pIDXGIFactory->CreateSwapChain(Device, &swapChainDesc, &SwapChain), "SwapChain Creation Failed!");
-    
+    hr = pIDXGIFactory->CreateSwapChain(Device, &swapChainDesc, &SwapChain);
+
     //Create the Viewport
     memset(&ViewPort, 0, sizeof(D3D11_VIEWPORT));
 
