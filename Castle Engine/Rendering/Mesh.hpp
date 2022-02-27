@@ -81,6 +81,7 @@ public:
 
 	void Draw(DXDeviceContext* deviceContext, CullingBitset& cullData, uint32_t& startIndex)
 	{
+		// LineDrawer::SetMatrix(entity->transform->GetMatrix());
 		Renderer3D::SetModelMatrix(entity->transform->GetMatrix());
 
 		for (uint16_t i = 0; i < subMeshCount; ++i)

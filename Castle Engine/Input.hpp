@@ -1,5 +1,6 @@
 #pragma once
 #include "SDL.h"
+#include "glm/glm.hpp"
 
 enum class KeyCode
 {
@@ -7,19 +8,27 @@ enum class KeyCode
     Q = 'q', R = 'r', S = 's', T = 't', U = 'u', V = 'v', W = 'w', X = 'x', Y = 'y', Z = 'z',
 };
 
+enum class MouseButton 
+{
+	Right  = SDL_BUTTON_RIGHT,
+	Middle = SDL_BUTTON_MIDDLE,
+	Left   = SDL_BUTTON_LEFT
+};
+
 namespace Input
 {
 	void Proceed(SDL_Event* event, bool& done);
 
 	// ---INPUT---
-	bool GetKeyDown(int keycode);
-	bool GetKeyUp(int keycode)	;
-
     bool GetKeyDown(KeyCode keycode);
     bool GetKeyUp  (KeyCode keycode);
+	bool GetMouseButtonDown(MouseButton buttonName);
+	bool GetMouseButtonUp(MouseButton buttonName);
 
-	bool GetMouseButtonDown(int buttonName);
-	bool GetMouseButtonUp(int buttonName)  ;
+	/// <summary> mouse pos relative to window </summary>
+	glm::ivec2 GetWindowMousePos();
+	/// <summary> mouse pos relative to monitor </summary>
+	glm::ivec2 GetMonitorMousePos();
 
 	void SetCursor(SDL_Cursor* _cursor); 
 	SDL_Cursor* GetCursor() ;

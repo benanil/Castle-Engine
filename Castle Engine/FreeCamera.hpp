@@ -81,7 +81,7 @@ public:
 		POINT mousePos;
 		GetCursorPos(&mousePos);
 		
-		if (!Input::GetMouseButtonDown(SDL_BUTTON_RIGHT)
+		if (!Input::GetMouseButtonDown(MouseButton::Right)
 #ifndef NEDITOR
 			|| !Editor::GameViewWindow::GetData().Focused)
 #else

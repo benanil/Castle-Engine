@@ -25,6 +25,7 @@ namespace Engine
 
 	void AddEndOfFrameEvent(Action action);
 	void AddWindowScaleEvent(FunctionAction<void, int, int>::Type act);
+	glm::ivec2 GetWindowScale();
 
 	HWND GetHWND();
 }

@@ -337,7 +337,6 @@ CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum cullin
 		nullptr,
 		freeCamera->transform.GetPosition(),
 		freeCamera->transform.GetForward(),
-		glm::cross(freeCamera->transform.GetRight(), freeCamera->transform.GetForward()),
 		freeCamera->fov
 	};
 	

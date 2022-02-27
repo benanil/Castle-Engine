@@ -7,6 +7,7 @@ namespace LineDrawer
 	// draws a line between a and b
 	void DrawLine(const glm::vec3& a, const glm::vec3& b);
 	void SetColor(const glm::vec3& color);
+	const glm::vec3& GetColor();
 	void Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext);
 	void DrawAABB(const AABB& aabb, bool active);
 	void DrawCircale(const glm::vec3& center, float circumferance, int segments = 20);

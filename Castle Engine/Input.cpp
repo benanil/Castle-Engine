@@ -16,7 +16,6 @@ void Input::Proceed(SDL_Event* event, bool& done)
     case SDL_KEYDOWN: keyboard[event->key.keysym.sym] = true; break;
     case SDL_KEYUP:   keyboard[event->key.keysym.sym] = false; break;
     }
-
     switch (event->button.type)
     {
     case SDL_MOUSEBUTTONDOWN: mouse[event->button.button] = true; break;
@@ -25,14 +24,26 @@ void Input::Proceed(SDL_Event* event, bool& done)
 	done |= event->type == SDL_QUIT;
 }
 
+glm::ivec2 Input::GetWindowMousePos() 
+{
+    glm::ivec2 result;
+    SDL_GetMouseState(&result.x, &result.y);
+    return result;
+}
+
+glm::ivec2 Input::GetMonitorMousePos()
+{
+    glm::ivec2 result;
+    SDL_GetGlobalMouseState(&result.x, &result.y);
+    return result;
+}
+
 bool Input::GetKeyDown(KeyCode keycode) { return keyboard[(int)keycode] ; }
 bool Input::GetKeyUp(KeyCode keycode)   { return !keyboard[(int)keycode]; }
                                                                      
-bool Input::GetKeyDown(int keycode) LAMBDAR(keyboard[keycode] )
-bool Input::GetKeyUp(int keycode)   LAMBDAR(!keyboard[keycode])
-
-bool Input::GetMouseButtonDown(int buttonName) LAMBDAR(mouse[buttonName])
-bool Input::GetMouseButtonUp(int buttonName) LAMBDAR(mouse[buttonName])
+bool Input::GetMouseButtonDown(MouseButton buttonName) LAMBDAR(mouse[(int)buttonName])
+bool Input::GetMouseButtonUp(MouseButton buttonName) LAMBDAR(mouse[(int)buttonName])
 
 void Input::SetCursor(SDL_Cursor* _cursor) { cursor = _cursor; }
 SDL_Cursor* Input::GetCursor() LAMBDAR(cursor);
+

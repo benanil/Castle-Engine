@@ -26,6 +26,7 @@
 #include "Engine.hpp"
 #include "ECS/ECS.hpp"
 #include "FreeCamera.hpp"
+#include "Editor/Gizmo.hpp"
 
 #include "Extern/stb_image.h"
 
@@ -47,10 +48,18 @@ namespace Engine
     void InitScene();
     void WindowSizeChanged();
     SDL_Surface* LoadLogo();
+    XMMATRIX matrix;
 }
 
 void Engine::AddEndOfFrameEvent(Action action) { EndOfFrameEvents.Add(action);}
 void Engine::AddWindowScaleEvent(FunctionAction<void, int, int>::Type act) { ScreenScaleChanged.Bind(act); }
+
+glm::ivec2 Engine::GetWindowScale()
+{
+    glm::ivec2 result;
+    SDL_GetWindowSize(window, &result.x, &result.y);
+    return result;
+}
 
 HWND Engine::GetHWND() { return hwnd; }
 
@@ -87,6 +96,7 @@ void Engine::MainWindow()
 
 void Engine::InitScene()
 {
+    matrix = XMMatrixIdentity();
 	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 90'000.0f);
 
 	Renderer3D::Initialize(DirectxBackend::GetDevice(), DirectxBackend::GetDeviceContext(), DirectxBackend::GetMSAASamples(), freeCamera);
@@ -143,6 +153,8 @@ SDL_Surface* Engine::LoadLogo()
     return SDL_CreateRGBSurfaceFrom((void*)data, width, height, 32, 4 * width, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 }
 
+
+
 void Engine::Start()
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -193,6 +205,17 @@ void Engine::Start()
                 WindowSizeChanged();
             }
         }
+
+        LineDrawer::DrawLine(glm::vec3(0, 0, 0), glm::vec3(0, 10,0));
+        LineDrawer::DrawLine(glm::vec3(3, 0, 3), glm::vec3(3, 10, 3));
+
+        Gizmo::Begin((glm::vec2)Input::GetWindowMousePos(), (glm::vec2)GetWindowScale(), freeCamera->GetProjection(), freeCamera->GetView());
+        
+        Gizmo::Manipulate(matrix);
+
+        LineDrawer::SetMatrix(matrix);
+        LineDrawer::DrawCube(glm::vec3(0,0,0), glm::vec3(1, 1, 1));
+        LineDrawer::SetMatrix(XMMatrixIdentity());
 
         SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
         Renderer3D::DrawScene();

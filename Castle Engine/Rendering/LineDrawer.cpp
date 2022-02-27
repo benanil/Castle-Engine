@@ -11,7 +11,7 @@
 
 namespace LineDrawer {
 	
-	struct Line  {
+	struct LineVertex  {
 		glm::vec4 pos;
 		glm::vec3 color;
 	};
@@ -19,7 +19,7 @@ namespace LineDrawer {
 	glm::vec3 currentColor;
 	XMMATRIX currentMatrix;
 	uint32_t currentVertexCount, targetVertexCount;
-	Line* lines;
+	LineVertex* lines;
 	
 	DXBuffer* vertexBuffer;
 	ID3D11Device* Device; ID3D11DeviceContext* DeviceContext;
@@ -32,6 +32,7 @@ namespace LineDrawer {
 	glm::vec4 TransformVector(const glm::vec3& pos);
 }
 
+const glm::vec3& LineDrawer::GetColor() { return currentColor; };
 void LineDrawer::SetColor(const glm::vec3& color) { currentColor = color; }
 void LineDrawer::SetMatrix(const XMMATRIX& matrix) { currentMatrix = matrix; }
 void LineDrawer::SetShader() { shader->Bind(); }
@@ -50,13 +51,13 @@ void LineDrawer::Initialize(ID3D11Device* _device, ID3D11DeviceContext* _deviceC
 	
 	DirectxBackend::GetDevice()->CreateInputLayout(layout, 2, shader->VS_Buffer->GetBufferPointer(), shader->VS_Buffer->GetBufferSize(), &inputLayout);
 	constexpr uint8_t StartSize = 64;
-	lines = (Line*)malloc(sizeof(Line) * StartSize );
-	memset(lines, 0, sizeof(Line) * StartSize);
+	lines = (LineVertex*)malloc(sizeof(LineVertex) * StartSize );
+	memset(lines, 0, sizeof(LineVertex) * StartSize);
 	currentVertexCount = StartSize ;
 	// create vertex buffer		
 	DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
 	vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	vertexBufferDesc.ByteWidth = sizeof(Line) * StartSize ;
+	vertexBufferDesc.ByteWidth = sizeof(LineVertex) * StartSize ;
 	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	DX_CHECK(Device->CreateBuffer(&vertexBufferDesc, nullptr, &vertexBuffer), "vertex buffer creation failed!");
@@ -64,7 +65,7 @@ void LineDrawer::Initialize(ID3D11Device* _device, ID3D11DeviceContext* _deviceC
 
 void LineDrawer::CreateVertexBuffer(uint32_t size)
 {
-	lines = (Line*)realloc(lines, size * sizeof(Line));
+	lines = (LineVertex*)realloc(lines, size * sizeof(LineVertex));
 	 
 	DX_RELEASE(vertexBuffer);
 	currentVertexCount = size;
@@ -72,7 +73,7 @@ void LineDrawer::CreateVertexBuffer(uint32_t size)
 	DX_CREATE(D3D11_BUFFER_DESC, vertexBufferDesc);
 		
 	vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	vertexBufferDesc.ByteWidth = sizeof(Line) * size;
+	vertexBufferDesc.ByteWidth = sizeof(LineVertex) * size;
 	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -114,14 +115,14 @@ void LineDrawer::DrawCircale(const glm::vec3& center, float circumferance, int s
 	for (int i = 0; i < segments; ++i)
 	{
 		int i1 = i + 1;
-		DrawLine(center + glm::vec3(glm::sin(percent * i) * circumferance, 0, glm::cos(percent * i) * circumferance),
-				 center + glm::vec3(glm::sin(percent * i1) * circumferance, 0, glm::cos(percent * i1) * circumferance));
+	DrawLine(center + glm::vec3(glm::sin(percent * i) * circumferance, 0, glm::cos(percent * i) * circumferance),
+			 center + glm::vec3(glm::sin(percent * i1) * circumferance, 0, glm::cos(percent * i1) * circumferance));
 
-		DrawLine(center + glm::vec3(0, glm::sin(percent * i) * circumferance, glm::cos(percent * i) * circumferance),
-				 center + glm::vec3(0, glm::sin(percent * i1) * circumferance, glm::cos(percent * i1) * circumferance));
+	DrawLine(center + glm::vec3(0, glm::sin(percent * i) * circumferance, glm::cos(percent * i) * circumferance),
+			 center + glm::vec3(0, glm::sin(percent * i1) * circumferance, glm::cos(percent * i1) * circumferance));
 
-		DrawLine(center + glm::vec3(glm::sin(percent * i) * circumferance, glm::cos(percent * i) * circumferance, 0.0f),
-			 	 center + glm::vec3(glm::sin(percent * i1) * circumferance, glm::cos(percent * i1) * circumferance, 0.0f));
+	DrawLine(center + glm::vec3(glm::sin(percent * i) * circumferance, glm::cos(percent * i) * circumferance, 0.0f),
+		 	 center + glm::vec3(glm::sin(percent * i1) * circumferance, glm::cos(percent * i1) * circumferance, 0.0f));
 	}
 }
 
@@ -188,30 +189,23 @@ void LineDrawer::Render()
 		CreateVertexBuffer(targetVertexCount + 64);
 	}
 
-	DrawCircale(glm::vec3(-40, 5, 0),  5);
-	SetColor(glm::vec3(.5f, .5f, 0.2f));
-	DrawCircale(glm::vec3(-40, 5, 0), 15);
-	SetColor(glm::vec3(0.0f, 0.0f, 1.0f));
-	SetMatrix(XMMatrixIdentity() * XMMatrixRotationRollPitchYaw(92.3f, 980.9f, 977.2f) * XMMatrixTranslation(-50.0f, 20.0f, 0.0f));
-	DrawCube(glm::vec3(0, 0, 0), glm::vec3(50, 30, 50));
-
 	{
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 
 	if(DeviceContext->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource) != S_OK) return;
 
-	Line* mappedLines = (Line*)mappedResource.pData;
-	memcpy(mappedLines, lines, sizeof(Line) * targetVertexCount);
+	LineVertex* mappedLines = (LineVertex*)mappedResource.pData;
+	memcpy(mappedLines, lines, sizeof(LineVertex) * targetVertexCount);
 
 	DeviceContext->Unmap(vertexBuffer, 0);
 	}
 	
 	DeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 	DeviceContext->IASetInputLayout(inputLayout);
-	UINT stride = sizeof(Line), offset = 0;
+	UINT stride = sizeof(LineVertex), offset = 0;
 	DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
 	DeviceContext->Draw(targetVertexCount, 0);
-	memset(lines, 0, sizeof(Line) * targetVertexCount);
+	memset(lines, 0, sizeof(LineVertex) * targetVertexCount);
 	targetVertexCount = 0;
 	DeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	currentColor = { 0, 1, 0 };
