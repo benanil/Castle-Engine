@@ -205,6 +205,9 @@ DX_INLINE xmQuaternion xmExtractRotation(const XMMATRIX& matrix, bool rowNormali
 	return q;
 }
 
+#undef NELAMBDAR
+#undef NELAMBDA
+
 [[nodiscard]] static __forceinline
 void GetVec3(glm::vec3* vec, const XMVECTOR& vector)
 {
@@ -385,14 +388,20 @@ struct Ray {
 };
 
 struct Line {
-	glm::vec3 point0, point1;
+	glm::vec3 point1, point2;
+	glm::vec3 Direction() const {
+		return point2 - point1;
+	}
 };
 
 static __forceinline
-Ray CreateRay(const glm::vec3& origin, const glm::vec3& direction)
-{
-	return {origin, direction};
-}
+Ray CreateRay(const glm::vec3& origin, const glm::vec3& direction) { return {origin, direction}; }
+
+static __forceinline 
+Line CreateLine(const glm::vec3& p1, const glm::vec3& p2) { return { p1, p2 }; }
+
+static __forceinline
+Line LineFromRay(const Ray& ray, float distance) { return { ray.origin, ray.origin + (ray.direction * distance) }; }
 
 static __forceinline
 Ray ScreenPointToRay(
@@ -440,34 +449,80 @@ Ray ScreenPointToRay(
 	return result;
 }
 
-[[nodiscard]] static __forceinline float
-closest_distance_between_lines(const Ray& l1, const Ray& l2)
+[[nodiscard]] static __forceinline float LengthSquared(const glm::vec3& vec) 
 {
-	const glm::vec3 dp = l2.origin - l1.origin;
-	const float v12  = glm::dot(l1.direction, l1.direction);
-	const float v22  = glm::dot(l2.direction, l2.direction);
-	const float v1v2 = glm::dot(l1.direction, l2.direction);
+	return (vec.x * vec.x) + (vec.y * vec.y) + (vec.z * vec.z);
+}
 
-	const float det = v1v2 * v1v2 - v12 * v22;
+[[nodiscard]] static __forceinline float Norm2(const glm::vec3& v)
+{
+	return v.x * v.x + v.y * v.y + v.z * v.z;
+}
 
-	if (std::abs(det) > FLT_MIN)
+[[nodiscard]] static __forceinline float Max(float a, float b) { return a > b ? a : b; }
+[[nodiscard]] static __forceinline float Min(float a, float b) { return a < b ? a : b; }
+
+/// https://www.gamedev.net/forums/topic/625129-intersection-of-two-line-segment-in-3-dimensions/4941629/
+/// <summary> Calculates the intersection line segment between 2 lines </summary>
+/// <returns> intersection amount:
+///            1 is complately intersects 
+///            0 little intersection 
+///			   lower than zero or -1.0f that means no intersection </returns>
+[[nodiscard]] static __forceinline 
+float IntersectionDistanceBetweenLines(const Line& a, const Line& b)
+{
+	glm::vec3 t1 = normalize(a.point2 - a.point1);
+	glm::vec3 m1 = normalize(cross(a.point1, b.point2));
+	glm::vec3 t2 = normalize(b.point2 - b.point1);
+	glm::vec3 m2 = normalize(cross(b.point1, b.point2));
+	return 2.0f - Min(abs(dot(t1, m2) + dot(t2, m1)), 2.0f) * 0.5f;
+}
+
+[[nodiscard]] static __forceinline
+void LineIntersection(const Line& _line0, const Line& _line1, float& t0_, float& t1_)
+{
+	glm::vec3 p = _line0.point1 - _line1.point1;
+	float q = dot(_line0.Direction(), _line1.Direction());
+	float s = dot(_line1.Direction(), p);
+
+	float d = 1.0f - q * q;
+	if (d < FLT_EPSILON) // lines are parallel
 	{
-		const float inv_det = 1.f / det;
-
-		const float dpv1 = glm::dot(dp, l1.direction);
-		const float dpv2 = glm::dot(dp, l2.direction);
-
-		float l1_t = inv_det * (v22 * dpv1 - v1v2 * dpv2);
-		float l2_t = inv_det * (v1v2 * dpv1 - v12 * dpv2);
-
-		return glm::length(dp + l2.direction * l2_t - l1.direction * l1_t);
+		t0_ = 0.0f;
+		t1_ = s;
 	}
-	else
-	{
-		const glm::vec3 a = glm::cross(dp, l1.direction);
-		return sqrt(glm::dot(a, a) / v12);
+	else {
+		float r = dot(_line0.Direction(), p);
+		t0_ = (q * s - r) / d;
+		t1_ = (s - q * r) / d;
 	}
 }
 
-#undef NELAMBDAR
-#undef NELAMBDA
+[[nodiscard]] static __forceinline
+void RayLineIntersection(const Ray& _ray, const Line& _line, float& tr_, float& tl_)
+{
+	LineIntersection(LineFromRay(_ray, 100), _line, tr_, tl_);
+	tr_ = Max(tr_, 0.0f);
+}
+
+typedef uint8_t uint8;
+
+struct Color32 {
+	union {
+		uint8  colors[4];
+		struct { uint8  r, g, b, a; };
+	};
+
+	inline Color32() : r(0), g(0), b(0), a(255) {}
+	inline Color32(uint8 _r, uint8 _g, uint8 _b, uint8 _a = 255) : r(_r), g(_g), b(_b), a(_a) {}
+
+	__forceinline constexpr uint8& operator[](uint8 index) { return colors[index]; }
+	__forceinline constexpr uint8 const& operator[](uint8 index) const { return colors[index]; }
+	
+	__forceinline bool operator==(Color32 other) {
+		return other.a == a && other.r == r && other.g == g && other.b == b;
+	}
+	__forceinline bool operator!=(Color32 other) {
+		return other.a != a && other.r != r && other.g != g && other.b != b;
+	}
+};

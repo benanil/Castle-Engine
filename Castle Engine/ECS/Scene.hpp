@@ -17,7 +17,6 @@ namespace ECS
 		Scene(const std::string& _name) : name(_name) {};
 		~Scene();
 		void Update(const float& deltaTime);
-		void ProceedEvent(const SDL_Event* _event);
 		void Unload();
 		void Load()   {};
 		void Start()  {};
@@ -35,7 +34,7 @@ namespace ECS
 
 		void AddScene(Scene* scene);
 		void LoadNewScene();
-		void LoadScene(const uint8_t& index);
+		void LoadScene(uint8_t index);
 		void LoadScene(const std::string& name);
 	}
 }

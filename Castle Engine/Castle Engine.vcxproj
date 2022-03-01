@@ -182,6 +182,7 @@
     <ClCompile Include="Editor\GUI.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Rendering\GrassRenderer.cpp" />
+    <ClCompile Include="Rendering\Line2D.cpp" />
     <ClCompile Include="Rendering\LineDrawer.cpp" />
     <ClCompile Include="Rendering\PostProcessing.cpp" />
     <ClCompile Include="Rendering\ComputeShader.cpp" />
@@ -192,6 +193,7 @@
     <ClCompile Include="Rendering\Terrain.cpp" />
     <ClCompile Include="Main\Time.cpp" />
     <ClCompile Include="Rendering\TesellatedMesh.cpp" />
+    <ClCompile Include="FreeCamera.cpp" />
     <ClCompile Include="Transform.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -216,6 +218,7 @@
     <ClInclude Include="Main\Event.hpp" />
     <ClInclude Include="Engine.hpp" />
     <ClInclude Include="Rendering\Grassrenderer.hpp" />
+    <ClInclude Include="Rendering\Line2D.hpp" />
     <ClInclude Include="Rendering\LineDrawer.hpp" />
     <ClInclude Include="Rendering\PostProcessing.hpp" />
     <ClInclude Include="Rendering\All.hpp" />
@@ -237,9 +240,6 @@
     <ClInclude Include="Rendering\TesellatedMesh.hpp" />
     <ClInclude Include="Timer.hpp" />
     <ClInclude Include="Transform.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="braynzar.jpg" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

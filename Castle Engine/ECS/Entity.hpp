@@ -2,8 +2,8 @@
 #include "Component.hpp"
 #include <list>
 #include <cstdint>
-#include "../Main/Event.hpp"
 #include <memory>
+#include "../Main/Event.hpp"
 #include "../Transform.hpp"
 #include <SDL.h>
 
@@ -26,16 +26,15 @@ namespace ECS
 		~Entity() ;
 
 		void Update(const float& deltaTime);
-		// void ProceedEvent(const SDL_Event* _event);
 #ifndef NEDITOR
 		void UpdateEditor();
 #endif
-		Component* GetComponent(const uint16_t& index);
+		Component* GetComponent(uint16_t index);
 		template<typename TComp> TComp* GetComponent();
 
 		void AddComponent(Component* component);
 		void RemoveComponent(Component* component);
-		void RemoveComponent(const uint16_t& index);
+		void RemoveComponent(uint16_t index);
 
 		template<typename TComp> void RemoveComponent();
 		template<typename TComp> bool TryGetComponent(TComp** component);

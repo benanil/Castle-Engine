@@ -12,7 +12,7 @@ class MeshRenderer;
 	
 namespace Renderer3D
 {
-	void Initialize(DXDevice* device, DXDeviceContext* deviceContext, unsigned int msaaSamples, FreeCamera* freeCamera);
+	void Initialize(FreeCamera* freeCamera);
 	
 	DXInputLayout* CreateVertexInputLayout(const std::vector<InputLayoutCreateInfo>& infos, DXBlob* VS_Buffer);
 	RenderTexture* GetPostRenderTexture();

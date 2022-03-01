@@ -1,22 +1,22 @@
 #pragma once
 #include <array>
 #include <vector>
-#include "../Timer.hpp"
+#include <array>
+#include <future>
+#include <thread>
 #include "../DirectxBackend.hpp"
+#include "../Main/Time.hpp"
+#include "../Timer.hpp"
 #include "Renderer3D.hpp"
+#include "Terrain.hpp"
+#include "Grassrenderer.hpp"
 #include "ComputeShader.hpp"
 #include "Shader.hpp"
 #include "Skybox.hpp"
 #include "TesellatedMesh.hpp"
 #include "PostProcessing.hpp"
 #include "LineDrawer.hpp"
-#include "../DirectxBackend.hpp"
-#include "../Main/Time.hpp"
-#include <array>
-#include "Terrain.hpp"
-#include "Grassrenderer.hpp"
-#include <future>
-#include <thread>
+#include "Line2D.hpp"
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
@@ -38,7 +38,7 @@ namespace Renderer3D
 	cbGlobal cbGlobalData;
 	cbPerObject cbPerObj;
 
-	DXBuffer* constantBuffer, * uniformGlobalBuffer;
+	DXBuffer* constantBuffer, *uniformGlobalBuffer;
 	
 	RenderTexture* renderTexture;
 	Skybox* skybox;
@@ -60,21 +60,6 @@ namespace Renderer3D
 
 RenderTexture* Renderer3D::GetPostRenderTexture() { return PostProcessing::GetPostRenderTexture(); }
 
-__forceinline static int FormatToByteSize(DXGI_FORMAT format)
-{
-	switch (format)
-	{
-	case DXGI_FORMAT_R32G32B32A32_FLOAT: return 16;
-	case DXGI_FORMAT_R32G32B32_FLOAT: return 12;
-	case DXGI_FORMAT_R32G32_FLOAT: return 8;
-	case DXGI_FORMAT_R32G32_SINT: return 8;
-	case DXGI_FORMAT_R16G16_FLOAT: return 4;
-	case DXGI_FORMAT_R32_FLOAT: return 4;
-	case DXGI_FORMAT_R32_SINT: return 4;
-	default: return -1;
-	}
-}
-
 void Renderer3D::AddMeshRenderer(MeshRenderer* meshRenderer)
 {
 	meshRenderers.push_back(meshRenderer);
@@ -89,19 +74,20 @@ void Renderer3D::RenderMeshes()
 	culledMeshCount = cullResult.count();
 	uint32_t startIndex = 0;
 
-	for (auto& renderer : meshRenderers)
-	{
+	for (auto& renderer : meshRenderers) {
 		renderer->Draw(DeviceContext, cullResult, startIndex);
 	}
 }
 
-void Renderer3D::Initialize(DXDevice* _device, DXDeviceContext* _deviceContext, unsigned int _msaaSamples, FreeCamera* camera)
+void Renderer3D::Initialize(FreeCamera* camera)
 {
-	Device = _device; DeviceContext = _deviceContext;
-	freeCamera = camera;
+	Device = DirectxBackend::GetDevice(); DeviceContext = DirectxBackend::GetDeviceContext();
+	freeCamera = camera; MSAASamples = DirectxBackend::GetMSAASamples();
 	
 	PostProcessing::Initialize(Device, DeviceContext, MSAASamples);
 	LineDrawer::Initialize(Device, DeviceContext);
+	Line2D::Initialize(Device, DeviceContext);
+
 	GrassRenderer::Initialize(Device, DeviceContext);
 	CreateBuffers();
 
@@ -262,7 +248,6 @@ void Renderer3D::DrawScene()
 
 #ifndef NEDITOR
 	D3D11_VIEWPORT viewPort = DirectxBackend::GetViewPort();
-
 	auto& gameVindowdata = Editor::GameViewWindow::GetData();
 	viewPort.Width = gameVindowdata.WindowScale.x;
 	viewPort.Height = gameVindowdata.WindowScale.y;
@@ -289,6 +274,9 @@ void Renderer3D::DrawScene()
 	LineDrawer::SetShader();
 	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(1, 1, 1));
 	LineDrawer::Render();
+
+	Line2D::SetShader();
+	Line2D::Render();
 
 	DrawTerrain();
 	
@@ -318,8 +306,7 @@ void Renderer3D::DrawScene()
 	PBRshader->Bind();
 
 #ifndef NEDITOR
-	// Draw Imgui
-	Editor::Render();
+	Editor::Render(); // Draw Imgui
 #endif
 
 	//Present the backbuffer to the screen

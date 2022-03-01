@@ -21,6 +21,7 @@ namespace Editor
 {
 	void Initialize(SDL_Window* window, ID3D11Device* d3d11Device, ID3D11DeviceContext* d3d11DevCon);
 	void AddOnEditor(const Action& action);
+	void NewFrame();
 	void Render();
 	void Clear();
 	void DarkTheme();

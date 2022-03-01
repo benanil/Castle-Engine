@@ -1,5 +1,4 @@
-#include "Entity.hpp"
-#define LOOP_COMPONENTS for (auto& comp : components)
+#include "Entity.hpp" 
 
 namespace ECS
 {
@@ -23,7 +22,7 @@ namespace ECS
 		}
 		static int PushID = 0;
 
-		LOOP_COMPONENTS
+		for (auto& comp : components)
 		{
 			ImGui::PushID(PushID++);
 			if (ImGui::CollapsingHeader(comp->name.c_str()))
@@ -37,7 +36,7 @@ namespace ECS
 	}
 #endif
 
-	Component* Entity::GetComponent(const uint16_t& index)
+	Component* Entity::GetComponent(uint16_t index)
 	{
 		auto begin = components.begin();
 		for (uint16_t i = 0; i < index; i++, ++begin);
@@ -65,7 +64,7 @@ namespace ECS
 		delete component;
 	}
 
-	void Entity::RemoveComponent(const uint16_t& index)
+	void Entity::RemoveComponent(uint16_t index)
 	{
 		if (index > components.size()) return;
 
@@ -81,6 +80,7 @@ namespace ECS
  			}
 		}
 		components.remove(component);
+		component->~Component();
 		delete component;
 	}
 	

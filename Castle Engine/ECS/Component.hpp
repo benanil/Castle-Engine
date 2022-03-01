@@ -1,10 +1,10 @@
 #pragma once
 #include <string>
-#include "../Main/Event.hpp"
 #include <iostream>
 #include <SDL.h>
-#include "Entity.hpp"
+#include "../Main/Event.hpp"
 #include "../Transform.hpp"
+#include "Entity.hpp"
 
 namespace ECS
 {

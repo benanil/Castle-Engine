@@ -3,6 +3,8 @@
 #pragma comment(lib, "d3dx11.lib")
 #pragma comment(lib, "d3dx10.lib")
 
+#define VC_EXTRALEAN    
+#define NOMINMAX
 #include <windows.h>
 #include <cassert>
 #include <iostream>
@@ -27,7 +29,7 @@
 #include "ECS/ECS.hpp"
 #include "FreeCamera.hpp"
 #include "Editor/Gizmo.hpp"
-
+#include "Rendering/Line2D.hpp"
 #include "Extern/stb_image.h"
 
 using namespace ECS;
@@ -96,10 +98,11 @@ void Engine::MainWindow()
 
 void Engine::InitScene()
 {
-    matrix = XMMatrixIdentity();
-	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 90'000.0f);
+    matrix = XMMatrixIdentity() * XMMatrixTranslation(0, 5, 0);
+	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 9000.0f);
 
-	Renderer3D::Initialize(DirectxBackend::GetDevice(), DirectxBackend::GetDeviceContext(), DirectxBackend::GetMSAASamples(), freeCamera);
+	Renderer3D::Initialize(freeCamera);
+	Gizmo::Initialize(freeCamera);
 #ifndef NEDITOR
     Editor::Initialize(window, DirectxBackend::GetDevice(), DirectxBackend::GetDeviceContext());
     Editor::DarkTheme();
@@ -109,8 +112,6 @@ void Engine::InitScene()
 
 	Entity* firstEntity = new Entity();
 	MeshRenderer* mesh = MeshLoader::LoadMesh("Models/sponza.obj");
-	mesh->SetEntity(firstEntity);
-
 	Renderer3D::AddMeshRenderer(mesh);
 	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
 	mesh->SetEntity(firstEntity);
@@ -153,8 +154,6 @@ SDL_Surface* Engine::LoadLogo()
     return SDL_CreateRGBSurfaceFrom((void*)data, width, height, 32, 4 * width, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 }
 
-
-
 void Engine::Start()
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -196,9 +195,8 @@ void Engine::Start()
             ImGui_ImplSDL2_ProcessEvent(&event);
 #endif
             Input::Proceed(&event, done);
-            SceneManager::GetCurrentScene()->ProceedEvent(&event);
-            done |= event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window);
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED && event.window.windowID == SDL_GetWindowID(window))
+            done |= event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE;
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED)
             {
                 // Release all outstanding references to the swap chain's buffers before resizing.
                 DirectxBackend::CreateRenderTarget(window);
@@ -206,16 +204,29 @@ void Engine::Start()
             }
         }
 
-        LineDrawer::DrawLine(glm::vec3(0, 0, 0), glm::vec3(0, 10,0));
-        LineDrawer::DrawLine(glm::vec3(3, 0, 3), glm::vec3(3, 10, 3));
+        Gizmo::Begin(Engine::GetWindowScale(), Input::GetWindowMousePos(), freeCamera->GetProjection(), freeCamera->GetView());
 
-        Gizmo::Begin((glm::vec2)Input::GetWindowMousePos(), (glm::vec2)GetWindowScale(), freeCamera->GetProjection(), freeCamera->GetView());
-        
+        static XMMATRIX matrix = XMMatrixIdentity() * XMMatrixTranslation(0, 5, 0);
+
         Gizmo::Manipulate(matrix);
 
         LineDrawer::SetMatrix(matrix);
-        LineDrawer::DrawCube(glm::vec3(0,0,0), glm::vec3(1, 1, 1));
+        LineDrawer::DrawCube(glm::vec3(0,0,0), glm::vec3(1,1,1));
         LineDrawer::SetMatrix(XMMatrixIdentity());
+
+		LineDrawer::DrawCircale(glm::vec3(20,20,20), 1, 18);
+		
+		if (Input::GetMouseButtonDown(MouseButton::Left))
+		{
+			glm::vec2 worldToScreen = freeCamera->WorldToScreenPoint(glm::vec3(20, 20, 20), XMMatrixIdentity());
+			std::cout << "world to screen: " << worldToScreen.x << " " << worldToScreen.y << std::endl;
+		}
+
+        Line2D::DrawLine(glm::vec2(-1, -1), glm::vec2(1, 1));
+        Line2D::SetColor(Color32(255, 0, 0));
+        Line2D::DrawCircale(glm::vec2(0, 0), 0.2f, 12);
+        Line2D::SetColor(Color32(55, 0, 175));
+        Line2D::DrawCube(glm::vec2(-0.5f, 0), glm::vec2(0.2f, 0.1f));
 
         SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
         Renderer3D::DrawScene();

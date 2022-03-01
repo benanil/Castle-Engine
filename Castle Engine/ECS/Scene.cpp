@@ -5,8 +5,6 @@
 	#include "../Editor/Editor.hpp"
 #endif
 
-#define ENTITY_LOOP for (auto& entity : entities)
-
 namespace ECS
 {
 	Scene::~Scene()
@@ -16,19 +14,10 @@ namespace ECS
 
 	void Scene::Update(const float& deltaTime) 
 	{
-		ENTITY_LOOP entity->Update(deltaTime);
+		for (auto& entity : entities) entity->Update(deltaTime);
 	}
 
-	void Scene::ProceedEvent(const SDL_Event* _event)
-	{
-		// ENTITY_LOOP entity->ProceedEvent(_event);
-	}
-
-	static void Test()
-	{
-		std::cout << "Test" << std::endl;
-	}
-
+	// todo fix these
 	static void NewEntity()
 	{
 		SceneManager::GetCurrentScene()->AddEntity(new Entity("NewEntity"));
@@ -37,6 +26,11 @@ namespace ECS
 	static void NewCube()
 	{
 		SceneManager::GetCurrentScene()->AddEntity(new Entity("Cube"));
+	}
+
+	static void NewMeshRenderer()
+	{
+		SceneManager::GetCurrentScene()->AddEntity(new Entity("Mesh Renderer"));
 	}
 
 	static Entity* currEntity = nullptr;
@@ -78,8 +72,7 @@ namespace ECS
 		static const Editor::TitleAndAction hierarchyActions[] =
 		{
 			{ "New Entity", NewEntity},
-			{ "New Cube", NewCube },
-			{ "New Sphere", Test }
+			{ "New Cube", NewCube }
 		};
 		
 		Editor::GUI::RightClickPopUp("Add Object", hierarchyActions, 2);
@@ -95,7 +88,7 @@ namespace ECS
 
 		static const Editor::TitleAndAction actions[] =
 		{
-			{ "MeshRenderer", Test },
+			{ "MeshRenderer", NewMeshRenderer },
 			{ "Component", AddComponent}
 		};
 
@@ -107,7 +100,7 @@ namespace ECS
 	
 	Entity* Scene::FindEntityByName(const std::string& name)
 	{
-		ENTITY_LOOP
+		for (auto& entity : entities)
 		{
 			if (entity->name == name) return entity;
 		}
@@ -115,7 +108,8 @@ namespace ECS
 
 	void Scene::Unload()
 	{
-		ENTITY_LOOP entity->~Entity();
+		for (auto& entity : entities) entity->~Entity();
+		entities.clear();
 	}
 
 	void Scene::AddEntity(Entity* entity)    { entities.push_back(entity); }
@@ -134,8 +128,9 @@ namespace ECS
 			scenes.push_back(new Scene()); 
 			CurrentScene = scenes.back();
 		}
-		void LoadScene(const uint8_t& index)
+		void LoadScene(uint8_t index)
 		{
+			if (CurrentScene) { CurrentScene->Unload(); }
 			auto iter = scenes.begin(); 
 			for (uint8_t i = 0; index < i; i++, ++iter);
 			CurrentScene = *iter;
@@ -149,6 +144,7 @@ namespace ECS
 			{
 				if (scene->name == name)
 				{
+					CurrentScene = scene;
 					scene->Load();
 					break;
 				}
