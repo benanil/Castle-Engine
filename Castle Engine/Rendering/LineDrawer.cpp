@@ -1,4 +1,4 @@
-// immediate mode line & line shape drawer
+// immediate mode line & line shape drawer	
 
 #include "LineDrawer.hpp"
 #include "Shader.hpp"
@@ -11,12 +11,12 @@
 
 namespace LineDrawer {
 	
-	struct LineVertex  {
-		glm::vec4 pos;
-		glm::vec3 color;
+	struct __declspec(align(16)) LineVertex  {
+		glm::vec3 pos;
+		Color32 color;
 	};
 	
-	glm::vec3 currentColor;
+	Color32 currentColor;
 	XMMATRIX currentMatrix;
 	uint32_t currentVertexCount, targetVertexCount;
 	LineVertex* lines;
@@ -32,21 +32,21 @@ namespace LineDrawer {
 	glm::vec4 TransformVector(const glm::vec3& pos);
 }
 
-const glm::vec3& LineDrawer::GetColor() { return currentColor; };
-void LineDrawer::SetColor(const glm::vec3& color) { currentColor = color; }
+const Color32& LineDrawer::GetColor() { return currentColor; };
+void LineDrawer::SetColor(const Color32& color) { currentColor = color; }
 void LineDrawer::SetMatrix(const XMMATRIX& matrix) { currentMatrix = matrix; }
 void LineDrawer::SetShader() { shader->Bind(); }
 
-void LineDrawer::Initialize(ID3D11Device* _device, ID3D11DeviceContext* _deviceContext)
+void LineDrawer::Initialize()
 {
-	Device = _device; DeviceContext = _deviceContext;
+	Device = DirectxBackend::GetDevice(); DeviceContext = DirectxBackend::GetDeviceContext();
 	currentMatrix = XMMatrixIdentity();
 	shader = new Shader("Shaders/Line.hlsl");
-	currentColor = { 1, 0, 1 };
+	currentColor = Color32(0, 255, 0);
 
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR"   , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, sizeof(glm::vec4), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR"   , 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, sizeof(glm::vec3), D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 	
 	DirectxBackend::GetDevice()->CreateInputLayout(layout, 2, shader->VS_Buffer->GetBufferPointer(), shader->VS_Buffer->GetBufferSize(), &inputLayout);
@@ -155,7 +155,7 @@ void LineDrawer::DrawCube(const std::array<glm::vec4, 8>& corners)
 void LineDrawer::DrawAABB(const AABB& aabb, bool active)
 {
 	const auto corners = aabb.GetXYZEdges4(currentMatrix); // returns transformed cube corners
-	SetColor(active ? glm::vec3{ 0.0f, 0.8f, 0.0f} : glm::vec3{ 0.8f, 0.0f, 0.0f });
+	SetColor(active ? Color32::Green() : Color32::Red());
 	DrawCube(corners);
 }
 
@@ -208,7 +208,8 @@ void LineDrawer::Render()
 	memset(lines, 0, sizeof(LineVertex) * targetVertexCount);
 	targetVertexCount = 0;
 	DeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	currentColor = { 0, 1, 0 };
+	currentColor = Color32(0, 255, 0);
+
 	SetMatrix(XMMatrixIdentity());
 }
 

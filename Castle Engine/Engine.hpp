@@ -1,9 +1,12 @@
 #pragma once
+#define VC_EXTRALEAN    
+#define NOMINMAX
 #include <d3d11.h>
 #include <SDL.h>
 #include "Main/Event.hpp"
+#undef SDL_HAS_VULKAN 
 
-#define DX_CHECK(hr, message) assert(!hr, message);
+#define DX_CHECK(hr, message) hr;
 
 // converts BUNCH_OF_PATH/CastleEngine/FILE.xxx to CastleEngine/FILE.xxx 
 // sp that means this function creates a compile time string for us
@@ -19,13 +22,14 @@ typedef HWND__* HWND;
 
 namespace Engine
 {
-	constexpr int Width = 1000, Height = 800;
+	int Width(); int Height();
 
 	SDL_Window* GetWindow();
 
 	void AddEndOfFrameEvent(Action action);
 	void AddWindowScaleEvent(FunctionAction<void, int, int>::Type act);
 	glm::ivec2 GetWindowScale();
+	glm::ivec2 GetMainMonitorScale();
 
 	HWND GetHWND();
 }

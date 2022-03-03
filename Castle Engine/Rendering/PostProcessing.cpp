@@ -1,6 +1,8 @@
 #include "PostProcessing.hpp"
 #include "../Rendering.hpp"
 #include "../Editor/Editor.hpp"
+#include "../Engine.hpp"
+#include "../DirectxBackend.hpp"
 
 namespace PostProcessing
 {
@@ -53,12 +55,14 @@ void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _Dev
 	FragUpsampleTent = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleTent");
 	FragUpsampleBox  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleBox");
 
-	postRenderTexture = new RenderTexture(1000, 800, MSAASamples, RenderTextureCreateFlags::None, DXGI_FORMAT_R8G8B8A8_UNORM);
+	glm::ivec2 WindowSize = Engine::GetMainMonitorScale();
+
+	postRenderTexture = new RenderTexture(WindowSize.x, WindowSize.y, MSAASamples, RenderTextureCreateFlags::None, DXGI_FORMAT_R8G8B8A8_UNORM);
 
 	for (int i = 0; i < downSampleRTS.size(); i++)
 	{
-		downSampleRTS[i] = new RenderTexture(1000 / (1 << i), 800 / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
-		upSampleRTS[i] = new RenderTexture(1000 / (1 << i), 800 / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
+		downSampleRTS[i] = new RenderTexture(WindowSize.x / (1 << i), WindowSize.y / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
+		upSampleRTS[i] = new RenderTexture(WindowSize.x / (1 << i), WindowSize.y / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
 	}
 
 	// create screen size buffer
@@ -67,7 +71,7 @@ void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _Dev
 	cbDesc.ByteWidth = sizeof(PostCbuffer);
 	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
-	postCbuffer = {1000, 800, 0, 1.2f};
+	postCbuffer = { WindowSize.x, WindowSize.y, 0, 1.2f};
 	vinitData.pSysMem = &postCbuffer;
 
 	Device->CreateBuffer(&cbDesc, &vinitData, &ScreenSizeCB);
@@ -78,7 +82,7 @@ void PostProcessing::Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, b
 	int startMode = postCbuffer.mode;
 	float startSaturation = postCbuffer.saturation;
 	postCbuffer.treshold = treshold;
-
+	
 	// proceed bloom
 	RenderToQuad(downSampleRTS[0], FragPrefilter13 , srv, sampler, 1 << 0);
 	RenderToQuad(downSampleRTS[1], FragPrefilter4  , downSampleRTS[0], 1 << 1);
@@ -93,8 +97,12 @@ void PostProcessing::Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, b
 	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox , upSampleRTS[2]  , downSampleRTS[1], 1 << 1);
 	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1]  , downSampleRTS[0], 1 << 0);
 
-	if(!build)	
+	if (!build) {
 		postRenderTexture->SetAsRendererTarget();
+	}
+	else {
+		DirectxBackend::SetBackBufferAsRenderTarget();
+	}
 	// render post processing
 	postProcessShader->Bind();
 	
@@ -102,8 +110,8 @@ void PostProcessing::Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, b
 	postCbuffer.saturation = startSaturation;
 	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 
-	std::vector<DXShaderResourceView*> SRVs = { srv , upSampleRTS[0]->textureView };
-	std::vector<DXTexSampler*> samplers = { sampler, upSampleRTS[0]->sampler};
+	std::array<DXShaderResourceView*, 2> SRVs = { srv , upSampleRTS[0]->textureView };
+	std::array<DXTexSampler*, 2> samplers = { sampler, upSampleRTS[0]->sampler};
 
 	DeviceContext->PSSetShaderResources(0, 2, SRVs.data());
 	DeviceContext->PSSetSamplers(0, 2, samplers.data());
@@ -136,8 +144,8 @@ void PostProcessing::RenderToQuadUpsample(RenderTexture* renderTexture, Shader* 
 
 	postCbuffer.mode = scale;
 
-	std::vector<DXShaderResourceView*> SRVs = { miniRenderTexture->textureView, biggerRenderTexture->textureView };
-	std::vector<DXTexSampler*> samplers     = { miniRenderTexture->sampler, biggerRenderTexture->sampler };
+	std::array<DXShaderResourceView*, 2> SRVs = { miniRenderTexture->textureView, biggerRenderTexture->textureView };
+	std::array<DXTexSampler*, 2> samplers     = { miniRenderTexture->sampler, biggerRenderTexture->sampler };
 
 	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 	DeviceContext->PSSetConstantBuffers(0, 1, &ScreenSizeCB);

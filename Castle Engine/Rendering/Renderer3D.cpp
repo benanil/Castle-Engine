@@ -85,8 +85,8 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	freeCamera = camera; MSAASamples = DirectxBackend::GetMSAASamples();
 	
 	PostProcessing::Initialize(Device, DeviceContext, MSAASamples);
-	LineDrawer::Initialize(Device, DeviceContext);
-	Line2D::Initialize(Device, DeviceContext);
+	LineDrawer::Initialize();
+	LineDrawer2D::Initialize(freeCamera);
 
 	GrassRenderer::Initialize(Device, DeviceContext);
 	CreateBuffers();
@@ -138,7 +138,16 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult);
 	tessMeshCreateResult.Clear();
 
-	renderTexture = new RenderTexture(Engine::Width, Engine::Height, DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth);
+	renderTexture = new RenderTexture(Engine::Width(), Engine::Height(), DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth);
+}
+
+void Renderer3D::InvalidateRenderTexture(int width, int height)
+{
+	if (!renderTexture) return; 
+	renderTexture->Invalidate(width, height);
+	freeCamera->aspectRatio = static_cast<float>(width) / height;
+	freeCamera->UpdateProjection();
+	PostProcessing::WindowScaleEvent((int)width, (int)height);
 }
 
 void Renderer3D::CreateBuffers()
@@ -270,13 +279,12 @@ void Renderer3D::DrawScene()
 	// SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
 	// tessMesh->Render(DeviceContext, cbPerObj.MVP, freeCamera->transform.GetPosition());
 	DeviceContext->RSSetState(rasterizerState);
-	
+
 	LineDrawer::SetShader();
 	SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(1, 1, 1));
 	LineDrawer::Render();
 
-	Line2D::SetShader();
-	Line2D::Render();
+	LineDrawer2D::Render();
 
 	DrawTerrain();
 	
@@ -284,12 +292,8 @@ void Renderer3D::DrawScene()
 
 #ifndef NEDITOR
 	PostProcessing::Proceed(renderTexture->textureView, renderTexture->sampler, false);
-#endif
-	
-	DirectxBackend::SetBackBufferAsRenderTarget();
-
-#ifdef NEDITOR
-	Renderer3D::PostProcessing(renderTexture->textureView, renderTexture->sampler, true);
+#else
+	PostProcessing::Proceed(renderTexture->textureView, renderTexture->sampler, true);
 #endif
 	// set default render buffers again
 	DeviceContext->OMSetDepthStencilState(nullptr, 0);
@@ -298,14 +302,10 @@ void Renderer3D::DrawScene()
 	DirectxBackend::SetBackBufferAsRenderTarget();
 	DeviceContext->IASetInputLayout(PBRVertLayout);
 
+	PBRshader->Bind();
 #ifndef NEDITOR
 	viewPort = DirectxBackend::GetViewPort();
 	DeviceContext->RSSetViewports(1, &viewPort);
-#endif
-
-	PBRshader->Bind();
-
-#ifndef NEDITOR
 	Editor::Render(); // Draw Imgui
 #endif
 

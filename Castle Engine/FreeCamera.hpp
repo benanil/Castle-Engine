@@ -36,8 +36,11 @@ public:
 	~FreeCamera();
 	void Update();
 
-	glm::vec2 WorldToScreenPoint(const glm::vec3& position, const XMMATRIX& modelMatrix);
-	
+	glm::vec2 WorldToNDC(const glm::vec3& position);
+	glm::vec2 WorldToNDC(const glm::vec3& position, const XMMATRIX& modelMatrix);
+	glm::vec2 NDC_ToScreenCoord(const glm::vec2& NDC);
+	Line2D Line3DTo2D(const Line& line);
+
 	void SetMatrix();
 	void InfiniteMouse(const POINT& point, POINT& oldPos);
 	void UpdateProjection();

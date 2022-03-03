@@ -14,13 +14,13 @@ namespace Renderer3D
 {
 	void Initialize(FreeCamera* freeCamera);
 	
-	DXInputLayout* CreateVertexInputLayout(const std::vector<InputLayoutCreateInfo>& infos, DXBlob* VS_Buffer);
 	RenderTexture* GetPostRenderTexture();
 	void AddMeshRenderer(MeshRenderer* meshRenderer);
 	// do not send matrix transposed!
 	void SetModelMatrix(const XMMATRIX& matrix);
 	void DrawScene();
 	void RenderMeshes();
+	void InvalidateRenderTexture(int width, int height);
 
 	//  <summary> before this ready-set your rendertexture and shaders </summary>
 	void RenderToQuad();

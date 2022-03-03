@@ -27,7 +27,7 @@ inline bool HasFlag(FLAG_NAME flag, FLAG_NAME value)	       \
 {															   \
 	using T = std::underlying_type_t<FLAG_NAME>;               \
 	return ((T)flag & (T)value) > 0;						   \
-}
+}															   
 								
 void SkipBOM(std::ifstream& in);
 std::string ReadAllText(const std::string& filePath);

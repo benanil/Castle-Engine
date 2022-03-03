@@ -72,15 +72,15 @@ private:
 		
 		DXBlob* vertexErrorBlob, *fragErrorBlob;
 		
-		D3D_SHADER_MACRO shaderMacros {};
 #ifdef  DEBUG
-		shaderMacros.Definition = "DEBUG";
-		shaderMacros.Name = "DEBUG";
+		D3D_SHADER_MACRO shaderMacros[] = { {"DEBUG", "1"}, {nullptr, nullptr}};
+#else 
+		D3D_SHADER_MACRO shaderMacros[] = { {"RELEASE", "1"}, {nullptr, nullptr} };
 #endif //  DEBUG
 
 		if (FAILED(
 			D3DCompile(vertexShader.c_str(), vertexShader.size(), nullptr,
-			&shaderMacros, nullptr, "VS", profiles.vertex, 0, 0, &VS_Buffer, &vertexErrorBlob)))
+			shaderMacros, nullptr, "VS", profiles.vertex, 0, 0, &VS_Buffer, &vertexErrorBlob)))
 		{
 			std::cout << "Vertex Shader Compiling Error:\n" << ((char*)vertexErrorBlob->GetBufferPointer()) << std::endl;
 			DX_CHECK(-1, "Vertex Shader Compiling Error")
@@ -97,7 +97,7 @@ private:
 		
 		if (FAILED(
 			D3DCompile(fragmentShader.c_str(), fragmentShader.size(), nullptr,
-			&shaderMacros, nullptr, PSName, profiles.frag, 0, 0, &PS_Buffer, &fragErrorBlob)))
+			shaderMacros, nullptr, PSName, profiles.frag, 0, 0, &PS_Buffer, &fragErrorBlob)))
 		{
 			std::cout << "pixel Shader Compiling Error:\n" << ((char*)fragErrorBlob->GetBufferPointer()) << std::endl;
 			DX_CHECK(-1, "pixel Shader Compiling Error")
@@ -109,7 +109,6 @@ private:
 			std::cout << "Pixel Shader compiling error!\n hresult: " << hr << std::endl;
 			DX_CHECK(-1, "pixel Shader Compiling Error ")
 		}
-		
 		DX_RELEASE(fragErrorBlob);
 	}
 

@@ -3,6 +3,7 @@
 #include "SDL.h"
 #include "Rendering.hpp"
 #include "Engine.hpp"
+#include "Rendering/Renderer3D.hpp"
 
 namespace DirectxBackend
 {
@@ -92,7 +93,7 @@ void DirectxBackend::CreateRenderTarget(SDL_Window* window)
     ViewPort.MaxDepth = 1.0f;
 
     DeviceContext->RSSetViewports(1, &ViewPort);
-
+    Renderer3D::InvalidateRenderTexture(depthDesc.Width, depthDesc.Height);
 }
 
 void DirectxBackend::InitializeDirect3d11App(SDL_Window* window)
@@ -101,12 +102,13 @@ void DirectxBackend::InitializeDirect3d11App(SDL_Window* window)
 #ifndef NEDITOR
         D3D11_CREATE_DEVICE_DEBUG; // todo make 0 after development
 #else
-        D3D11_CREATE_DEVICE_DEBUG;
+        0;
 #endif
 
-    DX_CHECK(
-    D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, NULL, NULL, D3D11_SDK_VERSION, &Device, NULL, &DeviceContext),
-    "Device Creation Failed!")
+    HRESULT hr = D3D11CreateDevice(NULL,
+        D3D_DRIVER_TYPE_HARDWARE, NULL, 
+        creationFlags, NULL, NULL, 
+        D3D11_SDK_VERSION, &Device, NULL, &DeviceContext);
 
 #ifndef NEDITOR
     MSAASamples = 0;
@@ -124,7 +126,7 @@ void DirectxBackend::InitializeDirect3d11App(SDL_Window* window)
 #endif
 
     IDXGIDevice* pDXGIDevice = nullptr;
-    HRESULT hr = Device->QueryInterface(__uuidof(IDXGIDevice), (void**)&pDXGIDevice);
+    hr = Device->QueryInterface(__uuidof(IDXGIDevice), (void**)&pDXGIDevice);
 
     IDXGIAdapter* pDXGIAdapter = nullptr;
     hr = pDXGIDevice->GetAdapter(&pDXGIAdapter);

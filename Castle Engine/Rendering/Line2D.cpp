@@ -1,13 +1,14 @@
 // same as LineDrawer but 2d
 // immediate mode 2D line & line shape drawer
 #include "Line2D.hpp"
-#include "Line2D.hpp"
 #include "Shader.hpp"
 #include "Renderer3D.hpp"
 #include "../Math.hpp"
 #include "../DirectxBackend.hpp"
+#include "compile_time/math.hpp"
+#include "../Timer.hpp"
 
-namespace Line2D {
+namespace LineDrawer2D {
 
 	struct LineVertex {
 		glm::vec2 pos;
@@ -22,19 +23,20 @@ namespace Line2D {
 	ID3D11Device* Device; ID3D11DeviceContext* DeviceContext;
 	ID3D11InputLayout* inputLayout;
 	Shader* shader;
+	FreeCamera* camera;
 
 	void CreateVertexBuffer(uint32_t size);
 }
 
-const Color32& Line2D::GetColor() { return currentColor; };
-void Line2D::SetColor(const Color32& color) { currentColor = color; }
-void Line2D::SetShader() { shader->Bind(); }
+const Color32& LineDrawer2D::GetColor() { return currentColor; };
+void LineDrawer2D::SetColor(const Color32& color) { currentColor = color; }
+void LineDrawer2D::SetShader() { shader->Bind(); }
 
-void Line2D::Initialize(ID3D11Device* _device, ID3D11DeviceContext* _deviceContext)
+void LineDrawer2D::Initialize(FreeCamera* _camera)
 {
-	Device = _device; DeviceContext = _deviceContext;
-	shader = new Shader("Shaders/Line2D.hlsl");
-	currentColor = Color32(0, 255, 0);
+	Device = DirectxBackend::GetDevice(); DeviceContext = DirectxBackend::GetDeviceContext();
+	shader = new Shader("Shaders/Line2D.hlsl"); 
+	currentColor = Color32(0, 255, 0); camera = _camera;
 
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0 , D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -55,7 +57,7 @@ void Line2D::Initialize(ID3D11Device* _device, ID3D11DeviceContext* _deviceConte
 	DX_CHECK(Device->CreateBuffer(&vertexBufferDesc, nullptr, &vertexBuffer), "vertex buffer creation failed!");
 }
 
-void Line2D::CreateVertexBuffer(uint32_t size)
+void LineDrawer2D::CreateVertexBuffer(uint32_t size)
 {
 	lines = (LineVertex*)realloc(lines, size * sizeof(LineVertex));
 
@@ -76,7 +78,7 @@ void Line2D::CreateVertexBuffer(uint32_t size)
 		Device->CreateBuffer(&vertexBufferDesc, p_vinit, &vertexBuffer), "vertex buffer creation failed!");
 }
 
-void Line2D::DrawLine(const glm::vec2& a, const glm::vec2& b)
+void LineDrawer2D::DrawLine(const glm::vec2& a, const glm::vec2& b)
 {
 	if (targetVertexCount >= currentVertexCount) {
 		CreateVertexBuffer(targetVertexCount + 2);
@@ -88,29 +90,74 @@ void Line2D::DrawLine(const glm::vec2& a, const glm::vec2& b)
 	lines[targetVertexCount++].color = currentColor;
 }
 
-void Line2D::DrawCircale(const glm::vec2& center, float circumferance, int segments)
+void LineDrawer2D::DrawThickLine(const glm::vec3& a, const glm::vec3& b)
+{
+	namespace ct = compile_time;
+	constexpr float thick = 0.0120f; // compile time sincos calculation
+	constexpr float s0 = compile_time::sin(0.0f) * thick;
+	constexpr float s1 = compile_time::sin(0.8f) * thick;
+	constexpr float s2 = compile_time::sin(1.6f) * thick;
+	constexpr float s3 = compile_time::sin(2.4f) * thick;
+	constexpr float s4 = compile_time::sin(glm::pi<float>()) * thick;
+	constexpr float c0 = compile_time::cos(0.0f) * thick;
+	constexpr float c1 = compile_time::cos(0.8f) * thick;
+	constexpr float c2 = compile_time::cos(1.6f) * thick;
+	constexpr float c3 = compile_time::cos(2.4f) * thick;
+	constexpr float c4 = compile_time::cos(glm::pi<float>()) * thick;
+
+	if (fabs(glm::normalize(a - b).y) > 0.5f) { // line is vertical
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s0, 0, c0)), camera->WorldToNDC(b + glm::vec3(s0, 0, c0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s1, 0, c1)), camera->WorldToNDC(b + glm::vec3(s1, 0, c1)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s2, 0, c2)), camera->WorldToNDC(b + glm::vec3(s2, 0, c2)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s3, 0, c3)), camera->WorldToNDC(b + glm::vec3(s3, 0, c3)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s4, 0, c4)), camera->WorldToNDC(b + glm::vec3(s4, 0, c4)));
+	}
+	else { // line is horizontal
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s0, c0, 0)), camera->WorldToNDC(b + glm::vec3(s0, c0, 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s1, c1, 0)), camera->WorldToNDC(b + glm::vec3(s1, c1, 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s2, c2, 0)), camera->WorldToNDC(b + glm::vec3(s2, c2, 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s3, c3, 0)), camera->WorldToNDC(b + glm::vec3(s3, c3, 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(s4, c4, 0)), camera->WorldToNDC(b + glm::vec3(s4, c4, 0)));
+	}
+}
+
+void LineDrawer2D::DrawLine(const glm::vec3& a, const glm::vec3& b)
+{
+	DrawLine(camera->WorldToNDC(a), camera->WorldToNDC(b));
+}
+
+void LineDrawer2D::DrawCircale(const glm::vec3& center, float circumferance, int segments)
+{
+	DrawCircale(camera->WorldToNDC(center), circumferance, segments);
+}
+
+void LineDrawer2D::DrawCircale(const glm::vec2& center, float circumferance, int segments)
 {
 	float percent = glm::two_pi<float>() / segments;
 	for (int i = 0; i < segments; ++i)
 	{
 		int i1 = i + 1;
-		DrawLine(center + glm::vec2(glm::sin(percent * i) * circumferance, glm::cos(percent * i) * circumferance),
-			center + glm::vec2(glm::sin(percent * i1) * circumferance, glm::cos(percent * i1) * circumferance));
+		float aspectRatioEffect = 1.0f / camera->aspectRatio;
+		DrawLine(center + glm::vec2(glm::sin(percent * i) * circumferance * aspectRatioEffect, glm::cos(percent * i) * circumferance),
+			center + glm::vec2(glm::sin(percent * i1) * circumferance * aspectRatioEffect, glm::cos(percent * i1) * circumferance));
 	}
 }
 
-void Line2D::DrawPlus(const glm::vec2& point)
+void LineDrawer2D::DrawPlus(const glm::vec2& point)
 {
 	DrawLine(point - glm::vec2(0.5f, 0.0f), point + glm::vec2(0.5f, 0.0f));
 	DrawLine(point - glm::vec2(0.0f, 0.5f), point + glm::vec2(0.0f, 0.5f));
 	DrawLine(point - glm::vec2(0.0f, 0.0f), point + glm::vec2(0.0f, 0.0f));
 }
 
-void Line2D::DrawCube(const glm::vec2& position, const glm::vec2& scale)
+void LineDrawer2D::DrawCube(const glm::vec2& position, const glm::vec2& scale)
 {
 	glm::vec2 min = glm::vec2(position.x - (scale.x * 0.5f), position.x - (scale.x * 0.5f));
 	glm::vec2 max = glm::vec2(position.x + (scale.x * 0.5f), position.y + (scale.y * 0.5f));
 	
+	min.x /= camera->aspectRatio; 
+	max.x /= camera->aspectRatio;
+
 	DrawLine(glm::vec2(min.x, min.y), glm::vec2(min.x, max.y));
 	DrawLine(glm::vec2(min.x, max.y), glm::vec2(max.x, max.y));
 	DrawLine(glm::vec2(max.x, max.y), glm::vec2(max.x, min.y));
@@ -118,8 +165,9 @@ void Line2D::DrawCube(const glm::vec2& position, const glm::vec2& scale)
 }
 
 // todo add other shapes
-void Line2D::Render()
+void LineDrawer2D::Render()
 {
+	LineDrawer2D::SetShader();
 	static bool first = true;
 	if (currentVertexCount < targetVertexCount) {
 		CreateVertexBuffer(targetVertexCount + 64);
@@ -146,7 +194,7 @@ void Line2D::Render()
 	currentColor = { 0, 255, 0, 255 };
 }
 
-void Line2D::Dispose()
+void LineDrawer2D::Dispose()
 {
 	free(lines);
 	shader->Dispose(); DX_RELEASE(vertexBuffer);

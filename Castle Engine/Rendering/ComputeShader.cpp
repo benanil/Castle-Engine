@@ -118,7 +118,7 @@ BufferMappingResult ComputeShader::RWMapUAVBuffer(const RWBufferHandle& creation
 	outputDesc.CPUAccessFlags = MapModeToCPUAccesFlag(mappingMode);
 	outputDesc.StructureByteStride = creationResult.stride;
 	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	ID3D11Buffer* OutputBuffer;
+	ID3D11Buffer* OutputBuffer = nullptr;
 	DX_CHECK(device->CreateBuffer(&outputDesc, 0, &OutputBuffer), "RW UAV buffer mapping staging buffer creation failed!");
 	ID3D11Resource* resource;
 	UAV->GetResource(&resource);
@@ -196,7 +196,7 @@ TextureMappingResult ComputeShader::RWMapUAVTexture(const TextureCreateResult& t
 	outputDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
 	outputDesc.CPUAccessFlags = MapModeToCPUAccesFlag(mappingMode);
 	outputDesc.MiscFlags = 0;
-	ID3D11Texture2D* OutputBuffer;
+	ID3D11Texture2D* OutputBuffer = nullptr;
 	DX_CHECK(device->CreateTexture2D(&outputDesc, 0, &OutputBuffer), "RW UAV texture creation failed!");
 	ID3D11Resource* resource;
 	UAV->GetResource(&resource);

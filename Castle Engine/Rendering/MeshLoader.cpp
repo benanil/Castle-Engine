@@ -1,5 +1,6 @@
 #include "Mesh.hpp"
 #include "spdlog/spdlog.h"
+#include <filesystem>
 
 namespace MeshLoader
 {

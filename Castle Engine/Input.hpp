@@ -29,6 +29,7 @@ namespace Input
 	glm::ivec2 GetWindowMousePos();
 	/// <summary> mouse pos relative to monitor </summary>
 	glm::ivec2 GetMonitorMousePos();
+	glm::vec2 GetNDC_MousePos();
 
 	void SetCursor(SDL_Cursor* _cursor); 
 	SDL_Cursor* GetCursor() ;

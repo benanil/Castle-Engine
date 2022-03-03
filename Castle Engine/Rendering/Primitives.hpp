@@ -5,6 +5,7 @@
 #include "../Engine.hpp"
 #include <stdexcept>
 #include "LineDrawer.hpp"
+#include "../Math.hpp"
 
 struct cbGlobal
 {

@@ -11,18 +11,23 @@
 #define NELAMBDA(x) noexcept { x;  }
 #define NELAMBDAR(x) noexcept { return x;  }
 
-constexpr float DX_RAD_TO_DEG = 57.2958f;
-constexpr float DX_DEG_TO_RAD = 0.017453f;
-constexpr float DX_PI = 3.1415f;
-constexpr float DX_TWO_PI = 6.2831f;
-
 #define GLM_GET_XY(vec) vec.x, vec.y
 #define GLM_GET_XYZ(vec) vec.x, vec.y, vec.z 
 
 #define GLM_SET_XY(vec, _x, _y) vec.x = _x; vec.y = _y; 
 #define GLM_SET_XYZ(vec, _x, _y, _z) vec.x = _x; vec.y = _y; vec.z = _y;
 
-#define DX_INLINE [[nodiscard]] __forceinline 
+#define DX_INLINE [[nodiscard]] static __forceinline 
+
+constexpr float DX_RAD_TO_DEG = 57.2958f;
+constexpr float DX_DEG_TO_RAD = 0.017453f;
+constexpr float DX_PI = 3.1415f;
+constexpr float DX_TWO_PI = 6.2831f;
+
+DX_INLINE float Max(float a, float b) noexcept { return a > b ? a : b; }
+DX_INLINE float Min(float a, float b) noexcept { return a < b ? a : b; }
+DX_INLINE float Clamp(float x, float a, float b) noexcept { return Max(a, Min(b, x)); }
+DX_INLINE float IsZero(float x) noexcept { return fabs(x) > 1e-10; }
 
 // XMMATH
 typedef XMVECTORF32 xmVector;
@@ -38,8 +43,8 @@ DX_INLINE float& XMSETX(xmVector& vector) noexcept { return vector.f[0]; }
 DX_INLINE float& XMSETY(xmVector& vector) noexcept { return vector.f[1]; }
 DX_INLINE float& XMSETZ(xmVector& vector) noexcept { return vector.f[2]; }
 DX_INLINE float& XMSETW(xmVector& vector) noexcept { return vector.f[3]; }
-DX_INLINE float XM_RadToDeg(const float& radians) NELAMBDAR(radians* DX_RAD_TO_DEG)
-DX_INLINE float XM_DegToRad(const float& degree)  NELAMBDAR(degree* DX_DEG_TO_RAD)
+DX_INLINE float XM_RadToDeg(const float& radians) noexcept { return radians* DX_RAD_TO_DEG;}
+DX_INLINE float XM_DegToRad(const float& degree)  noexcept { return degree * DX_DEG_TO_RAD; }
 DX_INLINE void GLM_DegToRad(const glm::vec3& radians, glm::vec3& degree) noexcept { degree = radians * DX_DEG_TO_RAD; }
 DX_INLINE void GLM_RadToDeg(const glm::vec3& radians, glm::vec3& degree) noexcept { degree = radians * DX_RAD_TO_DEG; }
 DX_INLINE glm::vec3 GLM_RadToDeg(const glm::vec3& radians) noexcept { return radians * DX_RAD_TO_DEG; }
@@ -67,7 +72,7 @@ DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
 	glm::vec3 eulerAngles;
 
 	// Threshold for the singularities found at the north/south poles.
-	static const float SINGULARITY_THRESHOLD = 0.4999995f;
+	constexpr float SINGULARITY_THRESHOLD = 0.4999995f;
 
 	float sqw = XMGETW(q) * XMGETW(q);
 	float sqx = XMGETX(q) * XMGETX(q);
@@ -136,7 +141,6 @@ DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const xmVector& q) noe
 
 DX_INLINE glm::vec3 xmVec3Transform(const glm::vec3& vec, const float* q) noexcept
 {
-	glm::vec3 result{};
 	glm::vec3 xyz = { q[0], q[1], q[2] };
 	glm::vec3 temp = glm::cross(xyz, vec);
 	glm::vec3 temp1 = vec * q[3];
@@ -208,16 +212,14 @@ DX_INLINE xmQuaternion xmExtractRotation(const XMMATRIX& matrix, bool rowNormali
 #undef NELAMBDAR
 #undef NELAMBDA
 
-[[nodiscard]] static __forceinline
-void GetVec3(glm::vec3* vec, const XMVECTOR& vector)
+DX_INLINE void GetVec3(glm::vec3* vec, const XMVECTOR& vector) noexcept
 {
 	_mm_store_ss(&vec->x, vector);
 	_mm_store_ss(&vec->y, _mm_shuffle_ps(vector, vector, _MM_SHUFFLE(1, 1, 1, 1)));
 	_mm_store_ss(&vec->z, _mm_shuffle_ps(vector, vector, _MM_SHUFFLE(2, 2, 2, 2)));
 }
 
-[[nodiscard]] static __forceinline
-void GetVec4(glm::vec4* vec, const XMVECTOR& vector)
+DX_INLINE void GetVec4(glm::vec4* vec, const XMVECTOR& vector) noexcept
 {
 	_mm_store_ps(&vec->x, vector);
 }
@@ -310,12 +312,12 @@ struct AABB {
 		return pos.x > _min.x && pos.x < _max.x&& pos.z > _min.z && pos.z < _max.z;
 	}
 
-	__forceinline bool IsPointInside_XZ(const glm::vec3& pos) const
+	__forceinline bool IsPointInside_XZ(const glm::vec3& pos) const noexcept
 	{
 		return pos.x > min.x && pos.x < max.x&& pos.z > min.z && pos.z < max.z;
 	}
 
-	__forceinline bool IsPointInside(const glm::vec3& pos) const
+	__forceinline bool IsPointInside(const glm::vec3& pos) const noexcept
 	{
 		return pos.x > min.x && pos.x < max.x&& pos.z > min.z && pos.z < max.z&& pos.y > min.y && pos.y < max.y;
 	}
@@ -389,19 +391,30 @@ struct Ray {
 
 struct Line {
 	glm::vec3 point1, point2;
-	glm::vec3 Direction() const {
-		return point2 - point1;
-	}
+	__forceinline Line (const glm::vec3& p0, const glm::vec3& p1) noexcept : point1(p0), point2(p1) {}
+	glm::vec3 Direction() const noexcept { return point2 - point1; }
 };
 
-static __forceinline
-Ray CreateRay(const glm::vec3& origin, const glm::vec3& direction) { return {origin, direction}; }
+struct Line2D {
+	glm::vec2 point1, point2;
+	__forceinline Line2D(const glm::vec2& p0, const glm::vec2& p1) : point1(p0), point2(p1) {}
+	glm::vec2 Direction() const noexcept { return point2 - point1; }
+	__forceinline glm::vec2 GetXX() const noexcept { return glm::vec2(point1.x, point2.x); }
+	__forceinline glm::vec2 GetYY() const noexcept { return glm::vec2(point1.y, point2.y); }
+	__forceinline float MaxX() const noexcept { return Max(point1.x, point2.x); }
+	__forceinline float MaxY() const noexcept { return Max(point1.y, point2.y); }
+	__forceinline float MinX() const noexcept { return Min(point1.x, point2.x); }
+	__forceinline float MinY() const noexcept { return Min(point1.y, point2.y); }
+};
 
-static __forceinline 
-Line CreateLine(const glm::vec3& p1, const glm::vec3& p2) { return { p1, p2 }; }
+DX_INLINE
+Ray CreateRay(const glm::vec3& origin, const glm::vec3& direction) noexcept { return {origin, direction}; }
 
-static __forceinline
-Line LineFromRay(const Ray& ray, float distance) { return { ray.origin, ray.origin + (ray.direction * distance) }; }
+DX_INLINE
+Line CreateLine(const glm::vec3& p1, const glm::vec3& p2) noexcept { return { p1, p2 }; }
+
+DX_INLINE
+Line LineFromRay(const Ray& ray, float distance) noexcept { return { ray.origin, ray.origin + (ray.direction * distance) }; }
 
 static __forceinline
 Ray ScreenPointToRay(
@@ -449,62 +462,6 @@ Ray ScreenPointToRay(
 	return result;
 }
 
-[[nodiscard]] static __forceinline float LengthSquared(const glm::vec3& vec) 
-{
-	return (vec.x * vec.x) + (vec.y * vec.y) + (vec.z * vec.z);
-}
-
-[[nodiscard]] static __forceinline float Norm2(const glm::vec3& v)
-{
-	return v.x * v.x + v.y * v.y + v.z * v.z;
-}
-
-[[nodiscard]] static __forceinline float Max(float a, float b) { return a > b ? a : b; }
-[[nodiscard]] static __forceinline float Min(float a, float b) { return a < b ? a : b; }
-
-/// https://www.gamedev.net/forums/topic/625129-intersection-of-two-line-segment-in-3-dimensions/4941629/
-/// <summary> Calculates the intersection line segment between 2 lines </summary>
-/// <returns> intersection amount:
-///            1 is complately intersects 
-///            0 little intersection 
-///			   lower than zero or -1.0f that means no intersection </returns>
-[[nodiscard]] static __forceinline 
-float IntersectionDistanceBetweenLines(const Line& a, const Line& b)
-{
-	glm::vec3 t1 = normalize(a.point2 - a.point1);
-	glm::vec3 m1 = normalize(cross(a.point1, b.point2));
-	glm::vec3 t2 = normalize(b.point2 - b.point1);
-	glm::vec3 m2 = normalize(cross(b.point1, b.point2));
-	return 2.0f - Min(abs(dot(t1, m2) + dot(t2, m1)), 2.0f) * 0.5f;
-}
-
-[[nodiscard]] static __forceinline
-void LineIntersection(const Line& _line0, const Line& _line1, float& t0_, float& t1_)
-{
-	glm::vec3 p = _line0.point1 - _line1.point1;
-	float q = dot(_line0.Direction(), _line1.Direction());
-	float s = dot(_line1.Direction(), p);
-
-	float d = 1.0f - q * q;
-	if (d < FLT_EPSILON) // lines are parallel
-	{
-		t0_ = 0.0f;
-		t1_ = s;
-	}
-	else {
-		float r = dot(_line0.Direction(), p);
-		t0_ = (q * s - r) / d;
-		t1_ = (s - q * r) / d;
-	}
-}
-
-[[nodiscard]] static __forceinline
-void RayLineIntersection(const Ray& _ray, const Line& _line, float& tr_, float& tl_)
-{
-	LineIntersection(LineFromRay(_ray, 100), _line, tr_, tl_);
-	tr_ = Max(tr_, 0.0f);
-}
-
 typedef uint8_t uint8;
 
 struct Color32 {
@@ -513,16 +470,23 @@ struct Color32 {
 		struct { uint8  r, g, b, a; };
 	};
 
-	inline Color32() : r(0), g(0), b(0), a(255) {}
-	inline Color32(uint8 _r, uint8 _g, uint8 _b, uint8 _a = 255) : r(_r), g(_g), b(_b), a(_a) {}
+	inline Color32() noexcept : r(0), g(0), b(0), a(255) {}
+	inline Color32(uint8 _r, uint8 _g, uint8 _b, uint8 _a = 255) noexcept : r(_r), g(_g), b(_b), a(_a) {}
 
 	__forceinline constexpr uint8& operator[](uint8 index) { return colors[index]; }
 	__forceinline constexpr uint8 const& operator[](uint8 index) const { return colors[index]; }
 	
-	__forceinline bool operator==(Color32 other) {
+	__forceinline bool operator==(Color32 other) noexcept {
 		return other.a == a && other.r == r && other.g == g && other.b == b;
 	}
-	__forceinline bool operator!=(Color32 other) {
+	__forceinline bool operator!=(Color32 other) noexcept {
 		return other.a != a && other.r != r && other.g != g && other.b != b;
 	}
+
+	static __forceinline Color32 Red()    { return Color32(255, 0, 0, 255); }
+	static __forceinline Color32 Green()  { return Color32(0, 255, 0, 255); }
+	static __forceinline Color32 Blue()   { return Color32(0, 0, 255, 255); }
+	static __forceinline Color32 Orange() { return Color32(128, 128, 0, 255); }
 };
+ 
+

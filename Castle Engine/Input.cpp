@@ -1,4 +1,5 @@
 #include "Input.hpp"
+#include "Engine.hpp"
 #include <map>
 #define LAMBDAR(x) { return x;  }
 
@@ -36,6 +37,15 @@ glm::ivec2 Input::GetMonitorMousePos()
     glm::ivec2 result;
     SDL_GetGlobalMouseState(&result.x, &result.y);
     return result;
+}
+
+glm::vec2 Input::GetNDC_MousePos()
+{
+	glm::vec2 ndcMouse = (glm::vec2)Input::GetMonitorMousePos() / (glm::vec2)Engine::GetWindowScale();
+	ndcMouse = glm::vec2(1.0f, 1.0f) - ndcMouse;
+	ndcMouse *= glm::vec2(2.0f, 2.0f);
+	ndcMouse -= glm::vec2(1.0f, 1.0f);
+	return ndcMouse;
 }
 
 bool Input::GetKeyDown(KeyCode keycode) { return keyboard[(int)keycode] ; }

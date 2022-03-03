@@ -67,8 +67,13 @@ void FreeCamera::Update()
 	Input::SetCursor(cursor);
 
 	POINT dir{};
+#ifndef NEDITOR
 	dir.x = mousePos.x - oldPos.x;
 	dir.y = oldPos.y - mousePos.y;
+#else 
+	dir.x = oldPos.x - mousePos.x;
+	dir.y = oldPos.y - mousePos.y;
+#endif 
 
 	if (dir.x + dir.y < 150)
 	{
@@ -85,12 +90,20 @@ void FreeCamera::Update()
 
 	InfiniteMouse(mousePos, oldPos);
 
-	if (Input::GetKeyDown(KeyCode::S)) transform.position += transform.GetForward() * velocity;
 	if (Input::GetKeyDown(KeyCode::W)) transform.position -= transform.GetForward() * velocity;
+	if (Input::GetKeyDown(KeyCode::S)) transform.position += transform.GetForward() * velocity;
+	if (Input::GetKeyDown(KeyCode::Q)) transform.position += transform.GetUP() * velocity;
+	if (Input::GetKeyDown(KeyCode::E)) transform.position -= transform.GetUP() * velocity;
+#ifndef NEDITOR
 	if (Input::GetKeyDown(KeyCode::A)) transform.position -= transform.GetRight() * velocity;
 	if (Input::GetKeyDown(KeyCode::D)) transform.position += transform.GetRight() * velocity;
-	if (Input::GetKeyDown(KeyCode::E)) transform.position -= transform.GetUP() * velocity;
-	if (Input::GetKeyDown(KeyCode::Q)) transform.position += transform.GetUP() * velocity;
+#else
+	if (Input::GetKeyDown(KeyCode::I)) speed += 1;
+	if (Input::GetKeyDown(KeyCode::C)) speed -= 1;
+
+	if (Input::GetKeyDown(KeyCode::A)) transform.position += transform.GetRight() * velocity;
+	if (Input::GetKeyDown(KeyCode::D)) transform.position -= transform.GetRight() * velocity;
+#endif
 
 	transform.UpdateTransform();
 
@@ -121,24 +134,32 @@ void FreeCamera::InfiniteMouse(const POINT& point, POINT& oldPos)
 	if (point.y < 2) SET_CURSOR_POS(point.x, monitorScale.y - 3);
 }
 
-glm::vec2 FreeCamera::WorldToScreenPoint(const glm::vec3& position, const XMMATRIX& modelMatrix)
+Line2D FreeCamera::Line3DTo2D(const Line& line)
 {
-	D3D11_VIEWPORT ViewPort = DirectxBackend::GetViewPort();
+	return Line2D(WorldToNDC(line.point1), WorldToNDC(line.point2));
+}
+
+glm::vec2 FreeCamera::WorldToNDC(const glm::vec3& position) { return WorldToNDC(position, std::move(XMMatrixIdentity())); }
+
+glm::vec2 FreeCamera::WorldToNDC(const glm::vec3& position, const XMMATRIX& modelMatrix)
+{
 	glm::vec4 temp {position.x, position.y, position.z, 1};
 
 	XMVECTOR clipCoords = XMVector3Transform(_mm_load_ps(&temp.x), modelMatrix * ViewProjection);
 
-	if (XMVectorGetW(clipCoords) < 0.1f) return glm::vec2(-1, -1);
-
-	glm::vec2 NDC = {
+	return glm::vec2 {
 		XMVectorGetX(clipCoords) / XMVectorGetW(clipCoords),
 		XMVectorGetY(clipCoords) / XMVectorGetW(clipCoords)
 	};
+}
 
-	// convert ndc to screen cords
+// convert ndc to screen cords
+glm::vec2 FreeCamera::NDC_ToScreenCoord(const glm::vec2& NDC)
+{
+	D3D11_VIEWPORT ViewPort = DirectxBackend::GetViewPort();
 	return glm::vec2(
-		(ViewPort.Width  / 2 * NDC.x) + (NDC.x + ViewPort.Width  / 2),
-	   -(ViewPort.Height / 2 * NDC.y) + (NDC.y + ViewPort.Height / 2)
+		(ViewPort.Width / 2 * NDC.x) + (NDC.x + ViewPort.Width / 2),
+		-(ViewPort.Height / 2 * NDC.y) + (NDC.y + ViewPort.Height / 2)
 	);
 }
 

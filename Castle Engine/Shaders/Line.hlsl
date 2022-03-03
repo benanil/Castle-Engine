@@ -6,17 +6,18 @@ cbuffer cbPerObject : register(b0)
 
 struct VS_INPUT {
 	float4 position	   : POSITION;
-	float3 color       : COLOR;
+	half3 color       : COLOR;
 };
 
 struct VS_OUT {
 	float4 position : SV_POSITION;
-	float3 color    : COLOR;
+	half3 color    : COLOR;
 };
 
 VS_OUT VS(VS_INPUT i)
 {
 	VS_OUT o;
+	i.position.w = 1;
 	o.position = mul(i.position, MVP);
 	o.color = i.color;
 	return o;

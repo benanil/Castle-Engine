@@ -36,7 +36,7 @@ using namespace ECS;
 
 namespace Engine
 {
-    //Global Declarations - Others//
+	//Global Declarations - Others//
     SDL_Window* window;
     HWND hwnd = NULL;
     FreeCamera* freeCamera;
@@ -56,11 +56,19 @@ namespace Engine
 void Engine::AddEndOfFrameEvent(Action action) { EndOfFrameEvents.Add(action);}
 void Engine::AddWindowScaleEvent(FunctionAction<void, int, int>::Type act) { ScreenScaleChanged.Bind(act); }
 
-glm::ivec2 Engine::GetWindowScale()
-{
+glm::ivec2 Engine::GetWindowScale() {
     glm::ivec2 result;
     SDL_GetWindowSize(window, &result.x, &result.y);
     return result;
+}
+
+int Engine::Width() { return GetWindowScale().x; } int Engine::Height() { return GetWindowScale().y; };
+
+glm::ivec2 Engine::GetMainMonitorScale()
+{
+	SDL_DisplayMode DM;
+	SDL_GetCurrentDisplayMode(0, &DM);
+	return glm::ivec2(DM.w, DM.h);
 }
 
 HWND Engine::GetHWND() { return hwnd; }
@@ -99,7 +107,7 @@ void Engine::MainWindow()
 void Engine::InitScene()
 {
     matrix = XMMatrixIdentity() * XMMatrixTranslation(0, 5, 0);
-	freeCamera = new FreeCamera(90, Width / Height, 0.1f, 9000.0f);
+	freeCamera = new FreeCamera(90, Width() / Height(), 0.1f, 9000.0f);
 
 	Renderer3D::Initialize(freeCamera);
 	Gizmo::Initialize(freeCamera);
@@ -121,14 +129,7 @@ void Engine::InitScene()
 void Engine::WindowSizeChanged()
 {
     WindowSize windowSize = DirectxBackend::GetWindowSize();
-#ifdef NEDITOR
-    if (freeCamera) {
-        freeCamera->UpdateProjection((float)depthDesc.Width / depthDesc.Height);
-    }
-    if (renderTexture) {
-        renderTexture->Invalidate(depthDesc.Width, depthDesc.Height);
-    }
-#else
+#ifndef NEDITOR
     auto& viewWindowdata = Editor::GameViewWindow::GetData();
     viewWindowdata.OnScaleChanged.Invoke(windowSize.Width, windowSize.Height);
 
@@ -161,12 +162,15 @@ void Engine::Start()
         assert(1, "stl initialization failed");
     }
 #ifndef NEDITOR
-    const SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+	const SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 #else
-    const SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN));
+    const SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN);
 #endif
 
-    window = SDL_CreateWindow("Castle Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1000, 800, window_flags);
+    SDL_DisplayMode DM;
+    SDL_GetCurrentDisplayMode(0, &DM);
+
+	window = SDL_CreateWindow("Castle Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DM.w, DM.h, window_flags);
 
     // The icon is attached to the window pointer
     SDL_SetWindowIcon(window, LoadLogo());
@@ -214,21 +218,7 @@ void Engine::Start()
         LineDrawer::DrawCube(glm::vec3(0,0,0), glm::vec3(1,1,1));
         LineDrawer::SetMatrix(XMMatrixIdentity());
 
-		LineDrawer::DrawCircale(glm::vec3(20,20,20), 1, 18);
-		
-		if (Input::GetMouseButtonDown(MouseButton::Left))
-		{
-			glm::vec2 worldToScreen = freeCamera->WorldToScreenPoint(glm::vec3(20, 20, 20), XMMatrixIdentity());
-			std::cout << "world to screen: " << worldToScreen.x << " " << worldToScreen.y << std::endl;
-		}
-
-        Line2D::DrawLine(glm::vec2(-1, -1), glm::vec2(1, 1));
-        Line2D::SetColor(Color32(255, 0, 0));
-        Line2D::DrawCircale(glm::vec2(0, 0), 0.2f, 12);
-        Line2D::SetColor(Color32(55, 0, 175));
-        Line2D::DrawCube(glm::vec2(-0.5f, 0), glm::vec2(0.2f, 0.1f));
-
-        SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
+		SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
         Renderer3D::DrawScene();
         EndOfFrameEvents.Invoke();
         EndOfFrameEvents.Clear();
