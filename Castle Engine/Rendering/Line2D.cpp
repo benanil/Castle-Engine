@@ -8,6 +8,8 @@
 #include "compile_time/math.hpp"
 #include "../Timer.hpp"
 
+using namespace CMath;
+
 namespace LineDrawer2D {
 
 	struct LineVertex {
@@ -90,34 +92,60 @@ void LineDrawer2D::DrawLine(const glm::vec2& a, const glm::vec2& b)
 	lines[targetVertexCount++].color = currentColor;
 }
 
-void LineDrawer2D::DrawThickLine(const glm::vec3& a, const glm::vec3& b)
+namespace ct = compile_time;
+constexpr float thick = 0.0120f; // compile time sincos calculation
+constexpr float s0 = compile_time::sin(0.0f) * thick;
+constexpr float s1 = compile_time::sin(0.8f) * thick;
+constexpr float s2 = compile_time::sin(1.6f) * thick;
+constexpr float s3 = compile_time::sin(2.4f) * thick;
+constexpr float s4 = compile_time::sin(glm::pi<float>()) * thick;
+constexpr float c0 = compile_time::cos(0.0f) * thick;
+constexpr float c1 = compile_time::cos(0.8f) * thick;
+constexpr float c2 = compile_time::cos(1.6f) * thick;
+constexpr float c3 = compile_time::cos(2.4f) * thick;
+constexpr float c4 = compile_time::cos(glm::pi<float>()) * thick;
+
+void LineDrawer2D::DrawThickLine(const glm::vec3& a, const glm::vec3& b, float scale)
 {
-	namespace ct = compile_time;
-	constexpr float thick = 0.0120f; // compile time sincos calculation
-	constexpr float s0 = compile_time::sin(0.0f) * thick;
-	constexpr float s1 = compile_time::sin(0.8f) * thick;
-	constexpr float s2 = compile_time::sin(1.6f) * thick;
-	constexpr float s3 = compile_time::sin(2.4f) * thick;
-	constexpr float s4 = compile_time::sin(glm::pi<float>()) * thick;
-	constexpr float c0 = compile_time::cos(0.0f) * thick;
-	constexpr float c1 = compile_time::cos(0.8f) * thick;
-	constexpr float c2 = compile_time::cos(1.6f) * thick;
-	constexpr float c3 = compile_time::cos(2.4f) * thick;
-	constexpr float c4 = compile_time::cos(glm::pi<float>()) * thick;
+	float SinCosArray[] = { s0, s1, s2, s3, s4, c0, c1, c2, c3, c4  };
+
+	_mm_store_ps(SinCosArray, _mm_mul_ps(_mm_load_ps(SinCosArray), _mm_set_ps1(scale)));
+	_mm_store_ps(SinCosArray + 4, _mm_mul_ps(_mm_load_ps(SinCosArray + 4), _mm_set_ps1(scale)));
+	
+	SinCosArray[8] *= scale; SinCosArray[9] *= scale;
 
 	if (fabs(glm::normalize(a - b).y) > 0.5f) { // line is vertical
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s0, 0, c0)), camera->WorldToNDC(b + glm::vec3(s0, 0, c0)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s1, 0, c1)), camera->WorldToNDC(b + glm::vec3(s1, 0, c1)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s2, 0, c2)), camera->WorldToNDC(b + glm::vec3(s2, 0, c2)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s3, 0, c3)), camera->WorldToNDC(b + glm::vec3(s3, 0, c3)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s4, 0, c4)), camera->WorldToNDC(b + glm::vec3(s4, 0, c4)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[0], 0, SinCosArray[5])), camera->WorldToNDC(b + glm::vec3(SinCosArray[0], 0, SinCosArray[5])));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[1], 0, SinCosArray[6])), camera->WorldToNDC(b + glm::vec3(SinCosArray[1], 0, SinCosArray[6])));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[2], 0, SinCosArray[7])), camera->WorldToNDC(b + glm::vec3(SinCosArray[2], 0, SinCosArray[7])));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[3], 0, SinCosArray[8])), camera->WorldToNDC(b + glm::vec3(SinCosArray[3], 0, SinCosArray[8])));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[4], 0, SinCosArray[9])), camera->WorldToNDC(b + glm::vec3(SinCosArray[4], 0, SinCosArray[9])));
 	}
 	else { // line is horizontal
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s0, c0, 0)), camera->WorldToNDC(b + glm::vec3(s0, c0, 0)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s1, c1, 0)), camera->WorldToNDC(b + glm::vec3(s1, c1, 0)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s2, c2, 0)), camera->WorldToNDC(b + glm::vec3(s2, c2, 0)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s3, c3, 0)), camera->WorldToNDC(b + glm::vec3(s3, c3, 0)));
-		DrawLine(camera->WorldToNDC(a + glm::vec3(s4, c4, 0)), camera->WorldToNDC(b + glm::vec3(s4, c4, 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[0], SinCosArray[5], 0)), camera->WorldToNDC(b + glm::vec3(SinCosArray[0], SinCosArray[5], 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[1], SinCosArray[6], 0)), camera->WorldToNDC(b + glm::vec3(SinCosArray[1], SinCosArray[6], 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[2], SinCosArray[7], 0)), camera->WorldToNDC(b + glm::vec3(SinCosArray[2], SinCosArray[7], 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[3], SinCosArray[8], 0)), camera->WorldToNDC(b + glm::vec3(SinCosArray[3], SinCosArray[8], 0)));
+		DrawLine(camera->WorldToNDC(a + glm::vec3(SinCosArray[4], SinCosArray[9], 0)), camera->WorldToNDC(b + glm::vec3(SinCosArray[4], SinCosArray[9], 0)));
+	}
+}
+
+void LineDrawer2D::DrawThickArrow(const glm::vec3& a, const glm::vec3& b, float scale)
+{
+	DrawThickLine(a, b, scale);
+	glm::vec3 dir = glm::normalize(a - b);
+
+	float dist = glm::distance(a, b);
+	float percent = dist * 0.128f;
+	glm::vec3 temp = b + (dir * percent);
+
+	if (fabs(dir.y) > 0.5f) { // line is vertical
+		DrawThickLine(temp - glm::vec3(percent, +percent, 0.0f), b, scale);
+		DrawThickLine(temp - glm::vec3(0.0f, +percent, percent), b, scale);
+	}
+	else {
+		DrawThickLine(temp - glm::vec3(0.0f, percent, 0.0f) , b, scale);
+		DrawThickLine(temp - glm::vec3(0.0f, -percent, 0.0f), b, scale);
 	}
 }
 

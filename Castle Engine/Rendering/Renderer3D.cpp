@@ -320,7 +320,7 @@ void Renderer3D::DrawScene()
 CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum culling)
 {
 	CullingBitset bitset {};
-	AABBCullData cullData {
+	CMath::AABBCullData cullData {
 		nullptr,
 		freeCamera->transform.GetPosition(),
 		freeCamera->transform.GetForward(),

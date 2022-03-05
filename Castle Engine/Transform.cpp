@@ -5,6 +5,8 @@
 #	include "Editor/Editor.hpp"
 #endif
 
+using namespace CMath;
+
 namespace ECS
 {
 #ifndef NEDITOR

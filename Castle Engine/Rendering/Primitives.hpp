@@ -47,7 +47,7 @@ struct SubMesh
 	
 	uint16_t materialIndex;
 	
-	AABB aabb;
+	CMath::AABB aabb;
 
 	DXGI_FORMAT indiceFormat = DXGI_FORMAT_R32_UINT;
 

@@ -6,11 +6,15 @@
 #include "../Rendering/Line2D.hpp"
 #include "spdlog/spdlog.h"
 
+using namespace Gizmo;
+using namespace CMath;
+
 namespace Gizmo
 {
 	constexpr int NoIntersection = -1;
+	constexpr float ScaleByDistance = 0.33f;
 
-	enum class Axis { Forward, Up, Right, Red = 0, Green = 1, Blue = 2 };
+	enum struct Axis : int { Forward, Up, Right, Red = 0, Green = 1, Blue = 2 };
 	
 	struct ArrowResult {
 		union { // using one integer as: index, intersection, axis, axis color
@@ -29,23 +33,16 @@ namespace Gizmo
 	FreeCamera* freeCamera;
 
 	void ManipulatePosition(const glm::vec3& position, XMMATRIX& matrix);
-	void ManipulateScale   (const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& positionVec, XMMATRIX& matrix);
-	void ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX& matrix);
+	void ManipulateScale   (const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& positionVec, XMMATRIX* matrix);
+	void ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX* matrix);
 	
-	ArrowResult ArrowStart(const glm::vec3& position, XMMATRIX& matrix);
-	void ArrowEnd(const glm::vec3& position, int intersection);
+	ArrowResult ArrowStart(const glm::vec3& position, float distToCamera, XMMATRIX& matrix);
+	void ArrowEnd(const glm::vec3& position, float distToCamera, int intersection);
 
-	SphereResult SphereStart(const glm::vec3& position, XMMATRIX& matrix);
-	void SphereEnd(const glm::vec3& position, bool intersection);
-	
 	bool OneDimensionalIntersect(float x, const glm::vec2& range);
-	bool CircaleIntersect(const glm::vec2& pos, const glm::vec2& pos1, float circumferance);
 }
 
 void Gizmo::SetMode(Mode _mode) { mode = _mode; } // depricated
-
-using namespace Gizmo;
-
 void Gizmo::Initialize(FreeCamera* _freeCamera) { freeCamera = _freeCamera; }
 
 void Gizmo::Begin(
@@ -56,13 +53,13 @@ void Gizmo::Begin(
 	mousePosition = _mousePosition;
 }
 
-void Gizmo::Manipulate(XMMATRIX& matrix)
+void Gizmo::Manipulate(XMMATRIX* matrix, glm::vec3* position, xmQuaternion* quaternion, glm::vec3* scale)
 {
-	XMVECTOR rotationVec, positionvec, scaleVec;
-	glm::vec3 position; 
+	XMVECTOR positionvec, scaleVec;
+	XMVECTOR& _quaternion = *reinterpret_cast<XMVECTOR*>(quaternion);
 
-	XMMatrixDecompose(&scaleVec, &rotationVec, &positionvec, matrix);
-	GetVec3(&position, positionvec);
+	XMMatrixDecompose(&scaleVec, &_quaternion, &positionvec, *matrix);
+	GetVec3(position, positionvec);
 
 	if (Input::GetKeyDown(KeyCode::W)) { mode = Mode::Position; }
 	if (Input::GetKeyDown(KeyCode::Q)) { mode = Mode::Rotation; }
@@ -70,66 +67,107 @@ void Gizmo::Manipulate(XMMATRIX& matrix)
 
 	switch (mode)
 	{
-	case Mode::Position: ManipulatePosition(position, matrix); break;
-	case Mode::Rotation: ManipulateRotation(position, rotationVec, scaleVec, positionvec, matrix); break;
-	case Mode::Scale:    ManipulateScale   (position, rotationVec, scaleVec, positionvec, matrix); break;
+	case Mode::Position: ManipulatePosition(*position, *matrix); break;
+	case Mode::Rotation: ManipulateRotation(*position, _quaternion, scaleVec, positionvec, matrix); break;
+	case Mode::Scale:    ManipulateScale   (*position, _quaternion, scaleVec, positionvec, matrix); break;
 	}
+
+	XMMatrixDecompose(&scaleVec, &_quaternion, &positionvec, *matrix);
+	GetVec3(position, positionvec);
+	GetVec3(scale, scaleVec);
 }
+
+#define CS_GOTO(_name) goto _name;{ // I wrote this because visual studio adds extra tab
+#define CS_GOTO_END(_name)   } _name:
 
 void Gizmo::ManipulatePosition(const glm::vec3& position, XMMATRIX& matrix)
 {
+	float distToCamera = glm::distance(position, freeCamera->GetTransform().GetPosition());
+	
 	if (Input::GetMouseButtonDown(MouseButton::Left))
 	{
-		ArrowResult arrowRes = ArrowStart(position, matrix);
+		constexpr float speed = 0.02f / 8.6f; // hacky solution for increasing speed over camera distance
 
+		ArrowResult arrowRes = ArrowStart(position, distToCamera, matrix);
+
+		if (arrowRes.intersection == NoIntersection) CS_GOTO(finded)
 		bool lookingForward = freeCamera->GetTransform().GetForward().x > 0;
 		float multiplier = lookingForward || arrowRes.lookingUp || arrowRes.axis == Axis::Red ? -1.0f : 1.0f;
 		float direction = arrowRes.lookingUp || arrowRes.axis == Axis::Up ? mouseOldPosition.y - mousePosition.y : mouseOldPosition.x - mousePosition.x;
 		if (arrowRes.axis == Axis::Up && lookingForward) direction = -direction;
 
-		matrix.r[3].m128_f32[arrowRes.index] += direction * multiplier * 0.02f;
+		matrix.r[3].m128_f32[arrowRes.index] += direction * multiplier * (speed * distToCamera);
+		CS_GOTO_END(finded)
 
-		ArrowEnd(position, arrowRes.intersection);
+		ArrowEnd(position, distToCamera, arrowRes.intersection);
 		return;
 	}
-	ArrowEnd(position, NoIntersection);
+	ArrowEnd(position, distToCamera, NoIntersection);
 }
 
-void Gizmo::ManipulateScale(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX& matrix)
+void Gizmo::ManipulateScale(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX* matrix)
 {
+	float distToCamera = glm::distance(position, freeCamera->GetTransform().GetPosition());
 	if (Input::GetMouseButtonDown(MouseButton::Left))
 	{
-		ArrowResult arrowRes = ArrowStart(position, matrix);
-		if (arrowRes.intersection >= 0) 
+		ArrowResult arrowRes = ArrowStart(position, distToCamera, *matrix);
+		if (arrowRes.intersection != NoIntersection) 
 		{
 			glm::vec4 axis{};
 			float direction = arrowRes.axis == Axis::Up ? mouseOldPosition.y - mousePosition.y : mousePosition.x - mouseOldPosition.x;
-			axis[(int)arrowRes.axis] = direction * 0.02f;
+			axis[(int)arrowRes.axis] = direction * 0.022;
 			XMVECTOR scaleAdition = XMVectorAdd(scale, _mm_load_ps(&axis.x));
-			matrix = XMMatrixScalingFromVector(scaleAdition) * XMMatrixRotationQuaternion(rotation) * XMMatrixTranslationFromVector(posvec);
+			*matrix = XMMatrixScalingFromVector(scaleAdition) * XMMatrixRotationQuaternion(rotation) * XMMatrixTranslationFromVector(posvec);
 		}
-		ArrowEnd(position, arrowRes.intersection);
+		ArrowEnd(position, distToCamera, arrowRes.intersection);
 		return;
 	}
-	ArrowEnd(position, NoIntersection);
+	ArrowEnd(position, distToCamera, NoIntersection);
 }
 
 // comining
-void Gizmo::ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX& matrix)
+void Gizmo::ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX* matrix)
 {
-	if (Input::GetMouseButtonDown(MouseButton::Left))
-	{
-		SphereResult sphereIntersection = SphereStart(position, matrix);
-		if (sphereIntersection)
-		{
-			XMVECTOR axis = XMVectorSet(mousePosition.x - mouseOldPosition.x + 0.001f, mousePosition.y - mouseOldPosition.y + 0.001f, 0, 0);
-			XMVECTOR rotateAdition = rotation * XMQuaternionRotationAxis(axis, 0.5f);
-			matrix = XMMatrixScalingFromVector(scale) * XMMatrixRotationQuaternion(rotateAdition) * XMMatrixTranslationFromVector(posvec);
-		}
-		SphereEnd(position, sphereIntersection);
-		return;
+	static bool WasIntersecting = false;
+	static Bool2 currentDirection = Bool2();
+
+	glm::vec2 ndcPos = freeCamera->WorldToNDC(position);
+	glm::vec2 ndcMouse = Input::GetNDC_MousePos();
+	ndcMouse.y += 0.03f;
+
+	bool mouseDown = Input::GetMouseButtonDown(MouseButton::Left);
+	bool hovering = glm::distance(ndcMouse, ndcPos) < 0.2f;
+	bool intersection = hovering && mouseDown;
+
+	if (!WasIntersecting && intersection) {
+		glm::vec2 mouseDir = ndcPos - ndcMouse;
+		bool isX = fabs(mouseDir.x) > fabs(mouseDir.y);
+		currentDirection.x = isX; 
+		currentDirection.y = !isX; 
 	}
-	SphereEnd(position, NoIntersection);
+
+	WasIntersecting = intersection || (WasIntersecting && mouseDown);
+	intersection |= WasIntersecting;
+
+	float distToCamera = ScaleByDistance* glm::distance(position, freeCamera->GetTransform().GetPosition());
+
+	const Color32& oldColor = LineDrawer2D::GetColor();
+	LineDrawer::SetColor(intersection ? Color32::Orange() : Color32::Red());
+	LineDrawer::DrawCircale(position, distToCamera);
+	LineDrawer::SetColor(oldColor);
+	
+	if (intersection && mouseDown)
+	{
+		glm::vec2 mouseSubtraction = mousePosition - mouseOldPosition;
+		VecMulBool(&mouseSubtraction, currentDirection);
+		XMVECTOR axis = XMVectorSet(0, mouseSubtraction.x * 0.2f, mouseSubtraction.y * 0.2f, 0);
+		
+		if (!XMVector3Equal(axis, XMVectorZero()) && !XMVector3IsInfinite(axis))
+		{
+			XMVECTOR rotateAdition = XMQuaternionMultiply(rotation, XMQuaternionRotationAxis(axis, mouseSubtraction.length() * 0.066f));
+			*matrix = XMMatrixScalingFromVector(scale) * XMMatrixRotationQuaternion(rotateAdition) * XMMatrixTranslationFromVector(posvec);
+		}
+	}
 }
 
 bool Gizmo::OneDimensionalIntersect(float x, const glm::vec2& range)
@@ -137,27 +175,7 @@ bool Gizmo::OneDimensionalIntersect(float x, const glm::vec2& range)
 	return x > Min(range.x, range.y) && x < Max(range.x, range.y);
 }
 
-bool Gizmo::CircaleIntersect(const glm::vec2& pos, const glm::vec2& pos1, float circumferance)
-{
-	return glm::distance(pos, pos1) - (circumferance * 2) < 0.0f;
-}
-
-SphereResult Gizmo::SphereStart(const glm::vec3& position, XMMATRIX& matrix)
-{
-	glm::vec2 ndcPos = freeCamera->WorldToNDC(position);
-	glm::vec2 ndcMouse = Input::GetNDC_MousePos();
-	ndcMouse.y += 0.03f;
-	return CircaleIntersect(ndcMouse, ndcPos, 0.1f);
-}
-
-void Gizmo::SphereEnd(const glm::vec3& position, bool intersection)
-{
-	const Color32& oldColor = LineDrawer2D::GetColor();
-	LineDrawer::SetColor(intersection ? Color32::Orange() : Color32::Red());
-	LineDrawer::DrawCircale(position, 2);
-}
-
-ArrowResult Gizmo::ArrowStart(const glm::vec3& position, XMMATRIX& matrix)
+ArrowResult Gizmo::ArrowStart(const glm::vec3& position, float distToCamera, XMMATRIX& matrix)
 {
 	ArrowResult result;
 	result.intersection = NoIntersection;
@@ -169,9 +187,11 @@ ArrowResult Gizmo::ArrowStart(const glm::vec3& position, XMMATRIX& matrix)
 	LineDrawer2D::DrawLine(ndcMouse - glm::vec2(0.02f, 0.00f), ndcMouse + glm::vec2(0.02f, 0.00f));
 	LineDrawer2D::DrawLine(ndcMouse - glm::vec2(0.00f, 0.02f), ndcMouse + glm::vec2(0.00f, 0.02f));
 
-	Line2D lineX = freeCamera->Line3DTo2D(Line(position, position + glm::vec3(1.5f, 0, 0)));
-	Line2D lineY = freeCamera->Line3DTo2D(Line(position, position + glm::vec3(0, 1.5f, 0)));
-	Line2D lineZ = freeCamera->Line3DTo2D(Line(position, position + glm::vec3(0, 0, 1.5f)));
+	float scale = ScaleByDistance * distToCamera;
+
+	Line2D lineX = freeCamera->Line3DTo2D(Line(position, position + glm::vec3(scale, 0, 0)));
+	Line2D lineY = freeCamera->Line3DTo2D(Line(position, position + glm::vec3(0, scale, 0)));
+	Line2D lineZ = freeCamera->Line3DTo2D(Line(position, position + glm::vec3(0, 0, scale)));
 
 	glm::vec3 camForward = freeCamera->transform.GetForward();
 
@@ -203,16 +223,20 @@ ArrowResult Gizmo::ArrowStart(const glm::vec3& position, XMMATRIX& matrix)
 	return result;
 }
 
-void Gizmo::ArrowEnd(const glm::vec3& position, int intersection)
+void Gizmo::ArrowEnd(const glm::vec3& position, float distToCamera, int intersection)
 {
 	const Color32& oldColor = LineDrawer2D::GetColor();
+	float scale = ScaleByDistance * distToCamera;
 
 	LineDrawer2D::SetColor(intersection >= 0 != NoIntersection && intersection == (int)Axis::Red ? Color32::Orange() : Color32::Red());
-	LineDrawer2D::DrawThickLine(position, position + glm::vec3(1.5f, 0, 0));
+	LineDrawer2D::DrawThickArrow(position, position + glm::vec3(scale , 0, 0), scale * 0.8f);
+
 	LineDrawer2D::SetColor(intersection >= 0 && intersection == (int)Axis::Green ? Color32::Orange() : Color32::Green());
-	LineDrawer2D::DrawThickLine(position, position + glm::vec3(0, 1.5f, 0));
+	LineDrawer2D::DrawThickArrow(position, position + glm::vec3(0, scale , 0), scale * 0.8f);
+	
 	LineDrawer2D::SetColor(intersection >= 0 && intersection == (int)Axis::Blue ? Color32::Orange() : Color32::Blue());
-	LineDrawer2D::DrawThickLine(position, position + glm::vec3(0, 0, 1.5f));
+	LineDrawer2D::DrawThickArrow(position, position + glm::vec3(0, 0, scale), scale * 0.8f);
+	
 	LineDrawer2D::SetColor(oldColor);
 }
 

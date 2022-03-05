@@ -51,6 +51,7 @@ namespace Engine
     void WindowSizeChanged();
     SDL_Surface* LoadLogo();
     XMMATRIX matrix;
+    Entity* firstEntity;
 }
 
 void Engine::AddEndOfFrameEvent(Action action) { EndOfFrameEvents.Add(action);}
@@ -118,7 +119,7 @@ void Engine::InitScene()
 #endif
 	SceneManager::LoadNewScene();
 
-	Entity* firstEntity = new Entity();
+	firstEntity = new Entity();
 	MeshRenderer* mesh = MeshLoader::LoadMesh("Models/sponza.obj");
 	Renderer3D::AddMeshRenderer(mesh);
 	SceneManager::GetCurrentScene()->AddEntity(firstEntity);
@@ -210,13 +211,12 @@ void Engine::Start()
 
         Gizmo::Begin(Engine::GetWindowScale(), Input::GetWindowMousePos(), freeCamera->GetProjection(), freeCamera->GetView());
 
-        static XMMATRIX matrix = XMMatrixIdentity() * XMMatrixTranslation(0, 5, 0);
+		Gizmo::Manipulate(&firstEntity->transform->GetMatrixRef(), 
+						  &firstEntity->transform->position,
+					      &firstEntity->transform->quaternion,
+						  &firstEntity->transform->scale);
 
-        Gizmo::Manipulate(matrix);
-
-        LineDrawer::SetMatrix(matrix);
-        LineDrawer::DrawCube(glm::vec3(0,0,0), glm::vec3(1,1,1));
-        LineDrawer::SetMatrix(XMMatrixIdentity());
+		firstEntity->transform->SetQuaternion(firstEntity->transform->quaternion, true);
 
 		SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
         Renderer3D::DrawScene();

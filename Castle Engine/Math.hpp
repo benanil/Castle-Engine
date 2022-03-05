@@ -1,12 +1,4 @@
 #pragma once
-#include <windows.h>
-#include <xnamath.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <cstdlib>
-#include <array>
-
 // NE means no except
 #define NELAMBDA(x) noexcept { x;  }
 #define NELAMBDAR(x) noexcept { return x;  }
@@ -17,21 +9,38 @@
 #define GLM_SET_XY(vec, _x, _y) vec.x = _x; vec.y = _y; 
 #define GLM_SET_XYZ(vec, _x, _y, _z) vec.x = _x; vec.y = _y; vec.z = _y;
 
-#define DX_INLINE [[nodiscard]] static __forceinline 
+#define DX_INLINE [[nodiscard]] static __forceinline
+
+#define CMathNamespace namespace CMath {
+#define CMathNamespaceEnd }
+
+#include <windows.h>
+#include <xnamath.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <cstdlib>
+#include <array>
 
 constexpr float DX_RAD_TO_DEG = 57.2958f;
 constexpr float DX_DEG_TO_RAD = 0.017453f;
 constexpr float DX_PI = 3.1415f;
 constexpr float DX_TWO_PI = 6.2831f;
 
+typedef XMVECTORF32 xmVector;
+typedef XMVECTORF32 xmQuaternion;
+
+CMathNamespace 
+
 DX_INLINE float Max(float a, float b) noexcept { return a > b ? a : b; }
 DX_INLINE float Min(float a, float b) noexcept { return a < b ? a : b; }
 DX_INLINE float Clamp(float x, float a, float b) noexcept { return Max(a, Min(b, x)); }
 DX_INLINE float IsZero(float x) noexcept { return fabs(x) > 1e-10; }
 
-// XMMATH
-typedef XMVECTORF32 xmVector;
-typedef XMVECTORF32 xmQuaternion;
+DX_INLINE int Max(int a, int b) noexcept { return a > b ? a : b; }
+DX_INLINE int Min(int a, int b) noexcept { return a < b ? a : b; }
+DX_INLINE int Clamp(int x, int a, int b) noexcept { return Max(a, Min(b, x)); }
+DX_INLINE int IsZero(int x) noexcept { return x == 0; }
 
 DX_INLINE xmVector GlmToXM(const glm::vec3& vec) NELAMBDAR({ GLM_GET_XYZ(vec) })
 
@@ -466,7 +475,7 @@ typedef uint8_t uint8;
 
 struct Color32 {
 	union {
-		uint8  colors[4];
+		struct { uint8 colors[4]; };
 		struct { uint8  r, g, b, a; };
 	};
 
@@ -476,10 +485,10 @@ struct Color32 {
 	__forceinline constexpr uint8& operator[](uint8 index) { return colors[index]; }
 	__forceinline constexpr uint8 const& operator[](uint8 index) const { return colors[index]; }
 	
-	__forceinline bool operator==(Color32 other) noexcept {
+	__forceinline bool operator==(Color32 other) const noexcept {
 		return other.a == a && other.r == r && other.g == g && other.b == b;
 	}
-	__forceinline bool operator!=(Color32 other) noexcept {
+	__forceinline bool operator!=(Color32 other) const noexcept {
 		return other.a != a && other.r != r && other.g != g && other.b != b;
 	}
 
@@ -489,4 +498,22 @@ struct Color32 {
 	static __forceinline Color32 Orange() { return Color32(128, 128, 0, 255); }
 };
  
+struct Bool2
+{
+	union {
+		struct { bool x, y; };
+		struct { bool values[2]; };
+		struct { bool a, b; };
+	};
+	inline Bool2() : a(false), b(false) {}
+	inline Bool2(bool _a, bool _b) : a(_a), b(_b) {}
+	__forceinline constexpr bool& operator[](uint8 index) { return values[index]; }
+	__forceinline constexpr bool const& operator[](uint8 index) const { return values[index]; }
+	__forceinline bool operator==(Bool2 other) const noexcept { return other.x == x && other.y == y; }
+	__forceinline bool operator!=(Bool2 other) const noexcept { return other.x != x && other.y != y; }
+};
 
+DX_INLINE void VecMulBool(glm::vec2* vec, Bool2 _bool) { vec->x *= _bool.x; vec->y *= _bool.y; }
+
+
+CMathNamespaceEnd

@@ -25,6 +25,7 @@
 #include <omp.h>
 
 using namespace CS; // for compute shader
+using namespace CMath;
 
 namespace Terrain
 {
@@ -96,41 +97,32 @@ void Terrain::Initialize()
 
 void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices, XMVECTOR* tempNormal)
 {
+	//Compute face normals
+	for (uint32_t i = 0; i < t_indexCount / 3; ++i)
 	{
-		//Compute face normals
-		for (uint32_t i = 0; i < t_indexCount / 3; ++i)
-		{
-			//Get the vector describing one edge of our triangle (edge 0,2)
-			XMVECTOR edge1 = vertices[indices[i * 3]].posvec - vertices[indices[i * 3 + 2]].posvec;
-			//Get the vector describing another edge of our triangle (edge 2,1)
-			XMVECTOR edge2 = vertices[indices[i * 3 + 2]].posvec - vertices[indices[i * 3 + 1]].posvec;
-			tempNormal[i] = XMVector3Cross(edge2, edge1); // smid cross
-		}
+		//Get the vector describing one edge of our triangle (edge 0,2)
+		XMVECTOR edge1 = vertices[indices[i * 3]].posvec - vertices[indices[i * 3 + 2]].posvec;
+		//Get the vector describing another edge of our triangle (edge 2,1)
+		XMVECTOR edge2 = vertices[indices[i * 3 + 2]].posvec - vertices[indices[i * 3 + 1]].posvec;
+		tempNormal[i] = XMVector3Cross(edge2, edge1); // smid cross
 	}
-
-	{
-		CSTIMER("normal calculation speed: ")
-		//Go through each vertex
+	//Go through each vertex
 #pragma omp parallel for collapse(2), shared(vertices, indices) // 4x optimization
-		for (int32_t i = 0; i < t_vertexCount; ++i)
+	for (int32_t i = 0; i < t_vertexCount; ++i)
+	{
+		XMVECTOR normalSum = XMVectorReplicate(0.0f);
+		//Check which triangles use this vertex
+		for (uint16_t j = 0; j < t_indexCount / 3; ++j)
 		{
-			XMVECTOR normalSum = XMVectorReplicate(0.0f);
-			//Check which triangles use this vertex
-			for (uint16_t j = 0; j < t_indexCount / 3; ++j)
-			{
-				// if (indices[j * 3 + 0] == i || indices[j * 3 + 1] == i || indices[j * 3 + 2] == i)
-				if(_mm_movemask_epi8(_mm_cmpeq_epi32(_mm_set1_epi32(i), _mm_loadu_epi32(indices + (j * 3)))))
-				{
-					normalSum += tempNormal[j];
-				}
+			if(_mm_movemask_epi8(_mm_cmpeq_epi32(_mm_set1_epi32(i), _mm_loadu_epi32(indices + (j * 3))))) {
+				normalSum += tempNormal[j];
 			}
-			// smid normalize
-			vertices[i].normvec = XMVector3Normalize(normalSum);
-			vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
 		}
+		// smid normalize
+		vertices[i].normvec = XMVector3Normalize(normalSum);
+		vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
 	}
 }
-
 void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices)
 {
 	auto vertexMapResult = computeShader->MapStructuredBuffer(grassVertexHandle);
@@ -153,6 +145,8 @@ void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t
 
 	shader->Bind();
 }
+
+// if (indices[j * 3 + 0] == i || indices[j * 3 + 1] == i || indices[j * 3 + 2] == i)
 
 void Terrain::CreateChunk(
 	TerrainVertex* vertices, uint32_t* indices,

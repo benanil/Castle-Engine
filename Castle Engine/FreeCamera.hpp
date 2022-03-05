@@ -39,7 +39,7 @@ public:
 	glm::vec2 WorldToNDC(const glm::vec3& position);
 	glm::vec2 WorldToNDC(const glm::vec3& position, const XMMATRIX& modelMatrix);
 	glm::vec2 NDC_ToScreenCoord(const glm::vec2& NDC);
-	Line2D Line3DTo2D(const Line& line);
+	CMath::Line2D Line3DTo2D(const CMath::Line& line);
 
 	void SetMatrix();
 	void InfiniteMouse(const POINT& point, POINT& oldPos);

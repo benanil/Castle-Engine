@@ -66,7 +66,7 @@ public:
 #endif
 
 	
-	void CalculateCullingBitset(CullingBitset& bitset, uint32_t& startIndex, AABBCullData& cullData) const
+	void CalculateCullingBitset(CullingBitset& bitset, uint32_t& startIndex, CMath::AABBCullData& cullData) const
 	{
 		constexpr int MinimumVertexForCulling = 64;
 		XMMATRIX copy = entity->transform->GetMatrix();
@@ -75,7 +75,7 @@ public:
 		for (uint16_t i = 0; i < subMeshCount; ++i)
 		{
 			cullData.aabb = &subMeshes[i].aabb;
-			bitset[startIndex++] = subMeshes[i].vertexCount > MinimumVertexForCulling && !CheckAABBCulled(cullData);
+			bitset[startIndex++] = subMeshes[i].vertexCount > MinimumVertexForCulling && !CMath::CheckAABBCulled(cullData);
 		}			
 	}
 

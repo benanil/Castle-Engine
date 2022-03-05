@@ -9,6 +9,8 @@
 #include <vector>
 #include <array>
 
+using namespace CMath;
+
 namespace LineDrawer {
 	
 	struct __declspec(align(16)) LineVertex  {

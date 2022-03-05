@@ -26,7 +26,7 @@ namespace ECS
 			scale ({ 1.0f,1.0f,1.0f }) {};
 		
 		Transform(const glm::vec3& pos, const glm::vec3& _euler, const glm::vec3& _scale = { 1, 1, 1 })
-		:	position(pos), eulerDegree(_euler), euler(GLM_DegToRad(_euler)), scale(_scale)
+		:	position(pos), eulerDegree(_euler), euler(CMath::GLM_DegToRad(_euler)), scale(_scale)
 		{ 
 			UpdateTransform(); 
 		}
@@ -47,9 +47,11 @@ namespace ECS
 
 		const glm::vec3& GetPosition()      const noexcept LAMBDAR(position)
 		const glm::vec3& GetScale()         const noexcept LAMBDAR(scale)
-		const glm::vec3& GetEulerDegree()   const noexcept LAMBDAR(GLM_RadToDeg(euler))
+		const glm::vec3& GetEulerDegree()   const noexcept LAMBDAR(CMath::GLM_RadToDeg(euler))
 		const glm::vec3& GetEulerRadians()  const noexcept LAMBDAR(euler)
 		const XMMATRIX& GetMatrix()         const noexcept LAMBDAR(matrix)
+		XMMATRIX& GetMatrixRef()  noexcept LAMBDAR(matrix)
+
 		const xmQuaternion& GetQuaternion() const noexcept LAMBDAR(quaternion)
 	};
 }

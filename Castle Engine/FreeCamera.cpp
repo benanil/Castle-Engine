@@ -9,6 +9,8 @@
 #	include "Editor/Editor.hpp"
 #endif
 
+using namespace CMath;
+
 #ifndef NEDITOR
 void FreeCamera::EditorUpdate()
 {
