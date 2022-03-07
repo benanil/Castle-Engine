@@ -6,7 +6,7 @@
 #include "Main/Event.hpp"
 #undef SDL_HAS_VULKAN 
 
-#define DX_CHECK(hr, message) hr;
+#define DX_CHECK(hr, message) if(FAILED(hr)) assert(0, message);
 
 // converts BUNCH_OF_PATH/CastleEngine/FILE.xxx to CastleEngine/FILE.xxx 
 // sp that means this function creates a compile time string for us

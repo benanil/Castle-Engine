@@ -3,6 +3,7 @@
 #include "../Editor/Editor.hpp"
 #include "../Engine.hpp"
 #include "../DirectxBackend.hpp"
+#include <GFSDK_SSAO.h>
 
 namespace PostProcessing
 {
@@ -17,11 +18,10 @@ namespace PostProcessing
 
 	void RenderToQuad(RenderTexture* renderTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler, int scale);
 	void RenderToQuad(RenderTexture* renderTexture, Shader* shader, RenderTexture* beforeTexture, int scale);
-	void RenderToQuadUpsample(RenderTexture* renderTexture, Shader* shader, 
+	void RenderToQuadUpsample(RenderTexture* renderTexture, Shader* shader,
 		RenderTexture* miniRenderTexture, RenderTexture* biggerRenderTexture, int scale);
 	void PostModeChanged();
 	bool disposed;
-	float treshold = 0.95f;
 
 	DXDevice* Device; DXDeviceContext* DeviceContext;
 
@@ -32,13 +32,22 @@ namespace PostProcessing
 	PostCbuffer postCbuffer;
 	std::vector<MeshRenderer*> meshRenderers;
 
+	// bloom
+	float treshold = 0.95f;
 	std::array<RenderTexture*, 6> downSampleRTS; // rts = render textures
 	std::array<RenderTexture*, 6> upSampleRTS; // rts = render textures
 
 	Shader* FragPrefilter13, * FragPrefilter4,
 		* FragDownsample13, * FragDownsample4,
 		* FragUpsampleTent, * FragUpsampleBox;
-}	
+
+	// ssao
+	GFSDK_SSAO_Context_D3D11* pAOContext;
+	RenderTexture* SSAORenderTexture;
+	GFSDK_SSAO_Parameters SSAOParams {};
+	float SSAOMetersToViewSpaceUnits = 1.0f;
+	bool SSAOEnabled = true;
+}
 
 Shader* PostProcessing::GetShader() { return postProcessShader; };
 RenderTexture* PostProcessing::GetPostRenderTexture() { return postRenderTexture; };
@@ -46,14 +55,14 @@ RenderTexture* PostProcessing::GetPostRenderTexture() { return postRenderTexture
 void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _DeviceContext, unsigned int MSAASamples)
 {
 	Device = _Device; DeviceContext = _DeviceContext;
-	
+
 	postProcessShader = new Shader("Shaders/PostProcessing.hlsl\0");
-	FragPrefilter13  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter13");
-	FragPrefilter4   = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter4");
-	FragDownsample13 = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragDownsample13");
-	FragDownsample4  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragDownsample4");
-	FragUpsampleTent = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleTent");
-	FragUpsampleBox  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleBox");
+	FragPrefilter13   = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter13");
+	FragPrefilter4    = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter4");
+	FragDownsample13  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragDownsample13");
+	FragDownsample4   = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragDownsample4");
+	FragUpsampleTent  = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleTent");
+	FragUpsampleBox   = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragUpsampleBox");
 
 	glm::ivec2 WindowSize = Engine::GetMainMonitorScale();
 
@@ -71,50 +80,87 @@ void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _Dev
 	cbDesc.ByteWidth = sizeof(PostCbuffer);
 	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
-	postCbuffer = { WindowSize.x, WindowSize.y, 0, 1.2f};
+	postCbuffer = { WindowSize.x, WindowSize.y, 0, 1.2f };
 	vinitData.pSysMem = &postCbuffer;
 
 	Device->CreateBuffer(&cbDesc, &vinitData, &ScreenSizeCB);
+	// prepare ssao
+	GFSDK_SSAO_CustomHeap CustomHeap;
+	CustomHeap.new_ = ::operator new;
+	CustomHeap.delete_ = ::operator delete;
+
+	GFSDK_SSAO_Status status = GFSDK_SSAO_CreateContext_D3D11(Device, &pAOContext, &CustomHeap);
+	assert(status == GFSDK_SSAO_OK); // HBAO+ requires feature level 11_0 or above
+	SSAORenderTexture = new RenderTexture(WindowSize.x, WindowSize.y, MSAASamples,  RenderTextureCreateFlags::None, DXGI_FORMAT_R8G8B8A8_UNORM);
+
+	SSAOParams.Radius = 1.f;
+	SSAOParams.Bias = 0.2f;
+	SSAOParams.PowerExponent = 1.5f;
+	SSAOParams.Blur.Enable = true;
+	SSAOParams.Blur.Radius = GFSDK_SSAO_BLUR_RADIUS_4;
+	SSAOParams.Blur.SharpnessProfile.Enable = true;
+	SSAOParams.Blur.Sharpness = 6.f;
 }
 
-void PostProcessing::Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, bool build)
+void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 {
 	int startMode = postCbuffer.mode;
 	float startSaturation = postCbuffer.saturation;
 	postCbuffer.treshold = treshold;
-	
-	// proceed bloom
-	RenderToQuad(downSampleRTS[0], FragPrefilter13 , srv, sampler, 1 << 0);
-	RenderToQuad(downSampleRTS[1], FragPrefilter4  , downSampleRTS[0], 1 << 1);
-	RenderToQuad(downSampleRTS[2], FragDownsample13, downSampleRTS[1], 1 << 2);
-	RenderToQuad(downSampleRTS[3], FragDownsample4 , downSampleRTS[2], 1 << 3);
-	RenderToQuad(downSampleRTS[4], FragDownsample13, downSampleRTS[3], 1 << 4);
-	RenderToQuad(downSampleRTS[5], FragDownsample4 , downSampleRTS[4], 1 << 5);
-	
-	RenderToQuadUpsample(upSampleRTS[4], FragUpsampleTent, downSampleRTS[5], downSampleRTS[4], 1 << 4);
-	RenderToQuadUpsample(upSampleRTS[3], FragUpsampleBox , upSampleRTS[4]  , downSampleRTS[3], 1 << 3);
-	RenderToQuadUpsample(upSampleRTS[2], FragUpsampleTent, upSampleRTS[3]  , downSampleRTS[2], 1 << 2);
-	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox , upSampleRTS[2]  , downSampleRTS[1], 1 << 1);
-	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1]  , downSampleRTS[0], 1 << 0);
 
-	if (!build) {
-		postRenderTexture->SetAsRendererTarget();
+	// proceed bloom
+	RenderToQuad(downSampleRTS[0], FragPrefilter13, rt.textureView, rt.sampler, 1 << 0);
+	RenderToQuad(downSampleRTS[1], FragPrefilter4, downSampleRTS[0], 1 << 1);
+	RenderToQuad(downSampleRTS[2], FragDownsample13, downSampleRTS[1], 1 << 2);
+	RenderToQuad(downSampleRTS[3], FragDownsample4, downSampleRTS[2], 1 << 3);
+	RenderToQuad(downSampleRTS[4], FragDownsample13, downSampleRTS[3], 1 << 4);
+	RenderToQuad(downSampleRTS[5], FragDownsample4, downSampleRTS[4], 1 << 5);
+
+	RenderToQuadUpsample(upSampleRTS[4], FragUpsampleTent, downSampleRTS[5], downSampleRTS[4], 1 << 4);
+	RenderToQuadUpsample(upSampleRTS[3], FragUpsampleBox, upSampleRTS[4], downSampleRTS[3], 1 << 3);
+	RenderToQuadUpsample(upSampleRTS[2], FragUpsampleTent, upSampleRTS[3], downSampleRTS[2], 1 << 2);
+	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox, upSampleRTS[2], downSampleRTS[1], 1 << 1);
+	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1], downSampleRTS[0], 1 << 0);
+	// proceed Nvidia HBAO+
+	if (SSAOEnabled)
+	{
+		GFSDK_SSAO_InputData_D3D11 Input{};
+		Input.DepthData.DepthTextureType = GFSDK_SSAO_HARDWARE_DEPTHS;
+		Input.DepthData.pFullResDepthTextureSRV = rt.depthSRV;
+		Input.DepthData.ProjectionMatrix.Data = *(const GFSDK_SSAO_Float4x4*)&projection;
+		Input.DepthData.ProjectionMatrix.Layout = GFSDK_SSAO_ROW_MAJOR_ORDER;
+		Input.DepthData.MetersToViewSpaceUnits = SSAOMetersToViewSpaceUnits;
+
+		GFSDK_SSAO_Output_D3D11 Output;
+		Output.pRenderTargetView = SSAORenderTexture->renderTargetView;
+		Output.Blend.Mode = GFSDK_SSAO_OVERWRITE_RGB;
+
+		GFSDK_SSAO_Status status = pAOContext->RenderAO(DeviceContext, Input, SSAOParams, Output);
+		assert(status == GFSDK_SSAO_OK);
 	}
-	else {
-		DirectxBackend::SetBackBufferAsRenderTarget();
+	else
+	{
+		SSAORenderTexture->SetAsRendererTarget();
+		static const float ClearColor[]{ 1.0f, 1.0f, 1.0f, 1.0f };
+		SSAORenderTexture->ClearRenderTarget(ClearColor);
 	}
+#ifndef NEDITOR
+	postRenderTexture->SetAsRendererTarget();
+#else
+	DirectxBackend::SetBackBufferAsRenderTarget();
+#endif
 	// render post processing
 	postProcessShader->Bind();
-	
+
 	postCbuffer.mode = startMode;
 	postCbuffer.saturation = startSaturation;
 	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 
-	std::array<DXShaderResourceView*, 2> SRVs = { srv , upSampleRTS[0]->textureView };
-	std::array<DXTexSampler*, 2> samplers = { sampler, upSampleRTS[0]->sampler};
+	std::array<DXShaderResourceView*, 3> SRVs = { rt.textureView , upSampleRTS[0]->textureView, SSAORenderTexture->textureView };
+	std::array<DXTexSampler*, 3> samplers = { rt.sampler, upSampleRTS[0]->sampler, SSAORenderTexture->sampler};
 
-	DeviceContext->PSSetShaderResources(0, 2, SRVs.data());
-	DeviceContext->PSSetSamplers(0, 2, samplers.data());
+	DeviceContext->PSSetShaderResources(0, SRVs.size(), SRVs.data());
+	DeviceContext->PSSetSamplers(0, samplers.size(), samplers.data());
 
 	Renderer3D::RenderToQuad();
 }
@@ -123,7 +169,7 @@ void PostProcessing::RenderToQuad(RenderTexture* renderTexture, Shader* shader, 
 {
 	RenderToQuad(renderTexture, shader, beforeTexture->textureView, beforeTexture->sampler, scale);
 }
-void PostProcessing::RenderToQuad(RenderTexture* renderTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler,  int scale)
+void PostProcessing::RenderToQuad(RenderTexture* renderTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler, int scale)
 {
 	shader->Bind();
 	renderTexture->SetAsRendererTarget();
@@ -136,7 +182,7 @@ void PostProcessing::RenderToQuad(RenderTexture* renderTexture, Shader* shader, 
 	Renderer3D::RenderToQuad();
 }
 
-void PostProcessing::RenderToQuadUpsample(RenderTexture* renderTexture, Shader* shader, 
+void PostProcessing::RenderToQuadUpsample(RenderTexture* renderTexture, Shader* shader,
 	RenderTexture* miniRenderTexture, RenderTexture* biggerRenderTexture, int scale)
 {
 	shader->Bind();
@@ -145,7 +191,7 @@ void PostProcessing::RenderToQuadUpsample(RenderTexture* renderTexture, Shader* 
 	postCbuffer.mode = scale;
 
 	std::array<DXShaderResourceView*, 2> SRVs = { miniRenderTexture->textureView, biggerRenderTexture->textureView };
-	std::array<DXTexSampler*, 2> samplers     = { miniRenderTexture->sampler, biggerRenderTexture->sampler };
+	std::array<DXTexSampler*, 2> samplers = { miniRenderTexture->sampler, biggerRenderTexture->sampler };
 
 	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 	DeviceContext->PSSetConstantBuffers(0, 1, &ScreenSizeCB);
@@ -157,7 +203,7 @@ void PostProcessing::RenderToQuadUpsample(RenderTexture* renderTexture, Shader* 
 
 void PostProcessing::PostModeChanged()
 {
-	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0); 
+	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 }
 
 void PostProcessing::WindowScaleEvent(const int& _width, const int& _height)
@@ -165,7 +211,8 @@ void PostProcessing::WindowScaleEvent(const int& _width, const int& _height)
 	postCbuffer.width = _width; postCbuffer.height = _height;
 	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 	postRenderTexture->Invalidate(postCbuffer.width, postCbuffer.height);
-	
+	SSAORenderTexture->Invalidate(postCbuffer.width, postCbuffer.height);
+
 	for (int i = 0; i < downSampleRTS.size(); i++)
 	{
 		downSampleRTS[i]->Invalidate(_width / (1 << i), _height / (1 << i));
@@ -186,6 +233,16 @@ void PostProcessing::OnEditor()
 		ImGui::Text("Bloom");
 		ImGui::DragFloat("Treshold", &treshold, 0.01f);
 	}
+
+	if (ImGui::CollapsingHeader("SSAO"))
+	{
+		ImGui::Checkbox("Enabled", &SSAOEnabled);
+		ImGui::DragFloat("Radius", &SSAOParams.Radius, 0.05f);
+		ImGui::DragFloat("Bias", &SSAOParams.Bias, 0.05f);
+		ImGui::DragFloat("PowerExponent", &SSAOParams.PowerExponent, 0.05f, 0, 4);
+		ImGui::DragFloat("BlurSharpness", &SSAOParams.Blur.Sharpness, 0.05f, 0, 8);
+		ImGui::DragFloat("MetersToViewSpaceUnits", &SSAOMetersToViewSpaceUnits, 0.1f, 0, 10);
+	}
 #endif // !NEDITOR
 }
 
@@ -195,7 +252,7 @@ void PostProcessing::Dispose()
 	disposed = true;
 	postRenderTexture->Release();
 	postProcessShader->Dispose();
-	FragPrefilter13 ->Dispose(); FragPrefilter4 ->Dispose();
+	FragPrefilter13->Dispose(); FragPrefilter4->Dispose();
 	FragDownsample13->Dispose(); FragDownsample4->Dispose();
 	FragUpsampleTent->Dispose(); FragUpsampleBox->Dispose();
 }

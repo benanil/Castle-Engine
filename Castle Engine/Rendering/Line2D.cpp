@@ -82,6 +82,9 @@ void LineDrawer2D::CreateVertexBuffer(uint32_t size)
 
 void LineDrawer2D::DrawLine(const glm::vec2& a, const glm::vec2& b)
 {
+	if (a.x < -1.0f || b.x < -1.0f || a.y < -1.0f || b.y < -1.0f || 
+		a.x >  1.0f || b.x >  1.0f || a.y >  1.0f || b.y >  1.0f) return;
+
 	if (targetVertexCount >= currentVertexCount) {
 		CreateVertexBuffer(targetVertexCount + 2);
 	}

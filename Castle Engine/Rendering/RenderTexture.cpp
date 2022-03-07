@@ -115,21 +115,27 @@ void RenderTexture::Invalidate(int _width, int _height)
 		depthDesc.Height = height;
 		depthDesc.MipLevels = 1;
 		depthDesc.ArraySize = 1;
-		depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		depthDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
 		depthDesc.SampleDesc.Count = std::max(sampleCount, 1u);
 		depthDesc.SampleDesc.Quality = sampleCount;
 		depthDesc.Usage = D3D11_USAGE_DEFAULT;
-		depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-		depthDesc.CPUAccessFlags = 0;
-		depthDesc.MiscFlags = 0;
+		depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 		
 		DX_CHECK(
 		device->CreateTexture2D(&depthDesc, NULL, &depthStencilBuffer), "failed to create depth texture")
 
+		DX_CREATE(D3D11_DEPTH_STENCIL_VIEW_DESC, dsvDesc);
+		dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		dsvDesc.ViewDimension = sampleCount > 1 ? D3D11_DSV_DIMENSION_TEXTURE2DMS : D3D11_DSV_DIMENSION_TEXTURE2D;
 		DX_CHECK(
-		device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView), "Failed to Create depth stencil for render texture")
+		device->CreateDepthStencilView(depthStencilBuffer, &dsvDesc, &depthStencilView), "Failed to Create depth stencil for render texture")
+		
+		shaderResViewDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+		shaderResViewDesc.ViewDimension = sampleCount > 1 ?  D3D11_SRV_DIMENSION_TEXTURE2DMS : D3D11_SRV_DIMENSION_TEXTURE2D;
+		DX_CHECK(
+		device->CreateShaderResourceView(depthStencilBuffer, &shaderResViewDesc, &depthSRV), "depth srv creation failed!");
 	}
-	
+
 	OnSizeChanged.Invoke(textureView);
 }
 

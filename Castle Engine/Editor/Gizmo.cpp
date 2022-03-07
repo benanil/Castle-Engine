@@ -12,7 +12,7 @@ using namespace CMath;
 namespace Gizmo
 {
 	constexpr int NoIntersection = -1;
-	constexpr float ScaleByDistance = 0.33f;
+	constexpr float ScaleByDistance = 0.23f;
 
 	enum struct Axis : int { Forward, Up, Right, Red = 0, Green = 1, Blue = 2 };
 	
@@ -36,7 +36,7 @@ namespace Gizmo
 	void ManipulateScale   (const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& positionVec, XMMATRIX* matrix);
 	void ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotation, const XMVECTOR& scale, const XMVECTOR& posvec, XMMATRIX* matrix);
 	
-	ArrowResult ArrowStart(const glm::vec3& position, float distToCamera, XMMATRIX& matrix);
+	ArrowResult ArrowStart(const glm::vec3& position, float distToCamera);
 	void ArrowEnd(const glm::vec3& position, float distToCamera, int intersection);
 
 	bool OneDimensionalIntersect(float x, const glm::vec2& range);
@@ -87,8 +87,7 @@ void Gizmo::ManipulatePosition(const glm::vec3& position, XMMATRIX& matrix)
 	if (Input::GetMouseButtonDown(MouseButton::Left))
 	{
 		constexpr float speed = 0.02f / 8.6f; // hacky solution for increasing speed over camera distance
-
-		ArrowResult arrowRes = ArrowStart(position, distToCamera, matrix);
+		ArrowResult arrowRes = ArrowStart(position, distToCamera);
 
 		if (arrowRes.intersection == NoIntersection) CS_GOTO(finded)
 		bool lookingForward = freeCamera->GetTransform().GetForward().x > 0;
@@ -110,7 +109,7 @@ void Gizmo::ManipulateScale(const glm::vec3& position, const XMVECTOR& rotation,
 	float distToCamera = glm::distance(position, freeCamera->GetTransform().GetPosition());
 	if (Input::GetMouseButtonDown(MouseButton::Left))
 	{
-		ArrowResult arrowRes = ArrowStart(position, distToCamera, *matrix);
+		ArrowResult arrowRes = ArrowStart(position, distToCamera);
 		if (arrowRes.intersection != NoIntersection) 
 		{
 			glm::vec4 axis{};
@@ -144,6 +143,7 @@ void Gizmo::ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotati
 		bool isX = fabs(mouseDir.x) > fabs(mouseDir.y);
 		currentDirection.x = isX; 
 		currentDirection.y = !isX; 
+		std::cout << "isx: " << isX ? "true\n" : "false\n";
 	}
 
 	WasIntersecting = intersection || (WasIntersecting && mouseDown);
@@ -156,7 +156,7 @@ void Gizmo::ManipulateRotation(const glm::vec3& position, const XMVECTOR& rotati
 	LineDrawer::DrawCircale(position, distToCamera);
 	LineDrawer::SetColor(oldColor);
 	
-	if (intersection && mouseDown)
+	if (intersection)
 	{
 		glm::vec2 mouseSubtraction = mousePosition - mouseOldPosition;
 		VecMulBool(&mouseSubtraction, currentDirection);
@@ -175,7 +175,7 @@ bool Gizmo::OneDimensionalIntersect(float x, const glm::vec2& range)
 	return x > Min(range.x, range.y) && x < Max(range.x, range.y);
 }
 
-ArrowResult Gizmo::ArrowStart(const glm::vec3& position, float distToCamera, XMMATRIX& matrix)
+ArrowResult Gizmo::ArrowStart(const glm::vec3& position, float distToCamera)
 {
 	ArrowResult result;
 	result.intersection = NoIntersection;

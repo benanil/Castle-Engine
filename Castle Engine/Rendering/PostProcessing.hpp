@@ -6,7 +6,7 @@
 namespace PostProcessing
 {
 	void Initialize(ID3D11Device* Device, ID3D11DeviceContext* DeviceContext, unsigned int _msaaSamples);
-	void Proceed(DXShaderResourceView* srv, DXTexSampler* sampler, bool build);
+	void Proceed(RenderTexture& renderTexture, const XMMATRIX& projection);
 	void WindowScaleEvent(const int& _width, const int& _height);
 	Shader* GetShader();
 	RenderTexture* GetPostRenderTexture() ;

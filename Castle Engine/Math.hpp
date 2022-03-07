@@ -30,17 +30,17 @@ constexpr float DX_TWO_PI = 6.2831f;
 typedef XMVECTORF32 xmVector;
 typedef XMVECTORF32 xmQuaternion;
 
+typedef uint8_t uint8;
+
 CMathNamespace 
 
-DX_INLINE float Max(float a, float b) noexcept { return a > b ? a : b; }
-DX_INLINE float Min(float a, float b) noexcept { return a < b ? a : b; }
-DX_INLINE float Clamp(float x, float a, float b) noexcept { return Max(a, Min(b, x)); }
+template<typename T>
+DX_INLINE float Max(T a, T b) noexcept { return a > b ? a : b; }
+template<typename T>
+DX_INLINE float Min(T a, T b) noexcept { return a < b ? a : b; }
+template<typename T>
+DX_INLINE float Clamp(T x, T a, T b) noexcept { return Max(a, Min(b, x)); }
 DX_INLINE float IsZero(float x) noexcept { return fabs(x) > 1e-10; }
-
-DX_INLINE int Max(int a, int b) noexcept { return a > b ? a : b; }
-DX_INLINE int Min(int a, int b) noexcept { return a < b ? a : b; }
-DX_INLINE int Clamp(int x, int a, int b) noexcept { return Max(a, Min(b, x)); }
-DX_INLINE int IsZero(int x) noexcept { return x == 0; }
 
 DX_INLINE xmVector GlmToXM(const glm::vec3& vec) NELAMBDAR({ GLM_GET_XYZ(vec) })
 
@@ -77,7 +77,7 @@ DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3&euler) noexcept // yaw (Z),
 	return q;
 }
 
-DX_INLINE glm::vec3 xmQuatToEulerAngles(xmQuaternion q) noexcept {
+DX_INLINE glm::vec3 xmQuatToEulerAngles(const xmQuaternion& q) noexcept {
 	glm::vec3 eulerAngles;
 
 	// Threshold for the singularities found at the north/south poles.
@@ -374,7 +374,7 @@ bool CheckAABBCulled(const AABBCullData& data)
 		glm::vec3 edge_to_cam = glm::normalize(glm::vec3(edge.x, 0, edge.y) - glm::vec3(data.camPos.x, 0, data.camPos.z));
 		if (glm::dot(edge_to_cam, data.camForward) + glm::abs(data.camForward.y * 0.1f) > 1.0f - fovPercent) return true;
 		// some circumstances you can delete this line but in sponza and interior buildings you gona need this line belove
-		if (glm::distance(edge, data.camPos) < 3) return true;
+		if (glm::distance(edge, data.camPos) < 6) return true;
 	}
 	return false;
 }
@@ -471,12 +471,12 @@ Ray ScreenPointToRay(
 	return result;
 }
 
-typedef uint8_t uint8;
 
 struct Color32 {
 	union {
 		struct { uint8 colors[4]; };
 		struct { uint8  r, g, b, a; };
+		struct { uint8  x, y, z, w; };
 	};
 
 	inline Color32() noexcept : r(0), g(0), b(0), a(255) {}
@@ -490,6 +490,42 @@ struct Color32 {
 	}
 	__forceinline bool operator!=(Color32 other) const noexcept {
 		return other.a != a && other.r != r && other.g != g && other.b != b;
+	}
+
+	static __forceinline Color32 FromVec3(const glm::vec3& vec)
+	{
+		return Color32(Min<uint8>(uint8(vec.x * 255.0f), 255),
+					   Min<uint8>(uint8(vec.y * 255.0f), 255),
+					   Min<uint8>(uint8(vec.z * 255.0f), 255), 255);
+	}
+	static __forceinline Color32 FromVec4(const glm::vec4& vec)
+	{
+		return Color32(Min<uint8>(uint8(vec.x * 255.0f), 255),
+				       Min<uint8>(uint8(vec.y * 255.0f), 255),
+				       Min<uint8>(uint8(vec.z * 255.0f), 255), 
+					   Min<uint8>(uint8(vec.w * 255.0f), 255));
+	}
+	/// <summary> be sure that all components of the vec is not higher than 1.0f !!!  faster version of FromVec3 </summary>
+	static __forceinline Color32 FromVec3LDR(const glm::vec3& vec)
+	{
+		return Color32(uint8(vec.x * 255.0f), uint8(vec.y * 255.0f), uint8(vec.z * 255.0f), 255);
+	}
+	/// <summary> be sure that all components of the vec is not higher than 1.0f !!! faster version of FromVec4 </summary>
+	static __forceinline Color32 FromVec4LDR(const glm::vec4& vec)
+	{
+		return Color32(uint8(vec.x * 255.0f), uint8(vec.y * 255.0f), uint8(vec.z * 255.0f), uint8(vec.w * 255.0f));
+	}
+
+	static constexpr float OneDiv255 = 1.0f / 255.0f;
+	
+	__forceinline glm::vec3 ToVec3() const noexcept
+	{
+		return glm::vec3(float(r) * OneDiv255, float(g) * OneDiv255, float(b) * OneDiv255);
+	}
+
+	__forceinline glm::vec4 ToVec4() const noexcept
+	{
+		return glm::vec4(float(r) * OneDiv255, float(g) * OneDiv255, float(b) * OneDiv255, float(a) * OneDiv255);
 	}
 
 	static __forceinline Color32 Red()    { return Color32(255, 0, 0, 255); }

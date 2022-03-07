@@ -18,21 +18,27 @@ CS_CREATE_ENUM_OPERATORS(RenderTextureCreateFlags)
 class RenderTexture
 {
 public:
-	DXTexture2D* texture;
-	DXShaderResourceView* textureView;
-	DXRenderTargetView* renderTargetView;
-	DXDepthStencilView* depthStencilView;
-	DXTexture2D* depthStencilBuffer;
+	ID3D11Texture2D* texture;
+	
+	union  {
+		ID3D11ShaderResourceView* textureView;
+		ID3D11ShaderResourceView* srv;
+	};
+	
+	ID3D11ShaderResourceView* depthSRV;
+	ID3D11RenderTargetView* renderTargetView;
+	ID3D11DepthStencilView* depthStencilView;
+	ID3D11Texture2D* depthStencilBuffer;
 	EventEmitter<DXShaderResourceView*> OnSizeChanged;
 	DXBlendState* blendState;
 	DXTexSampler* sampler;
 	UINT sampleCount;
 	int width, height;
+	RenderTextureCreateFlags flags;
 private:
 	DXDeviceContext* deviceContext;
 	DXDevice* device;
 	DXGI_FORMAT format;
-	RenderTextureCreateFlags flags;
 public:
 	RenderTexture() {};
 	RenderTexture(const int& _width, const int& _height, const UINT& sampleCount, 

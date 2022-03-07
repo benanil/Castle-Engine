@@ -13,6 +13,7 @@
 #undef SDL_HAS_VULKAN 
 #include <SDL_syswm.h>
 #include <SDL_surface.h>
+#include "spdlog/spdlog.h"
 
 #ifndef NEDITOR
 #   include "Editor/Editor.hpp"
@@ -158,6 +159,14 @@ SDL_Surface* Engine::LoadLogo()
 
 void Engine::Start()
 {
+    using namespace CMath;
+    glm::vec3 white0 = glm::vec3(1.0f, 0.5f, 0);
+    Color32 whiteB = Color32::FromVec3LDR(white0);
+    glm::vec3 white1 = whiteB.ToVec3();
+
+    spdlog::info("{0} {1} {2}", white1.x, white1.y, white1.z);
+
+    
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         printf("Error: %s\n", SDL_GetError());
         assert(1, "stl initialization failed");

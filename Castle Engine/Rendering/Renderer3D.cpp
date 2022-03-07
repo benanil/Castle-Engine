@@ -17,6 +17,8 @@
 #include "PostProcessing.hpp"
 #include "LineDrawer.hpp"
 #include "Line2D.hpp"
+#include "GFSDK_SSAO.h"
+
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
@@ -52,6 +54,8 @@ namespace Renderer3D
 	bool Vsync = true;
 	int culledMeshCount = 0;
 	
+	GFSDK_SSAO_Context_D3D11* pAOContext;
+
 	// forward declarations
 	void DrawTerrain();
 	void CreateBuffers();
@@ -84,6 +88,14 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	Device = DirectxBackend::GetDevice(); DeviceContext = DirectxBackend::GetDeviceContext();
 	freeCamera = camera; MSAASamples = DirectxBackend::GetMSAASamples();
 	
+	GFSDK_SSAO_CustomHeap CustomHeap;
+	CustomHeap.new_ = ::operator new;
+	CustomHeap.delete_ = ::operator delete;
+
+	GFSDK_SSAO_Status status;
+	status = GFSDK_SSAO_CreateContext_D3D11(Device, &pAOContext, &CustomHeap);
+	std::cout << status;
+ 
 	PostProcessing::Initialize(Device, DeviceContext, MSAASamples);
 	LineDrawer::Initialize();
 	LineDrawer2D::Initialize(freeCamera);
@@ -291,9 +303,9 @@ void Renderer3D::DrawScene()
 	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
 
 #ifndef NEDITOR
-	PostProcessing::Proceed(renderTexture->textureView, renderTexture->sampler, false);
+	PostProcessing::Proceed(*renderTexture, freeCamera->GetProjection());
 #else
-	PostProcessing::Proceed(renderTexture->textureView, renderTexture->sampler, true);
+	PostProcessing::Proceed(*renderTexture, freeCamera->GetProjection());
 #endif
 	// set default render buffers again
 	DeviceContext->OMSetDepthStencilState(nullptr, 0);

@@ -1,14 +1,18 @@
+
+
 struct PostProcessVertex
 {
 	float4 pos   : SV_POSITION;
-	float2 texCoord : TEXCOORD;
+    noperspective float2 texCoord : TEXCOORD;
 };
 
-Texture2D _texture  : register(t0);
+Texture2D _texture     : register(t0);
 Texture2D bloomTexture : register(t1);
+Texture2D ssaoTexture  : register(t2);
 
-SamplerState textureSampler : register(s0);
+SamplerState textureSampler  : register(s0);
 SamplerState textureSampler1 : register(s1);
+SamplerState textureSampler2 : register(s2);
 
 PostProcessVertex VS(uint id : SV_VERTEXID)
 {
@@ -197,6 +201,8 @@ float4 PS(PostProcessVertex i) : SV_Target
 		case 3: tonemapped = Reinhard(color);  			break;
 		case 4: tonemapped = DX11DSK(color);  			break;
 	}
-	float4 bloom = bloomTexture.Sample(textureSampler1, i.texCoord) * 0.60f;
+	float3 ssao = ssaoTexture.Sample(textureSampler2, i.texCoord).xyz;
+	tonemapped *= ssao;
+	float4 bloom = bloomTexture.Sample(textureSampler1, i.texCoord);
 	return float4(tonemapped.x, tonemapped.y, tonemapped.z, 1) + bloom;
 }
