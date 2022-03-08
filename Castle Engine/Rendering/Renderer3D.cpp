@@ -150,7 +150,7 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult);
 	tessMeshCreateResult.Clear();
 
-	renderTexture = new RenderTexture(Engine::Width(), Engine::Height(), DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth);
+	renderTexture = new RenderTexture(Engine::Width(), Engine::Height(), DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth | RenderTextureCreateFlags::Linear);
 }
 
 void Renderer3D::InvalidateRenderTexture(int width, int height)

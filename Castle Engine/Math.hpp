@@ -491,20 +491,6 @@ struct Color32 {
 	__forceinline bool operator!=(Color32 other) const noexcept {
 		return other.a != a && other.r != r && other.g != g && other.b != b;
 	}
-
-	static __forceinline Color32 FromVec3(const glm::vec3& vec)
-	{
-		return Color32(Min<uint8>(uint8(vec.x * 255.0f), 255),
-					   Min<uint8>(uint8(vec.y * 255.0f), 255),
-					   Min<uint8>(uint8(vec.z * 255.0f), 255), 255);
-	}
-	static __forceinline Color32 FromVec4(const glm::vec4& vec)
-	{
-		return Color32(Min<uint8>(uint8(vec.x * 255.0f), 255),
-				       Min<uint8>(uint8(vec.y * 255.0f), 255),
-				       Min<uint8>(uint8(vec.z * 255.0f), 255), 
-					   Min<uint8>(uint8(vec.w * 255.0f), 255));
-	}
 	/// <summary> be sure that all components of the vec is not higher than 1.0f !!!  faster version of FromVec3 </summary>
 	static __forceinline Color32 FromVec3LDR(const glm::vec3& vec)
 	{
@@ -515,19 +501,16 @@ struct Color32 {
 	{
 		return Color32(uint8(vec.x * 255.0f), uint8(vec.y * 255.0f), uint8(vec.z * 255.0f), uint8(vec.w * 255.0f));
 	}
-
 	static constexpr float OneDiv255 = 1.0f / 255.0f;
 	
 	__forceinline glm::vec3 ToVec3() const noexcept
 	{
 		return glm::vec3(float(r) * OneDiv255, float(g) * OneDiv255, float(b) * OneDiv255);
 	}
-
 	__forceinline glm::vec4 ToVec4() const noexcept
 	{
 		return glm::vec4(float(r) * OneDiv255, float(g) * OneDiv255, float(b) * OneDiv255, float(a) * OneDiv255);
 	}
-
 	static __forceinline Color32 Red()    { return Color32(255, 0, 0, 255); }
 	static __forceinline Color32 Green()  { return Color32(0, 255, 0, 255); }
 	static __forceinline Color32 Blue()   { return Color32(0, 0, 255, 255); }

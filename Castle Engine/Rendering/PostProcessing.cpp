@@ -3,6 +3,7 @@
 #include "../Editor/Editor.hpp"
 #include "../Engine.hpp"
 #include "../DirectxBackend.hpp"
+#include "FXAA.hpp"
 #include <GFSDK_SSAO.h>
 
 namespace PostProcessing
@@ -47,6 +48,8 @@ namespace PostProcessing
 	GFSDK_SSAO_Parameters SSAOParams {};
 	float SSAOMetersToViewSpaceUnits = 1.0f;
 	bool SSAOEnabled = true;
+	// fxaa
+	bool fxaaOpen = true;
 }
 
 Shader* PostProcessing::GetShader() { return postProcessShader; };
@@ -55,6 +58,7 @@ RenderTexture* PostProcessing::GetPostRenderTexture() { return postRenderTexture
 void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _DeviceContext, unsigned int MSAASamples)
 {
 	Device = _Device; DeviceContext = _DeviceContext;
+	FXAA::Initialize();
 
 	postProcessShader = new Shader("Shaders/PostProcessing.hlsl\0");
 	FragPrefilter13   = new Shader("Shaders/Bloom.hlsl", "Shaders/Bloom.hlsl", "VS", "FragPrefilter13");
@@ -121,6 +125,8 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 	RenderToQuadUpsample(upSampleRTS[2], FragUpsampleTent, upSampleRTS[3], downSampleRTS[2], 1 << 2);
 	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox, upSampleRTS[2], downSampleRTS[1], 1 << 1);
 	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1], downSampleRTS[0], 1 << 0);
+	
+	
 	// proceed Nvidia HBAO+
 	if (SSAOEnabled)
 	{
@@ -163,12 +169,17 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 	DeviceContext->PSSetSamplers(0, samplers.size(), samplers.data());
 
 	Renderer3D::RenderToQuad();
+	if (fxaaOpen)
+	{
+		FXAA::Proceed(*postRenderTexture);
+	}
 }
 
 void PostProcessing::RenderToQuad(RenderTexture* renderTexture, Shader* shader, RenderTexture* beforeTexture, int scale)
 {
 	RenderToQuad(renderTexture, shader, beforeTexture->textureView, beforeTexture->sampler, scale);
 }
+
 void PostProcessing::RenderToQuad(RenderTexture* renderTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler, int scale)
 {
 	shader->Bind();
@@ -232,6 +243,7 @@ void PostProcessing::OnEditor()
 
 		ImGui::Text("Bloom");
 		ImGui::DragFloat("Treshold", &treshold, 0.01f);
+		ImGui::Checkbox("Fxaa", &fxaaOpen);
 	}
 
 	if (ImGui::CollapsingHeader("SSAO"))

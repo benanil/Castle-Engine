@@ -1,12 +1,66 @@
-/* 
-* Copyright (c) 2008-2017, NVIDIA CORPORATION. All rights reserved. 
-* 
-* NVIDIA CORPORATION and its licensors retain all intellectual property 
-* and proprietary rights in and to this software, related documentation 
-* and any modifications thereto. Any use, reproduction, disclosure or 
-* distribution of this software and related documentation without an express 
-* license agreement from NVIDIA CORPORATION is strictly prohibited. 
+/*
+* Copyright (c) 2008-2017, NVIDIA CORPORATION. All rights reserved.
+*
+* NVIDIA CORPORATION and its licensors retain all intellectual property
+* and proprietary rights in and to this software, related documentation
+* and any modifications thereto. Any use, reproduction, disclosure or
+* distribution of this software and related documentation without an express
+* license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
+
+/*====================================================================================================
+-------------------------------------------------------------------------------------------
+                                           HBAO+
+-------------------------------------------------------------------------------------------
+
+HBAO+ is a SSAO algorithm designed to achieve high efficiency on DX11 GPUs.
+The algorithm is based on HBAO [Bavoil and Sainz 2008], with the following differences:
+
+(1.) To minimize cache trashing, HBAO+ does not use any randomization texture.
+Instead, the algorithm uses an Interleaved Rendering approach, generating the AO
+in multiple passes with a unique jitter value per pass [Bavoil and Jansen 2013].
+
+(2.) To avoid over-occlusion artifacts, HBAO+ uses a simpler AO approximation than HBAO,
+similar to "Scalable Ambient Obscurance" [McGuire et al. 2012] [Bukowski et al. 2012].
+
+(3.) To minimize flickering, the HBAO+ is always rendered in full resolution,
+from full-resolution depths.
+
+[Bavoil et al. 2008] "Image-Space Horizon-Based Ambient Occlusion"
+http://www.nvidia.com/object/siggraph-2008-HBAO.html
+
+[McGuire et al. 2012] "Scalable Ambient Obscurance"
+http://graphics.cs.williams.edu/papers/SAOHPG12/
+
+[Bukowski et al. 2012] "Scalable High-Quality Motion Blur and Ambient Occlusion"
+http://graphics.cs.williams.edu/papers/VVSIGGRAPH12/
+
+[Bavoil and Jansen 2013] "Particle Shadows & Cache-Efficient Post-Processing"
+https://developer.nvidia.com/gdc-2013
+
+-------------------------------------------------------------------------------------------
+                                           MSAA
+-------------------------------------------------------------------------------------------
+
+(1.) The input depth & normal textures are required to have matching dimensions and MSAA sample count.
+
+(2.) The output render target can have arbitrary dimensions and MSAA sample count.
+
+(3.) If the input textures are MSAA, only sample 0 is used to render the AO.
+
+(4.) If the output render target is MSAA, a per-pixel AO value is written to all samples.
+
+-------------------------------------------------------------------------------------------
+                                       PERFORMANCE
+-------------------------------------------------------------------------------------------
+
+In 1920x1080 1xAA, using HARDWARE_DEPTHS as input and BLUR_RADIUS_4, the RenderAO call takes
+up to 46 MB of video memory and 2.3 ms / frame on GeForce GTX 680.
+
+-------------------------------------------------------------------------------------------
+                                    INTEGRATION EXAMPLE
+-------------------------------------------------------------------------------------------
+====================================================================================================*/
 
 #pragma once
 #pragma pack(push,8) // Make sure we have consistent structure packings
@@ -52,6 +106,12 @@
    Forward declarations.
 ====================================================================================================*/
 
+typedef unsigned int GFSDK_SSAO_BOOL;
+typedef unsigned int GFSDK_SSAO_UINT;
+typedef float GFSDK_SSAO_FLOAT;
+typedef size_t GFSDK_SSAO_SIZE_T;
+typedef uint64_t GFSDK_SSAO_UINT64;
+
 struct ID3D11Device;
 struct ID3D11DeviceContext;
 struct ID3D11ShaderResourceView;
@@ -59,7 +119,6 @@ struct ID3D11BlendState;
 struct ID3D11DepthStencilState;
 struct ID3D11DepthStencilView;
 struct ID3D11RenderTargetView;
-
 
 /*====================================================================================================
    Build version.
@@ -164,37 +223,18 @@ enum GFSDK_SSAO_MatrixLayout
 
 enum GFSDK_SSAO_RenderMask
 {
-    GFSDK_SSAO_DRAW_Z                              = (1 << 0),  // Linearize the input depths
-    GFSDK_SSAO_DRAW_AO                             = (1 << 1),  // Render AO based on pre-linearized depths
-    GFSDK_SSAO_DRAW_DEBUG_N                        = (1 << 2),  // Render the internal view normals (for debugging)
-    GFSDK_SSAO_DRAW_DEBUG_X                        = (1 << 3),  // Render the X component as grayscale
-    GFSDK_SSAO_DRAW_DEBUG_Y                        = (1 << 4),  // Render the Y component as grayscale
-    GFSDK_SSAO_DRAW_DEBUG_Z                        = (1 << 5),  // Render the Z component as grayscale
-    GFSDK_SSAO_RENDER_AO                           = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_AO,
-    GFSDK_SSAO_RENDER_DEBUG_NORMAL                 = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N,
-    GFSDK_SSAO_RENDER_DEBUG_NORMAL_X               = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N | GFSDK_SSAO_DRAW_DEBUG_X,
-    GFSDK_SSAO_RENDER_DEBUG_NORMAL_Y               = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N | GFSDK_SSAO_DRAW_DEBUG_Y,
-    GFSDK_SSAO_RENDER_DEBUG_NORMAL_Z               = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N | GFSDK_SSAO_DRAW_DEBUG_Z,
+    GFSDK_SSAO_DRAW_Z = (1 << 0),  // Linearize the input depths
+    GFSDK_SSAO_DRAW_AO = (1 << 1),  // Render AO based on pre-linearized depths
+    GFSDK_SSAO_DRAW_DEBUG_N = (1 << 2),  // Render the internal view normals (for debugging)
+    GFSDK_SSAO_DRAW_DEBUG_X = (1 << 3),  // Render the X component as grayscale
+    GFSDK_SSAO_DRAW_DEBUG_Y = (1 << 4),  // Render the Y component as grayscale
+    GFSDK_SSAO_DRAW_DEBUG_Z = (1 << 5),  // Render the Z component as grayscale
+    GFSDK_SSAO_RENDER_AO = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_AO,
+    GFSDK_SSAO_RENDER_DEBUG_NORMAL = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N,
+    GFSDK_SSAO_RENDER_DEBUG_NORMAL_X = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N | GFSDK_SSAO_DRAW_DEBUG_X,
+    GFSDK_SSAO_RENDER_DEBUG_NORMAL_Y = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N | GFSDK_SSAO_DRAW_DEBUG_Y,
+    GFSDK_SSAO_RENDER_DEBUG_NORMAL_Z = GFSDK_SSAO_DRAW_Z | GFSDK_SSAO_DRAW_DEBUG_N | GFSDK_SSAO_DRAW_DEBUG_Z,
 };
-
-/*====================================================================================================
-   Input/output textures.
-====================================================================================================*/
-
-struct GFSDK_SSAO_ShaderResourceView_D3D12
-{
-    GFSDK_SSAO_ShaderResourceView_D3D12()
-        : pResource(NULL)
-        , GpuHandle(0)
-    {
-    }
-    ID3D12Resource*     pResource;
-    GFSDK_SSAO_UINT64   GpuHandle;
-};
-
-/*====================================================================================================
-   Input data.
-====================================================================================================*/
 
 //---------------------------------------------------------------------------------------------------
 // 4x4 Matrix.
@@ -293,34 +333,13 @@ struct GFSDK_SSAO_InputDepthData
 
 struct GFSDK_SSAO_InputDepthData_D3D11 : GFSDK_SSAO_InputDepthData
 {
-    ID3D11ShaderResourceView*       pFullResDepthTextureSRV;    // Full-resolution depth texture
+    ID3D11ShaderResourceView* pFullResDepthTextureSRV;    // Full-resolution depth texture
 
     GFSDK_SSAO_InputDepthData_D3D11()
         : pFullResDepthTextureSRV(NULL)
-     {
-     }
+    {
+    }
 };
-
-//---------------------------------------------------------------------------------------------------
-// [Optional] Input normal data.
-//
-// Requirements:
-//    * The normal texture is required to contain world-space normals in RGB.
-//    * The normal texture must have the same resolution and MSAA sample count as the input depth texture.
-//    * The view-space Y & Z axis are assumed to be pointing up & forward respectively (left-handed projection).
-//    * The WorldToView matrix is assumed to not contain any non-uniform scaling.
-//    * The WorldView matrix must have the following form:
-//       { M00, M01, M02, 0.f }
-//       { M10, M11, M12, 0.f }
-//       { M20, M21, M22, 0.f }
-//       { M30, M31, M32, M33 }
-//
-// Remarks:
-//    * The actual view-space normal used for the AO rendering is:
-//      N = normalize( mul( FetchedNormal.xyz * DecodeScale + DecodeBias, (float3x3)WorldToViewMatrix ) )
-//    * Using bent normals as input may result in false-occlusion (overdarkening) artifacts.
-//      Such artifacts may be alleviated by increasing the AO Bias parameter.
-//---------------------------------------------------------------------------------------------------
 
 struct GFSDK_SSAO_InputNormalData
 {
@@ -337,24 +356,14 @@ struct GFSDK_SSAO_InputNormalData
     }
 };
 
-struct GFSDK_SSAO_InputNormalData_D3D12 : GFSDK_SSAO_InputNormalData
-{
-    GFSDK_SSAO_ShaderResourceView_D3D12 FullResNormalTextureSRV;    // Full-resolution world-space normal texture
-};
-
 struct GFSDK_SSAO_InputNormalData_D3D11 : GFSDK_SSAO_InputNormalData
 {
-    ID3D11ShaderResourceView*   pFullResNormalTextureSRV;           // Full-resolution world-space normal texture
+    ID3D11ShaderResourceView* pFullResNormalTextureSRV;           // Full-resolution world-space normal texture
 
     GFSDK_SSAO_InputNormalData_D3D11()
         : pFullResNormalTextureSRV(NULL)
     {
     }
-};
-
-struct GFSDK_SSAO_InputNormalData_GL : GFSDK_SSAO_InputNormalData
-{
-    GFSDK_SSAO_Texture_GL       FullResNormalTexture;               // Full-resolution world-space normal texture
 };
 
 //---------------------------------------------------------------------------------------------------
@@ -367,15 +376,6 @@ struct GFSDK_SSAO_InputData_D3D11
     GFSDK_SSAO_InputNormalData_D3D11        NormalData;         // Optional GBuffer normals
 };
 
-/*====================================================================================================
-   Parameters.
-====================================================================================================*/
-
-//---------------------------------------------------------------------------------------------------
-// When enabled, the screen-space AO kernel radius is:
-// - inversely proportional to ViewDepth for ViewDepth > ForegroundViewDepth
-// - uniform in screen-space for ViewDepth <= ForegroundViewDepth
-//---------------------------------------------------------------------------------------------------
 struct GFSDK_SSAO_ForegroundAO
 {
     GFSDK_SSAO_BOOL Enable;                                     // Enabling this may have a small performance impact
@@ -431,7 +431,7 @@ struct GFSDK_SSAO_BlurSharpnessProfile
     GFSDK_SSAO_FLOAT                ForegroundViewDepth;            // Maximum view depth of the foreground depth range
     GFSDK_SSAO_FLOAT                BackgroundViewDepth;            // Minimum view depth of the background depth range
 
-    GFSDK_SSAO_BlurSharpnessProfile ()
+    GFSDK_SSAO_BlurSharpnessProfile()
         : Enable(false)
         , ForegroundSharpnessScale(4.f)
         , ForegroundViewDepth(0.f)
@@ -486,18 +486,10 @@ struct GFSDK_SSAO_Parameters
     }
 };
 
-/*====================================================================================================
-   Output.
-====================================================================================================*/
-
-//---------------------------------------------------------------------------------------------------
-// [Optional] Custom blend state.
-//---------------------------------------------------------------------------------------------------
-
 struct GFSDK_SSAO_CustomBlendState_D3D11
 {
-    ID3D11BlendState*               pBlendState;
-    const GFSDK_SSAO_FLOAT*         pBlendFactor;
+    ID3D11BlendState* pBlendState;
+    const GFSDK_SSAO_FLOAT* pBlendFactor;
 
     GFSDK_SSAO_CustomBlendState_D3D11()
         : pBlendState(NULL)
@@ -509,7 +501,6 @@ struct GFSDK_SSAO_CustomBlendState_D3D11
 //---------------------------------------------------------------------------------------------------
 // Compositing blend state.
 //---------------------------------------------------------------------------------------------------
-
 struct GFSDK_SSAO_BlendState_D3D11
 {
     GFSDK_SSAO_BlendMode                Mode;                   // OVERWRITE_RGB, MULTIPLY_RGB or CUSTOM_BLEND
@@ -521,24 +512,13 @@ struct GFSDK_SSAO_BlendState_D3D11
     }
 };
 
-struct GFSDK_SSAO_BlendState_GL
-{
-    GFSDK_SSAO_BlendMode                Mode;                   // OVERWRITE_RGB, MULTIPLY_RGB or CUSTOM_BLEND
-    GFSDK_SSAO_CustomBlendState_GL      CustomState;            // Relevant only if Mode is CUSTOM_BLEND
-
-    GFSDK_SSAO_BlendState_GL()
-        : Mode(GFSDK_SSAO_OVERWRITE_RGB)
-    {
-    }
-};
-
 //---------------------------------------------------------------------------------------------------
 // [Optional] Custom depth-stencil state.
 //---------------------------------------------------------------------------------------------------
 
 struct GFSDK_SSAO_CustomDepthStencilState_D3D11
 {
-    ID3D11DepthStencilState*        pDepthStencilState;
+    ID3D11DepthStencilState* pDepthStencilState;
     GFSDK_SSAO_UINT                 StencilRef;
 
     GFSDK_SSAO_CustomDepthStencilState_D3D11()
@@ -578,7 +558,7 @@ struct GFSDK_SSAO_BlendPass_D3D11
 struct GFSDK_SSAO_TwoPassBlend_D3D11
 {
     GFSDK_SSAO_BOOL                     Enable;                 // When enabled, overrides any other compositing state
-    ID3D11DepthStencilView*             pDepthStencilView;      // Used to mask the pixels in each of the 2 passses
+    ID3D11DepthStencilView* pDepthStencilView;      // Used to mask the pixels in each of the 2 passses
     GFSDK_SSAO_BlendPass_D3D11          FirstPass;              // Blend & depth-stencil state for the first compositing pass
     GFSDK_SSAO_BlendPass_D3D11          SecondPass;             // Blend & depth-stencil state for the second compositing pass
 
@@ -589,13 +569,9 @@ struct GFSDK_SSAO_TwoPassBlend_D3D11
     }
 };
 
-//---------------------------------------------------------------------------------------------------
-// Output render target & compositing state.
-//---------------------------------------------------------------------------------------------------
-
 struct GFSDK_SSAO_Output_D3D11
 {
-    ID3D11RenderTargetView*             pRenderTargetView;      // Output render target of RenderAO
+    ID3D11RenderTargetView* pRenderTargetView;      // Output render target of RenderAO
     GFSDK_SSAO_BlendState_D3D11         Blend;                  // Blend state used when writing the AO to pRenderTargetView
     GFSDK_SSAO_TwoPassBlend_D3D11       TwoPassBlend;           // Optional two-pass compositing using depth-stencil masking
 
@@ -604,10 +580,6 @@ struct GFSDK_SSAO_Output_D3D11
     {
     }
 };
-
-/*====================================================================================================
-  [Optional] Let the library allocate its memory on a custom heap.
-====================================================================================================*/
 
 struct GFSDK_SSAO_CustomHeap
 {
@@ -643,10 +615,10 @@ class GFSDK_SSAO_Context
 {
 public:
 
-//---------------------------------------------------------------------------------------------------
-// [Optional] Returns the amount of video memory allocated by the library, in bytes.
-//---------------------------------------------------------------------------------------------------
-virtual GFSDK_SSAO_UINT GetAllocatedVideoMemoryBytes() = 0;
+    //---------------------------------------------------------------------------------------------------
+    // [Optional] Returns the amount of video memory allocated by the library, in bytes.
+    //---------------------------------------------------------------------------------------------------
+    virtual GFSDK_SSAO_UINT GetAllocatedVideoMemoryBytes() = 0;
 
 }; //class GFSDK_SSAO_Context
 
@@ -753,6 +725,5 @@ GFSDK_SSAO_DECL(GFSDK_SSAO_Status, GFSDK_SSAO_CreateContext_D3D11,
     GFSDK_SSAO_Context_D3D11** ppContext,
     GFSDK_SSAO_CUSTOM_HEAP_ARGUMENT,
     GFSDK_SSAO_VERSION_ARGUMENT);
-
 
 #pragma pack(pop)

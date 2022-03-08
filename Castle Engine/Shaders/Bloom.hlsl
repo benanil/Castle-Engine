@@ -4,7 +4,7 @@
 struct PostProcessVertex
 {
 	float4 pos   : SV_POSITION;
-	float2 texCoord : TEXCOORD;
+	centroid noperspective float2 texCoord : TEXCOORD;
 };
 
 cbuffer ScreenSizeCB : register(b0)

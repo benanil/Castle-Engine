@@ -3,7 +3,7 @@
 struct PostProcessVertex
 {
 	float4 pos   : SV_POSITION;
-    noperspective float2 texCoord : TEXCOORD;
+	noperspective float2 texCoord : TEXCOORD;
 };
 
 Texture2D _texture     : register(t0);
@@ -60,9 +60,9 @@ float ColToneB(in float hdrMax, in float contrast, in float shoulder, in float m
 {
 	return
 		-((-pow(midIn, contrast) + (midOut * (pow(hdrMax, contrast * shoulder) * pow(midIn, contrast) -
-			pow(hdrMax, contrast) * pow(midIn, contrast * shoulder) * midOut)) /
-			(pow(hdrMax, contrast * shoulder) * midOut - pow(midIn, contrast * shoulder) * midOut)) /
-			(pow(midIn, contrast * shoulder) * midOut));
+		pow(hdrMax, contrast) * pow(midIn, contrast * shoulder) * midOut)) /
+		(pow(hdrMax, contrast * shoulder) * midOut - pow(midIn, contrast * shoulder) * midOut)) /
+		(pow(midIn, contrast * shoulder) * midOut));
 }
 
 // General tonemapping operator, build 'c' term.
@@ -201,8 +201,12 @@ float4 PS(PostProcessVertex i) : SV_Target
 		case 3: tonemapped = Reinhard(color);  			break;
 		case 4: tonemapped = DX11DSK(color);  			break;
 	}
+
+#define GAMMA 1.4f
+	tonemapped = pow(tonemapped, float3(1.0f,1.0f,1.0f) / float3(GAMMA,GAMMA,GAMMA));
+	//tonemapped = sqrt(tonemapped); // gamma 2.0
 	float3 ssao = ssaoTexture.Sample(textureSampler2, i.texCoord).xyz;
 	tonemapped *= ssao;
 	float4 bloom = bloomTexture.Sample(textureSampler1, i.texCoord);
-	return float4(tonemapped.x, tonemapped.y, tonemapped.z, 1) + bloom;
+	return float4(tonemapped.xyz, 1.0f) + bloom;
 }

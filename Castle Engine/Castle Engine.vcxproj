@@ -179,6 +179,7 @@
     <ClCompile Include="Editor\Gizmo.cpp" />
     <ClCompile Include="Editor\HierarchyWindow.cpp" />
     <ClCompile Include="Editor\ResourcesWindow.cpp" />
+    <ClCompile Include="Rendering\FXAA.cpp" />
     <ClCompile Include="Helper.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
     <ClCompile Include="ImGui\imgui_demo.cpp" />
@@ -220,6 +221,7 @@
     <ClInclude Include="Extern\SDL_stbimage.h" />
     <ClInclude Include="Extern\stb_image.h" />
     <ClInclude Include="FreeCamera.hpp" />
+    <ClInclude Include="Rendering\FXAA.hpp" />
     <ClInclude Include="Rendering\GrassGroup.hpp" />
     <ClInclude Include="Helper.hpp" />
     <ClInclude Include="Input.hpp" />
