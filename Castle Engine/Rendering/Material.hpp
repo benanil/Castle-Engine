@@ -55,8 +55,11 @@ public:
 #ifndef NEDITOR
 	void OnEditor()
 	{
-		if (ImGui::CollapsingHeader("Material"))
+		if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_Bullet))
 		{
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+			ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+
 			Editor::GUI::TextureField("albedo", albedo->resourceView);
 			Editor::GUI::TextureField("specular", specular->resourceView);
 			Editor::GUI::TextureField("normal", normal->resourceView);
@@ -64,6 +67,9 @@ public:
 			ImGui::DragFloat("shininess", &cbuffer.shininesss, 0.1f);
 			ImGui::DragFloat("roughness ", &cbuffer.roughness, 0.01f);
 			ImGui::DragFloat("metallic ", &cbuffer.metallic, 0.01f);
+			
+			ImGui::PopStyleColor();
+			ImGui::PopStyleVar();
 		}
 	}
 #endif

@@ -10,7 +10,8 @@ enum class RenderTextureCreateFlags
 	None   = 0,
 	Depth  = 1,
 	UAV    = 2,
-	Linear = 4
+	Linear = 4,
+	NoColor = 8
 };
 
 CS_CREATE_ENUM_OPERATORS(RenderTextureCreateFlags)
@@ -26,6 +27,7 @@ public:
 	};
 	
 	ID3D11ShaderResourceView* depthSRV;
+	
 	ID3D11RenderTargetView* renderTargetView;
 	ID3D11DepthStencilView* depthStencilView;
 	ID3D11Texture2D* depthStencilBuffer;
@@ -45,6 +47,9 @@ public:
 		RenderTextureCreateFlags flags = RenderTextureCreateFlags::Depth, DXGI_FORMAT format = DXGI_FORMAT_R16G16B16A16_FLOAT);
 	~RenderTexture() { Release(); }
 	void Invalidate(int _width, int _height);
+	void BindTexture(UINT slot);
+	void BindDepthTexture(UINT slot);
+	void BindDsvAndSetNullRenderTarget();
 	void Release();
 	void SetBlendState();
 	void SetAsRendererTarget();

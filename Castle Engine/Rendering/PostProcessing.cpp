@@ -5,6 +5,7 @@
 #include "../DirectxBackend.hpp"
 #include "FXAA.hpp"
 #include <GFSDK_SSAO.h>
+#include "Shadow.hpp"
 
 namespace PostProcessing
 {
@@ -39,8 +40,8 @@ namespace PostProcessing
 	std::array<RenderTexture*, 6> upSampleRTS; // rts = render textures
 
 	Shader* FragPrefilter13, * FragPrefilter4,
-		* FragDownsample13, * FragDownsample4,
-		* FragUpsampleTent, * FragUpsampleBox;
+		  * FragDownsample13, * FragDownsample4,
+		  * FragUpsampleTent, * FragUpsampleBox;
 
 	// ssao
 	GFSDK_SSAO_Context_D3D11* pAOContext;
@@ -126,7 +127,6 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox, upSampleRTS[2], downSampleRTS[1], 1 << 1);
 	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1], downSampleRTS[0], 1 << 0);
 	
-	
 	// proceed Nvidia HBAO+
 	if (SSAOEnabled)
 	{
@@ -150,6 +150,7 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 		static const float ClearColor[]{ 1.0f, 1.0f, 1.0f, 1.0f };
 		SSAORenderTexture->ClearRenderTarget(ClearColor);
 	}
+	
 #ifndef NEDITOR
 	postRenderTexture->SetAsRendererTarget();
 #else
@@ -169,8 +170,7 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 	DeviceContext->PSSetSamplers(0, samplers.size(), samplers.data());
 
 	Renderer3D::RenderToQuad();
-	if (fxaaOpen)
-	{
+	if (fxaaOpen) {
 		FXAA::Proceed(*postRenderTexture);
 	}
 }
@@ -234,27 +234,42 @@ void PostProcessing::WindowScaleEvent(const int& _width, const int& _height)
 void PostProcessing::OnEditor()
 {
 #ifndef NEDITOR
-	if (ImGui::CollapsingHeader("PostProcessing"))
+	if (ImGui::CollapsingHeader("PostProcessing", ImGuiTreeNodeFlags_Bullet))
 	{
 		static std::array<const char*, 5> PostModes = { "ACES", "AMD", "Uncharted", "Reinhard", "DX11DSK" };
-
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
 		if (Editor::GUI::EnumField(postCbuffer.mode, PostModes.data(), 5, "Modes")) PostModeChanged();
 		if (ImGui::DragFloat("Saturation", &postCbuffer.saturation, 0.001f)) PostModeChanged();
 
 		ImGui::Text("Bloom");
 		ImGui::DragFloat("Treshold", &treshold, 0.01f);
+		
 		ImGui::Checkbox("Fxaa", &fxaaOpen);
+
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
+
+		ImGui::Indent();
+
+		if (ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_Bullet))
+		{
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+			ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+
+			ImGui::Checkbox("Enabled", &SSAOEnabled);
+			ImGui::DragFloat("Radius", &SSAOParams.Radius, 0.05f);
+			ImGui::DragFloat("Bias", &SSAOParams.Bias, 0.05f);
+			ImGui::DragFloat("PowerExponent", &SSAOParams.PowerExponent, 0.05f, 0, 4);
+			ImGui::DragFloat("BlurSharpness", &SSAOParams.Blur.Sharpness, 0.05f, 0, 8);
+			ImGui::DragFloat("MetersToViewSpaceUnits", &SSAOMetersToViewSpaceUnits, 0.1f, 0, 10);
+		
+			ImGui::PopStyleColor();
+			ImGui::PopStyleVar();
+		}
+		ImGui::Unindent();
 	}
 
-	if (ImGui::CollapsingHeader("SSAO"))
-	{
-		ImGui::Checkbox("Enabled", &SSAOEnabled);
-		ImGui::DragFloat("Radius", &SSAOParams.Radius, 0.05f);
-		ImGui::DragFloat("Bias", &SSAOParams.Bias, 0.05f);
-		ImGui::DragFloat("PowerExponent", &SSAOParams.PowerExponent, 0.05f, 0, 4);
-		ImGui::DragFloat("BlurSharpness", &SSAOParams.Blur.Sharpness, 0.05f, 0, 8);
-		ImGui::DragFloat("MetersToViewSpaceUnits", &SSAOMetersToViewSpaceUnits, 0.1f, 0, 10);
-	}
 #endif // !NEDITOR
 }
 

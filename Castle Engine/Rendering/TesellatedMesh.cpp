@@ -75,14 +75,20 @@ void TesellatedMesh::Render(ID3D11DeviceContext* deviceContext, const XMMATRIX& 
 #ifndef NEDITOR
 void TesellatedMesh::OnEditor()
 {
-	if (ImGui::CollapsingHeader("Tesselation"))
+	if (ImGui::CollapsingHeader("Tesselation", ImGuiTreeNodeFlags_Bullet))
 	{
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+		
 		ImGui::DragFloat("TessellationAmount", &HS_Buff.tessellationAmount, 0.1f);
 		
 		ImGui::DragFloat("noiseScale",  &HS_Buff.noiseScale , 0.01f);
 		ImGui::DragFloat("bias"      ,  &HS_Buff.bias	    , 0.1f);
 		ImGui::DragFloat("SunAngle"  ,  &HS_Buff.sunAngle, 0.1f);
 		ImGui::DragFloat("noiseHeight", &HS_Buff.noiseHeight, 0.1f);
+		
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
 	}
 }
 #endif

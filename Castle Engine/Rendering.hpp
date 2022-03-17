@@ -107,6 +107,7 @@ inline void DXCreateConstantBuffer(ID3D11Device* device, ID3D11Buffer*& buffer, 
 	cbUniformDesc.Usage = D3D11_USAGE_DEFAULT;
 	cbUniformDesc.ByteWidth = sizeof(T);
 	cbUniformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbUniformDesc.CPUAccessFlags = 0;
 
 	DX_CREATE(D3D11_SUBRESOURCE_DATA, vinitData);
 	vinitData.pSysMem = initialData;

@@ -1,7 +1,6 @@
 cbuffer cbPerObject : register(b0)
 {
 	float4x4 MVP;
-	float4x4 Model;
 };
 
 cbuffer cbGlobal : register(b2)
@@ -20,6 +19,10 @@ struct VS_OUTPUT
 	float3 normal : NORMAL;
 	float3 vertexPos : TEXCOORD;
 };
+ 
+struct VS_Shadow_Output {
+	float4 Pos : SV_POSITION;
+};
 
 Texture2D terrainTexture : register(t0);
 SamplerState textureSampler : register(s0);
@@ -29,34 +32,33 @@ SamplerState grassSampler : register(s1);
 
 VS_OUTPUT VS(float4 Pos : POSITION, float4 normal : NORMAL)
 {
-	VS_OUTPUT o;
-	normal.w = 0;
+	VS_OUTPUT o; normal.w = 0;
 	o.Pos = mul(Pos, MVP);
 	o.normal = normal.xyz;//mul(normal, Model);
 	o.vertexPos = Pos.xyz;
 	return o;
 }
 
+VS_Shadow_Output VSShadow(float4 Pos : POSITION, float4 normal : NORMAL)
+{
+	VS_Shadow_Output o;
+	o.Pos = mul(Pos, MVP);
+	return o;
+}
+
+void PSShadow(VS_Shadow_Output i) { }
+
 float4 PS(VS_OUTPUT input) : SV_Target
 {
 	float4 result = float4(1, 1, 1, 1); 
 
-	if (input.vertexPos.y < -13)
-	{
-		// terrain level is low use dirt texture
-		result = terrainTexture.Sample(textureSampler, input.vertexPos.xz * (textureScale * 0.4f));	
-		// 
-		float ndl = max(dot(input.normal, float3(sin(0.2f), cos(0.2f), 0)), 0.16f);
-		result.xyz *= ndl;
+	if (input.vertexPos.y < -13) { // terrain level is low use dirt texture
+	result = terrainTexture.Sample(textureSampler, input.vertexPos.xz * (textureScale * 0.4f));	
 	}
-	else
-	{
-		// use grass texture
-		result = grassTexture.Sample(grassSampler, input.vertexPos.xz * (textureScale * 0.1f));	
-		// 
-		float ndl = max(dot(input.normal, float3(sin(0.2f), cos(0.2f), 0)), 0.16f);
-		result.xyz *= ndl;	
+	else { // use grass texture
+	result = grassTexture.Sample(grassSampler, input.vertexPos.xz * (textureScale * 0.1f));	
 	}
-	
+	float ndl = max(dot(input.normal, float3(sin(0.2f), cos(0.2f), 0)), 0.16f);
+	result.xyz *= ndl;
 	return  result;
 }

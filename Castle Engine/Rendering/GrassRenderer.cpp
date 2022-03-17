@@ -33,11 +33,17 @@ namespace GrassRenderer
 #ifndef NEDITOR
 void GrassRenderer::OnEditor()
 {
-	if (ImGui::CollapsingHeader("Grass Renderer"))
+	if (ImGui::CollapsingHeader("Grass Renderer", ImGuiTreeNodeFlags_Bullet))
 	{
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+
 		ImGui::ColorEdit3("Color", &cbufferData.color.x);
 		ImGui::DragFloat3("Wind Direction", &cbufferData.windDir.x);
 		ImGui::DragFloat("Wind Speed", &cbufferData.windSpeed);
+		
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
 	}
 }
 #endif

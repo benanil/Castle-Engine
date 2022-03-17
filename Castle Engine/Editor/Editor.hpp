@@ -10,6 +10,7 @@
 #include <functional>
 #include "../Rendering.hpp"
 #include "../Main/Event.hpp"
+#include "FontAwesome4.hpp"
 #include <filesystem>
 
 typedef void(*FileCallback)(const char* ptr);
@@ -25,7 +26,9 @@ namespace Editor
 	void Render();
 	void Clear();
 	void DarkTheme();
-
+	void PushIconFont();
+	void PushLiberationSansFont();
+	
 	constexpr float filesize = 35;
 	constexpr float miniSize = 12.5f;
 

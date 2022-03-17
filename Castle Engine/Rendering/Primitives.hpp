@@ -6,16 +6,20 @@
 #include <stdexcept>
 #include "LineDrawer.hpp"
 #include "../Math.hpp"
+#include "assimp/scene.h"
 
-struct cbGlobal
-{
+#ifndef CB_GlobalDefined
+# define CB_GlobalDefined
+  struct cbGlobal
+  {
 	float sunAngle;
 	glm::vec3 ambientColor;  // 16
 	glm::vec3 sunColor;      
 	float additionalData;      // 32
 	glm::vec3 viewPos;
 	float ambientStength; // 48
-};
+  };
+#endif
 
 struct cbPerObject
 {

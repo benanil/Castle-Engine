@@ -31,7 +31,7 @@ namespace Editor::ResourcesWindow
 	{
 		ImGui::Begin("Resources");
 
-		if (GUI::ImageButton(fileBack, miniSize))
+		if (ImGui::Button(ICON_FA_ARROW_LEFT))
 		{
 			currentPath = currentPath.parent_path();
 		}

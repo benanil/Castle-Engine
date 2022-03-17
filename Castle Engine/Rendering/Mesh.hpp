@@ -7,11 +7,17 @@
 #include <utility>
 #include <vector>
 #include <cstdint>
+#include <chrono>
+#include <iostream>
+#include <bitset>
 #include "../Math.hpp"
 #include "../Rendering.hpp"
 #include "../ECS/ECS.hpp"
+#include "../Timer.hpp"
+#include "../Transform.hpp"
 #include "Renderer3D.hpp"
 #include "Texture.hpp"
+#include "Shadow.hpp"
 
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
@@ -21,12 +27,6 @@
 #include "Material.hpp"
 #include "Primitives.hpp"
 
-#include <chrono>
-#include <iostream>
-#include "../Timer.hpp"
-#include <bitset>
-#include "../Transform.hpp"
-
 #define MAXIMUM_MESH 1024
 
 typedef std::bitset<MAXIMUM_MESH> CullingBitset;
@@ -35,7 +35,6 @@ struct DrawResult {
 	int CulledMeshCount = 0;
 	double milisecond = 0;
 };
-
 
 class MeshRenderer : ECS::Component
 {
@@ -55,16 +54,17 @@ public:
 	void OnEditor()
 	{
 		static int pushID = 0;
+		ImGui::Indent();
 		for (uint16_t i = 0; i < materials.size(); ++i)
 		{
 			ImGui::PushID(pushID++);
 			materials[i]->OnEditor();
 			ImGui::PopID();
 		}
+		ImGui::Unindent();
 		pushID = 0;
 	}
 #endif
-
 	
 	void CalculateCullingBitset(CullingBitset& bitset, uint32_t& startIndex, CMath::AABBCullData& cullData) const
 	{
@@ -83,11 +83,21 @@ public:
 	{
 		// LineDrawer::SetMatrix(entity->transform->GetMatrix());
 		Renderer3D::SetModelMatrix(entity->transform->GetMatrix());
+		// bind & update LightViewMatrix
+		Shadow::SetShadowMatrix(entity->transform->GetMatrix(), 3);  
 
 		for (uint16_t i = 0; i < subMeshCount; ++i)
 		{
 			if (cullData[startIndex++]) continue;
 			materials[std::min<uint16_t>(subMeshes[i].materialIndex, materials.size() - 1)]->Bind();
+			subMeshes[i].Draw(deviceContext);
+		}
+	}
+
+	void RenderForShadows(DXDeviceContext* deviceContext)
+	{
+		Shadow::SetShadowMatrix(entity->transform->GetMatrix(), 0);
+		for (uint16_t i = 0; i < subMeshCount; ++i) {
 			subMeshes[i].Draw(deviceContext);
 		}
 	}

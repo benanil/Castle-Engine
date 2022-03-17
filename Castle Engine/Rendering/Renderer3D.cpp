@@ -18,6 +18,7 @@
 #include "LineDrawer.hpp"
 #include "Line2D.hpp"
 #include "GFSDK_SSAO.h"
+#include "Shadow.hpp"
 
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
@@ -30,7 +31,8 @@ namespace Renderer3D
 	// post processing
 	DXInputLayout* quadVertLayout;
 	DXBuffer* ScreenSizeCB;
-	
+	ID3D11Buffer* MVP_Cbuffer;
+
 	std::vector<MeshRenderer*> meshRenderers;
 
 	DrawIndexedInfo drawInfo;
@@ -50,6 +52,7 @@ namespace Renderer3D
 	FreeCamera* freeCamera;
 
 	std::future<CullingBitset> cullingThread;
+	FrustumBitset terrainCullBitset;
 
 	bool Vsync = true;
 	int culledMeshCount = 0;
@@ -61,50 +64,67 @@ namespace Renderer3D
 	void CreateBuffers();
 	CullingBitset CalculateCulls();
 }
-
+// getters
+cbGlobal& Renderer3D::GetGlobalCbuffer() { return cbGlobalData; }
 RenderTexture* Renderer3D::GetPostRenderTexture() { return PostProcessing::GetPostRenderTexture(); }
+FreeCamera* Renderer3D::GetCamera() { return freeCamera; };
+
+// do not send matrix transposed!
+void Renderer3D::SetMVP(const XMMATRIX& model, const XMMATRIX& viewProjection)
+{
+	XMMATRIX mvp = XMMatrixTranspose(model * viewProjection);
+	DeviceContext->UpdateSubresource(MVP_Cbuffer, 0, NULL, &mvp, 0, 0);
+	DeviceContext->VSSetConstantBuffers(0, 1, &MVP_Cbuffer);
+}
+
+// do not send matrix transposed!
+void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
+{
+	cbPerObj.MVP = XMMatrixTranspose(matrix * freeCamera->GetViewProjection());
+	cbPerObj.Model = XMMatrixTranspose(matrix);
+	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
+	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
+}
+
+// screen space quad for post processing and other stuff
+void Renderer3D::RenderToQuad() {
+	DeviceContext->IASetInputLayout(nullptr);
+	DeviceContext->IASetIndexBuffer(nullptr, (DXGI_FORMAT)0, 0);
+	DeviceContext->IASetInputLayout(nullptr);
+	DeviceContext->IASetVertexBuffers(0, 0, nullptr, nullptr, nullptr);
+	DeviceContext->Draw(3, 0);
+}
 
 void Renderer3D::AddMeshRenderer(MeshRenderer* meshRenderer)
 {
 	meshRenderers.push_back(meshRenderer);
 }
 
-void Renderer3D::RenderMeshes()
-{
-	if(!cullingThread.valid()) return;
-
-	cullingThread.wait();
-	CullingBitset cullResult = cullingThread.get();
-	culledMeshCount = cullResult.count();
-	uint32_t startIndex = 0;
-
-	for (auto& renderer : meshRenderers) {
-		renderer->Draw(DeviceContext, cullResult, startIndex);
-	}
-}
-
 void Renderer3D::Initialize(FreeCamera* camera)
 {
 	Device = DirectxBackend::GetDevice(); DeviceContext = DirectxBackend::GetDeviceContext();
 	freeCamera = camera; MSAASamples = DirectxBackend::GetMSAASamples();
-	
+
+	DXCreateConstantBuffer<XMMATRIX>(DirectxBackend::GetDevice(), MVP_Cbuffer, nullptr);
+
 	GFSDK_SSAO_CustomHeap CustomHeap;
 	CustomHeap.new_ = ::operator new;
 	CustomHeap.delete_ = ::operator delete;
 
-	GFSDK_SSAO_Status status;
-	status = GFSDK_SSAO_CreateContext_D3D11(Device, &pAOContext, &CustomHeap);
-	std::cout << status;
- 
+	if (GFSDK_SSAO_CreateContext_D3D11(Device, &pAOContext, &CustomHeap) != GFSDK_SSAO_OK) {
+		throw std::exception("ssao creation failed!");
+	}
 	PostProcessing::Initialize(Device, DeviceContext, MSAASamples);
-	LineDrawer::Initialize();
 	LineDrawer2D::Initialize(freeCamera);
-
 	GrassRenderer::Initialize(Device, DeviceContext);
+	LineDrawer::Initialize();
+	Shadow::Initialize();
 	CreateBuffers();
 
 	PBRshader = new Shader("Shaders/First.hlsl\0");
 	PBRshader->Bind();
+
+	Renderer3D::RenderToQuad();
 
 	//Create the Input Layout & Set the Input Layout
 	D3D11_INPUT_ELEMENT_DESC pbrLayoutInfos[] =
@@ -177,6 +197,7 @@ void Renderer3D::CreateBuffers()
 	
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+
 #ifndef NEDITOR
 	Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
 
@@ -192,48 +213,6 @@ void Renderer3D::CreateBuffers()
 #endif
 }
 
-#ifndef NEDITOR
-void Renderer3D::OnEditor()
-{
-	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
-	
-	ImGui::Text(("CulledMeshCount: " + std::to_string(culledMeshCount)).c_str());
-
-	if (ImGui::CollapsingHeader("Lighting"))
-	{
-		ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
-		ImGui::ColorEdit4("sun Color", &cbGlobalData.sunColor.x);
-		ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle);
-		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
-	}
-
-	PostProcessing::OnEditor();
-	GrassRenderer::OnEditor();
-
-	tessMesh->OnEditor();
-}
-#endif
-
-// screen space quad for post processing and other stuff
-void Renderer3D::RenderToQuad() {
-	DeviceContext->IASetInputLayout(nullptr);
-	DeviceContext->IASetIndexBuffer(nullptr, (DXGI_FORMAT)0, 0);
-	DeviceContext->IASetInputLayout(nullptr);
-	DeviceContext->IASetVertexBuffers(0, 0, nullptr, nullptr, nullptr);
-
-	DeviceContext->Draw(3, 0);
-}
-
-// do not send matrix transposed!
-void Renderer3D::SetModelMatrix(const XMMATRIX& matrix)
-{
-	const auto MVP = matrix * freeCamera->GetViewProjection();
-	cbPerObj.MVP = XMMatrixTranspose(MVP);
-	cbPerObj.Model = XMMatrixTranspose(matrix);
-	DeviceContext->UpdateSubresource(constantBuffer, 0, NULL, &cbPerObj, 0, 0);
-	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
-}
-
 void Renderer3D::DrawTerrain()
 {
 	Terrain::BindShader();
@@ -244,14 +223,46 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
 
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
-	FrustumBitset frustumResult = Terrain::Draw(*freeCamera);
+	terrainCullBitset = Terrain::Draw(*freeCamera);
 	
 	// 600k grass in 0.07 seconds depends on sea level framerate can increase %20
 	GrassRenderer::SetShader(freeCamera->GetViewProjection());
-	Terrain::DrawGrasses(*freeCamera, frustumResult);
+	Terrain::DrawGrasses(terrainCullBitset);
 	GrassRenderer::EndRender();
 
 	DeviceContext->RSSetState(rasterizerState);
+}
+
+void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
+{
+	if(!cullingThread.valid()) return;
+
+	// todo: orthographic frustum culling for shadowmap. it will improve performance a lot
+	// render shadowmap
+	Shadow::BeginRenderShadowmap();
+	DeviceContext->IASetInputLayout(PBRVertLayout);
+
+	for (auto& renderer : meshRenderers) {
+		renderer->RenderForShadows(DeviceContext);
+	}
+
+	Shadow::EndRenderShadowmap(viewPort);
+
+	// get MeshCull data from async thread
+	cullingThread.wait();
+	CullingBitset PBR_MeshCullBitset = cullingThread.get();
+	
+	// render pbr scene 
+	PBRshader->Bind(); 
+	renderTexture->SetAsRendererTarget();
+	Shadow::BindShadowTexture(3);
+	DeviceContext->IASetInputLayout(PBRVertLayout);
+	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+
+	uint32_t cullStartIndex = 0;
+	for (auto& renderer : meshRenderers) {
+		renderer->Draw(DeviceContext, PBR_MeshCullBitset, cullStartIndex);
+	}
 }
 
 void Renderer3D::DrawScene()
@@ -285,7 +296,7 @@ void Renderer3D::DrawScene()
 	renderTexture->SetAsRendererTarget();
 
 	DeviceContext->RSSetState(rasterizerState);
-	Renderer3D::RenderMeshes();
+	Renderer3D::RenderMeshes(&viewPort);
 
 	DeviceContext->RSSetState(WireframeRasterizerState);
 	// SetModelMatrix(XMMatrixTranslation(-000, 0, -000) * XMMatrixScaling(7, 7, 7));
@@ -351,4 +362,33 @@ CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum cullin
 void Renderer3D::Dispose()
 {
 	PostProcessing::Dispose();
+	Shadow::Dispose();
 }
+
+#ifndef NEDITOR
+void Renderer3D::OnEditor()
+{
+	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
+
+	ImGui::Text(("CulledMeshCount: " + std::to_string(culledMeshCount)).c_str());
+
+	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_Bullet))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+
+		ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
+		ImGui::ColorEdit4("sun Color", &cbGlobalData.sunColor.x);
+		if(ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle)) Shadow::UpdateShadows();
+		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
+
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
+	}
+
+	PostProcessing::OnEditor();
+	GrassRenderer::OnEditor();
+
+	tessMesh->OnEditor();
+}
+#endif

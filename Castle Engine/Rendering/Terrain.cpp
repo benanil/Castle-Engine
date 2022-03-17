@@ -9,7 +9,9 @@
 
 #include <cassert>
 #include <algorithm>
+#include <limits>
 #include <chrono>
+#include <omp.h> // OpenMP for paralelization
 
 #include "spdlog/spdlog.h"
 #include "FastSIMD/FastSIMD.h"
@@ -21,8 +23,6 @@
 #include "LineDrawer.hpp"
 #include "../ECS/ECS.hpp"
 #include "../Timer.hpp"
-#include <limits>
-#include <omp.h>
 
 using namespace CS; // for compute shader
 using namespace CMath;
@@ -42,6 +42,7 @@ namespace Terrain
 	DXDeviceContext* d3d11DevCon;
 	DXInputLayout* inputLayout;
 	Shader* shader;
+	Shader* shadowShader;
 
 	Texture* grassTexture;
 	Texture* dirtTexture;
@@ -81,6 +82,7 @@ float Terrain::GetTextureScale() { return textureScale; }
 void Terrain::Initialize()
 {
 	shader = new Shader("Shaders/Terrain.hlsl\0");
+	shadowShader = new Shader("Shaders/Terrain.hlsl\0", "Shaders/Terrain.hlsl\0", "VSShadow\0", "PSShadow\0");
 	grassTexture = new Texture("Textures/grass_seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
 	dirtTexture = new Texture("Textures/dirt_texture.png", D3D11_TEXTURE_ADDRESS_MIRROR);
 	computeShader = new ComputeShader("Shaders/RandMeshPoints.hlsl", "CS", 64, 1);
@@ -247,11 +249,8 @@ void Terrain::Create()
 }
 
 // FrustumBitset std::bitset<128> is 16 byte
-void Terrain::DrawGrasses(const FreeCamera& camera, const FrustumBitset& frustumSet)
+void Terrain::DrawGrasses( const FrustumBitset& frustumSet)
 {
-	const glm::vec3& cameraPos = camera.transform.GetPosition();
-	glm::vec3 camForward = glm::cross(camera.transform.GetRight(), glm::vec3(0.0f, 1.0f, 0.0f));
-
 	for (int i = 0; i < grassGroups.size(); ++i)
 	{
 		if (!frustumSet[i]) continue;
@@ -288,8 +287,11 @@ FrustumBitset Terrain::Draw(const FreeCamera& camera)
 #ifndef NEDITOR
 void Terrain::OnEditor()
 {
-	if (ImGui::CollapsingHeader("Terrain")) 
+	if (ImGui::CollapsingHeader("Terrain", ImGuiTreeNodeFlags_Bullet)) 
 	{
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+		
 		ImGui::DragFloat("Scale", &scale, 1.0f);
 		ImGui::DragFloat("Texture Scale", &textureScale, 0.001f);
 		ImGui::DragFloat("Noise Scale", &noiseScale, 0.25f);
@@ -305,6 +307,9 @@ void Terrain::OnEditor()
 		{
 			Create();
 		}
+
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
 	}
 }
 #endif

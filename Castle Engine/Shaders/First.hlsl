@@ -22,6 +22,11 @@ cbuffer cbGlobal : register(b2)
 	float ambientStength; // 48
 };
 
+cbuffer cbLightMatrix : register(b3)
+{
+	float4x4 LightSpaceMatrix;
+};
+
 struct VS_OUTPUT
 {
 	float4 Pos      : SV_POSITION;
@@ -29,15 +34,18 @@ struct VS_OUTPUT
 	float3 normal   : NORMAL;
 	float3 tangent  : TANGENT;
 	float3 fragPos  : TEXCOORD1;
+	float4 lightSpaceFrag : TEXCOORD2;
 };
 
 Texture2D ObjTexture      : register(t0);
 Texture2D SpecularTexture : register(t1);
 Texture2D NormalTexture   : register(t2);
+Texture2D ShadowTexture   : register(t3);
 
 SamplerState ObjSamplerState : register(s0);
 SamplerState SpecularSampler : register(s1);
 SamplerState NormalSampler   : register(s2);
+SamplerState ShadowSampler   : register(s3);
 
 VS_OUTPUT VS(float4 inPos : POSITION, float2 inTexCoord : TEXCOORD, float4 inNormal : NORMAL, float4 inTangent : TANGENT)
 {
@@ -49,6 +57,7 @@ VS_OUTPUT VS(float4 inPos : POSITION, float2 inTexCoord : TEXCOORD, float4 inNor
 	output.TexCoord = inTexCoord;
 	output.tangent = mul(inTangent, Model).xyz;
 	output.fragPos = mul(inPos, Model).xyz;
+	output.lightSpaceFrag = mul(inPos, LightSpaceMatrix);
 	return output;
 }
 
@@ -121,17 +130,16 @@ float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float3 specTe
 	float lightFactor = diffuseFactor * (max(500 - lightDist, 0) / 500);
 	float3 firstLight = float3(0.5, 0.3, 0.25) * lightFactor;
 	float3 viewDirection = normalize(fragPos - viewPos);
-	
+
 	// float3 specular = firstLight * pow(max(0, dot(reflect(direction, normal), viewDirection)), 0.2) * specTex * 0.33;
-	float3 specular = firstLight * pow(saturate(dot(normalize(direction + viewDirection), normal)), 0.2) * specTex*0.5;
-	
+	float3 specular = firstLight * pow(saturate(dot(normalize(direction + viewDirection), normal)), 0.2) * specTex * 0.5;
 	return firstLight + specular * 3; // + secondLight * 10;
 }
 
 float3 CalculateNormalMap(in float3 normalMapSample,
 	in float3 unitNormalW,
-	in float3 tangentW)
-{
+	in float3 tangentW) 
+{   
 	// Uncompress each component from [0,1] to [-1,1].
 	float3 normalT = 2.0f * normalMapSample - 1.0f;
 	// Build orthonormal basis.
@@ -142,6 +150,22 @@ float3 CalculateNormalMap(in float3 normalMapSample,
 	// Transform from tangent space to world space.
 	float3 bumpedNormalW = mul(normalT, TBN);
 	return bumpedNormalW;
+}
+float ShadowCalculation(float4 lpos)
+{
+	// lpos.xyz /= 1.0f;
+	//re-homogenize position after interpolation
+	//if position is not visible to the light - dont illuminate it
+	if( lpos.x < -1.0f || lpos.x > 1.0f ||
+		lpos.y < -1.0f || lpos.y > 1.0f ||
+		lpos.z < 0.0f  || lpos.z > 1.0f ) return 1;
+	//transform clip space coords to texture space coords (-1:1 to 0:1)
+	lpos.x =  lpos.x *  0.5f + 0.5;
+	lpos.y =  lpos.y *  -0.5f + 0.5;
+	//sample shadow map - point sampler
+	float shadowMapDepth = ShadowTexture.Sample(ShadowSampler, lpos.xy).r;
+	//if clip space z value greater than shadow map value then pixel is in shadow
+	return shadowMapDepth < lpos.z ? 0.3f : 1.0f;
 }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET
@@ -176,6 +200,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 	result.xyz = albedo.xyz * (ndl * sunColor) + specular + ambient;
 
 	result.xyz += CalculatePointLight(normal, input.fragPos, specularTex.xyz, time);
+	result.xyz *= ShadowCalculation(input.lightSpaceFrag);
 
 	return result;
 }

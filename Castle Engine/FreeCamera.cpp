@@ -14,6 +14,9 @@ using namespace CMath;
 #ifndef NEDITOR
 void FreeCamera::EditorUpdate()
 {
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+	ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+
 	ImGui::DragFloat("Speed", &speed);
 	ImGui::DragFloat("senstivity", &senstivity);
 	ImGui::DragFloat("pitch", &pitch);
@@ -21,6 +24,9 @@ void FreeCamera::EditorUpdate()
 	if (ImGui::DragFloat("fov", &fov, 0.01f, 0.1f, 3.0f)) UpdateProjection();
 	ImGui::SameLine();
 	ImGui::Text(std::to_string(fov * DX_RAD_TO_DEG).c_str());
+	
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar();
 }
 #endif
 
@@ -110,7 +116,6 @@ void FreeCamera::Update()
 	transform.UpdateTransform();
 
 	SetMatrix();
-	XMMATRIX comboMatrix = XMMatrixTranspose(XMMatrixIdentity() * ViewProjection);
 }
 
 void FreeCamera::SetMatrix()

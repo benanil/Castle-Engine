@@ -16,7 +16,7 @@ namespace ECS
 	void Entity::UpdateEditor() 
 	{
 		ImGui::TextColored(HEADER_COLOR, name.c_str());
-		if (ImGui::CollapsingHeader("Transform"))
+		if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_Bullet))
 		{
 			transform->OnEditor();
 		}
@@ -25,7 +25,7 @@ namespace ECS
 		for (auto& comp : components)
 		{
 			ImGui::PushID(PushID++);
-			if (ImGui::CollapsingHeader(comp->name.c_str()))
+			if (ImGui::CollapsingHeader(comp->name.c_str(), ImGuiTreeNodeFlags_Bullet))
 			{
 				comp->OnEditor();
 			}

@@ -1,6 +1,7 @@
 
 #include "Transform.hpp"
 #include "Math.hpp"
+#include "Rendering/Shadow.hpp"
 #ifndef NEDITOR
 #	include "Editor/Editor.hpp"
 #endif
@@ -12,10 +13,16 @@ namespace ECS
 #ifndef NEDITOR
 	void Transform::OnEditor()
 	{
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
+		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
+
 		ImGui::TextColored(HEADER_COLOR, "Transform");
-		if (ImGui::DragFloat3("Position"    , glm::value_ptr(position)   , 0.1f )) UpdateTransform();
-		if (ImGui::DragFloat3("Euler Angles", glm::value_ptr(eulerDegree), 0.1f )) SetEulerDegree(eulerDegree, true); 
-		if (ImGui::DragFloat3("Scale"       , glm::value_ptr(scale)      , 0.01f)) UpdateTransform();
+		if (ImGui::DragFloat3("Position"    , glm::value_ptr(position)   , 0.1f)) { UpdateTransform(); Shadow::UpdateShadows();  }
+		if (ImGui::DragFloat3("Euler Angles", glm::value_ptr(eulerDegree), 0.1f )) { SetEulerDegree(eulerDegree, true); Shadow::UpdateShadows();}
+		if (ImGui::DragFloat3("Scale"       , glm::value_ptr(scale)      , 0.01f)) { UpdateTransform(); Shadow::UpdateShadows();}
+		
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
 	}
 #endif
 	void Transform::UpdateTransform()

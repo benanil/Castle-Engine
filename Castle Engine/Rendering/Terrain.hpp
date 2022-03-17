@@ -1,10 +1,11 @@
 #pragma once
 #include "../Rendering.hpp"
 #include "../DirectxBackend.hpp"
-#include "Shader.hpp"
 #include "../Math.hpp"
 #include "../FreeCamera.hpp"
 #include <bitset>
+
+#include "Shader.hpp"
 
 typedef std::bitset<128> FrustumBitset;
 
@@ -56,7 +57,7 @@ namespace Terrain
 
 	/// <returns> frustum culling bitset for chunks culled or not <returns/>
 	FrustumBitset Draw(const FreeCamera& camera);
-	void DrawGrasses(const FreeCamera& camera, const FrustumBitset& frustumSet);
+	void DrawGrasses(const FrustumBitset& frustumSet);
 	void Dispose();
 	void OnEditor();
 

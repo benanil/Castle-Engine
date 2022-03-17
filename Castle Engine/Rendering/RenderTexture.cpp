@@ -1,3 +1,4 @@
+
 #include "RenderTexture.hpp"
 #include "../Engine.hpp"
 #include "../DirectxBackend.hpp"
@@ -34,6 +35,28 @@ void RenderTexture::SetAsRendererTarget()
 	SetBlendState();
 }
 
+void RenderTexture::BindTexture(UINT slot)
+{
+	deviceContext->PSSetShaderResources(slot, 1, &srv);
+	deviceContext->PSSetSamplers(slot, 1, &sampler);
+}
+
+void RenderTexture::BindDepthTexture(UINT slot)
+{
+	deviceContext->PSSetShaderResources(slot, 1, &depthSRV);
+	deviceContext->PSSetSamplers(slot, 1, &sampler);
+}
+
+void RenderTexture::BindDsvAndSetNullRenderTarget()
+{
+	// Set null render target because we are only going to draw
+	// to depth buffer. Setting a null render target will disable
+	// color writes.
+	ID3D11RenderTargetView* renderTargets[1] = {0};
+	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView);
+	deviceContext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+}
+
 void RenderTexture::ClearRenderTarget(const float* colour) 
 {
 	// Clear the back buffer.
@@ -54,59 +77,63 @@ void RenderTexture::Invalidate(int _width, int _height)
 	width = std::max(_width, 1);
 	height = std::max(_height, 1);
 	Release();
-
-	DX_CREATE(D3D11_TEXTURE2D_DESC, textureDesc)
-	
-	textureDesc.Width = width;
-	textureDesc.Height = height;
-	textureDesc.MipLevels = 1;
-	textureDesc.ArraySize = 1;
-	textureDesc.Format = format;
-	textureDesc.SampleDesc.Count = std::max(sampleCount, 1u);
-	textureDesc.SampleDesc.Quality = sampleCount;
-	textureDesc.Usage = D3D11_USAGE_DEFAULT;
-	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-	textureDesc.CPUAccessFlags = 0;
-	textureDesc.MiscFlags = 0;
-	
-	if (HasFlag(flags, RenderTextureCreateFlags::UAV)){
-		textureDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
-	} 
-
-	DX_CHECK(
-	device->CreateTexture2D(&textureDesc, NULL, &texture), "render texture creation failed!" );
-
-	DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
 	
 	bool isLinear = HasFlag(flags, RenderTextureCreateFlags::Linear);
 	D3D11_FILTER filterMode = isLinear ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_LINEAR_MAG_MIP_POINT;
-	
-	sampDesc.Filter = filterMode;
-	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-	sampDesc.MinLOD = 0;
-	sampDesc.MaxLOD = isLinear ? D3D11_FLOAT32_MAX : 1;
-	device->CreateSamplerState( &sampDesc, &sampler);
-	
 	D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc{};
-	renderTargetViewDesc.Format = textureDesc.Format;
-	renderTargetViewDesc.ViewDimension = sampleCount > 1 ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
-
-	renderTargetViewDesc.Texture2D.MipSlice = 0;
-	
-	DX_CHECK(
-	device->CreateRenderTargetView(texture, &renderTargetViewDesc, &renderTargetView), "render target view generation failed!");
-	
 	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResViewDesc{};
-	shaderResViewDesc.Format = textureDesc.Format;
-	shaderResViewDesc.ViewDimension = sampleCount > 1 ? D3D11_SRV_DIMENSION_TEXTURE2DMS : D3D11_SRV_DIMENSION_TEXTURE2D;
 	shaderResViewDesc.Texture2D.MostDetailedMip = 0;
 	shaderResViewDesc.Texture2D.MipLevels = 1;
+
+	DX_CREATE(D3D11_TEXTURE2D_DESC, textureDesc);
+
+	// create sampler
+	if (!sampler)
+	{
+		DX_CREATE(D3D11_SAMPLER_DESC, sampDesc);
+		sampDesc.Filter = filterMode;
+		sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+		sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+		sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+		sampDesc.MinLOD = 0;
+		sampDesc.MaxLOD = isLinear ? D3D11_FLOAT32_MAX : 1;
+		device->CreateSamplerState(&sampDesc, &sampler);
+	}
 	
-	DX_CHECK(
-	device->CreateShaderResourceView(texture, &shaderResViewDesc, &textureView), "render target view creation failed!");
+	if (!HasFlag(flags, RenderTextureCreateFlags::NoColor))
+	{
+		textureDesc.Width = width;
+		textureDesc.Height = height;
+		textureDesc.MipLevels = 1;
+		textureDesc.ArraySize = 1;
+		textureDesc.Format = format;
+		textureDesc.SampleDesc.Count = std::max(sampleCount, 1u);
+		textureDesc.SampleDesc.Quality = sampleCount;
+		textureDesc.Usage = D3D11_USAGE_DEFAULT;
+		textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		textureDesc.CPUAccessFlags = 0;
+		textureDesc.MiscFlags = 0;
+		
+		if (HasFlag(flags, RenderTextureCreateFlags::UAV)){
+			textureDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
+		} 
+		DX_CHECK(
+		device->CreateTexture2D(&textureDesc, NULL, &texture), "render texture creation failed!" );	
+
+		renderTargetViewDesc.Format = textureDesc.Format;
+		renderTargetViewDesc.ViewDimension = sampleCount > 1 ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+		renderTargetViewDesc.Texture2D.MipSlice = 0;
+		
+		DX_CHECK(
+		device->CreateRenderTargetView(texture, &renderTargetViewDesc, &renderTargetView), "render target view generation failed!");
+		
+		shaderResViewDesc.Format = textureDesc.Format;
+		shaderResViewDesc.ViewDimension = sampleCount > 1 ? D3D11_SRV_DIMENSION_TEXTURE2DMS : D3D11_SRV_DIMENSION_TEXTURE2D;
+		
+		DX_CHECK(
+		device->CreateShaderResourceView(texture, &shaderResViewDesc, &textureView), "render target view creation failed!");
+	}
 
 	if (HasFlag(flags, RenderTextureCreateFlags::Depth))
 	{
@@ -141,12 +168,13 @@ void RenderTexture::Invalidate(int _width, int _height)
 
 void RenderTexture::Release()
 {
-	DX_RELEASE(texture) 
-	DX_RELEASE(textureView) 
-	DX_RELEASE(renderTargetView) 
-	DX_RELEASE(depthStencilView)
-	DX_RELEASE(depthStencilBuffer)
-	DX_RELEASE(blendState)
-	DX_RELEASE(sampler)
+	DX_RELEASE(texture);
+	DX_RELEASE(textureView);
+	DX_RELEASE(renderTargetView) ;
+	DX_RELEASE(depthSRV);
+	DX_RELEASE(depthStencilView);
+	DX_RELEASE(depthStencilBuffer);
+	DX_RELEASE(blendState);
+	DX_RELEASE(sampler);
 }
 

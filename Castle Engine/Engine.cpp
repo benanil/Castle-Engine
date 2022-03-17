@@ -82,6 +82,8 @@ void Engine::MainWindow()
 {
 	ImGui::Begin("Settings");
 
+    ImGui::Text(ICON_FA_SMILE "vay be!");
+
     static float fps = 0;
     if (int(Time::GetTimeSinceStartup()) % 2 > 0)
     {
@@ -90,7 +92,7 @@ void Engine::MainWindow()
 
 	ImGui::Text(std::to_string(fps).c_str(), " fps");
 
-    if (ImGui::CollapsingHeader("Camera")) freeCamera->EditorUpdate();
+	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_Bullet)) freeCamera->EditorUpdate();
 
 	Terrain::OnEditor();
 	Renderer3D::OnEditor();
@@ -210,14 +212,14 @@ void Engine::Start()
             }
         }
 
-        Gizmo::Begin(Engine::GetWindowScale(), Input::GetWindowMousePos(), freeCamera->GetProjection(), freeCamera->GetView());
-
-		Gizmo::Manipulate(&firstEntity->transform->GetMatrixRef(), 
-						  &firstEntity->transform->position,
-					      &firstEntity->transform->quaternion,
-						  &firstEntity->transform->scale);
-
-		firstEntity->transform->SetQuaternion(firstEntity->transform->quaternion, true);
+        // Gizmo::Begin(Engine::GetWindowScale(), Input::GetWindowMousePos(), freeCamera->GetProjection(), freeCamera->GetView());
+		// 
+		// Gizmo::Manipulate(&firstEntity->transform->GetMatrixRef(), 
+		// 				  &firstEntity->transform->position,
+		// 			      &firstEntity->transform->quaternion,
+		// 				  &firstEntity->transform->scale);
+		// 
+		// firstEntity->transform->SetQuaternion(firstEntity->transform->quaternion, true);
 
 		SceneManager::GetCurrentScene()->Update(Time::GetDeltaTime());
         Renderer3D::DrawScene();
