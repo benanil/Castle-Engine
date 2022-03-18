@@ -151,21 +151,49 @@ float3 CalculateNormalMap(in float3 normalMapSample,
 	float3 bumpedNormalW = mul(normalT, TBN);
 	return bumpedNormalW;
 }
-float ShadowCalculation(float4 lpos)
+
+static const int ShadowMapSize = 2048 << 1;
+
+float ShadowCalculation(float4 lpos, float ndl)
 {
-	// lpos.xyz /= 1.0f;
-	//re-homogenize position after interpolation
-	//if position is not visible to the light - dont illuminate it
-	if( lpos.x < -1.0f || lpos.x > 1.0f ||
-		lpos.y < -1.0f || lpos.y > 1.0f ||
-		lpos.z < 0.0f  || lpos.z > 1.0f ) return 1;
-	//transform clip space coords to texture space coords (-1:1 to 0:1)
-	lpos.x =  lpos.x *  0.5f + 0.5;
-	lpos.y =  lpos.y *  -0.5f + 0.5;
-	//sample shadow map - point sampler
-	float shadowMapDepth = ShadowTexture.Sample(ShadowSampler, lpos.xy).r;
-	//if clip space z value greater than shadow map value then pixel is in shadow
-	return shadowMapDepth < lpos.z ? 0.3f : 1.0f;
+	// // lpos.xyz /= 1.0f; // since we using orthographic dividing redurant
+	// //re-homogenize position after interpolation
+	// //if position is not visible to the light - dont illuminate it
+	// if( lpos.x < -1.0f || lpos.x > 1.0f ||
+	// 	lpos.y < -1.0f || lpos.y > 1.0f ||
+	// 	lpos.z < 0.0f  || lpos.z > 1.0f ) return 1;
+	// //transform clip space coords to texture space coords (-1:1 to 0:1)
+	// lpos.x =  lpos.x *  0.5f + 0.5;
+	// lpos.y =  lpos.y *  -0.5f + 0.5;
+	// //sample shadow map - point sampler
+	// float shadowMapDepth = ShadowTexture.Sample(ShadowSampler, lpos.xy).r;
+	// //if clip space z value greater than shadow map value then pixel is in shadow
+	// return shadowMapDepth < lpos.z ? 0.3f : 1.0f;
+
+	// // transform to [0,1] range
+	lpos.x = lpos.x * 0.5 + 0.5;
+	lpos.y = lpos.y * -0.5 + 0.5;
+	
+	// get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+	float closestDepth = ShadowTexture.Sample(ShadowSampler, lpos.xy).r;
+	
+	// get depth of current fragment from light's perspective
+	float currentDepth = lpos.z;
+	float shadow = 0.0;
+	// float shadow = currentDepth - bias > closestDepth  ? .44: 1.0;  
+	float2 texelSize = float2(1.0, 1.0) / float2(float(ShadowMapSize), float(ShadowMapSize));
+	static const float bias = 0.001f;
+	const float realBias = max(bias * (1.0f - ndl), bias);
+	
+	for (int x = -1; x <= 1; ++x)
+	{
+		for (int y = -1; y <= 1; ++y)
+		{
+			float pcfDepth = ShadowTexture.Sample(ShadowSampler, lpos.xy + float2(x, y) * texelSize).r;
+			shadow += currentDepth - realBias > pcfDepth ? .40 : 1;
+		}
+	}
+	return shadow / 9.0;
 }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET
@@ -200,7 +228,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET
 	result.xyz = albedo.xyz * (ndl * sunColor) + specular + ambient;
 
 	result.xyz += CalculatePointLight(normal, input.fragPos, specularTex.xyz, time);
-	result.xyz *= ShadowCalculation(input.lightSpaceFrag);
+	result.xyz *= ShadowCalculation(input.lightSpaceFrag, ndl);
 
 	return result;
 }

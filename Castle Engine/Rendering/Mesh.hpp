@@ -120,6 +120,7 @@ struct SphereCreateResult
 	uint32_t* indices;
 };
 
+// todo: make this constexpr
 static SphereCreateResult* CSCreateSphereVertexIndices(uint16_t LatLines, uint16_t LongLines)
 {
 	SphereCreateResult* result = new SphereCreateResult();
@@ -250,6 +251,7 @@ struct PointsAndIndices32 {
 	}
 };
 
+// todo: make constexpr
 static inline PointsAndIndices32 
 CSCreatePlanePoints(uint32_t width, uint32_t height, glm::vec2 pos, float scale = 15.0f)
 {
