@@ -23,12 +23,17 @@
 #include "LineDrawer.hpp"
 #include "../ECS/ECS.hpp"
 #include "../Timer.hpp"
+#include "Shadow.hpp"
 
 using namespace CS; // for compute shader
 using namespace CMath;
 
 namespace Terrain
 {
+	struct CBuffer{
+		XMMATRIX MVP, LightSpaceMatrix;
+	} cBufferData;
+
 	constexpr uint16_t t_width = 100, t_height = 100;
 	constexpr uint16_t t_vertexCount = (t_width + 1) * (t_height + 1);
 	constexpr uint16_t t_indexCount = t_width * t_height * 6;
@@ -41,6 +46,7 @@ namespace Terrain
 
 	DXDeviceContext* d3d11DevCon;
 	DXInputLayout* inputLayout;
+	ID3D11Buffer* cBuffer;
 	Shader* shader;
 	Shader* shadowShader;
 
@@ -86,6 +92,8 @@ void Terrain::Initialize()
 	grassTexture = new Texture("Textures/grass_seamless.jpg", D3D11_TEXTURE_ADDRESS_MIRROR);
 	dirtTexture = new Texture("Textures/dirt_texture.png", D3D11_TEXTURE_ADDRESS_MIRROR);
 	computeShader = new ComputeShader("Shaders/RandMeshPoints.hlsl", "CS", 64, 1);
+
+	DXCreateConstantBuffer(DirectxBackend::GetDevice(), cBuffer, &cBufferData);
 	
 	grassVertexHandle  = computeShader->CreateStructuredBuffer(sizeof(TerrainVertex), t_vertexCount, nullptr, D3D11_MAP_WRITE);
 	grassIndicesHandle = computeShader->CreateStructuredBuffer(sizeof(uint32_t), t_indexCount, nullptr, D3D11_MAP_WRITE);
@@ -258,10 +266,18 @@ void Terrain::DrawGrasses( const FrustumBitset& frustumSet)
 	}
 }
 
-FrustumBitset Terrain::Draw(const FreeCamera& camera)
+FrustumBitset Terrain::Draw(const FreeCamera& camera, const XMMATRIX& ViewProjection)
 {
 	dirtTexture->Bind(d3d11DevCon, 0);
 	grassTexture->Bind(d3d11DevCon, 1);
+	
+	cBufferData.MVP = XMMatrixTranspose(XMMatrixIdentity() * ViewProjection);
+	cBufferData.LightSpaceMatrix = XMMatrixTranspose(XMMatrixIdentity() * Shadow::GetViewProjection());
+	d3d11DevCon->UpdateSubresource(cBuffer, 0, NULL, &cBufferData, 0, 0);
+	d3d11DevCon->VSSetConstantBuffers(0, 1, &cBuffer);
+	
+	Shadow::BindShadowTexture(2);
+	d3d11DevCon->IASetInputLayout(inputLayout);
 
 	const glm::vec3& cameraPos = camera.transform.GetPosition();
 	glm::vec3 camForward = glm::cross(camera.transform.GetRight(), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -274,7 +290,6 @@ FrustumBitset Terrain::Draw(const FreeCamera& camera)
 		if (!frustumSet[i]) continue;
 		culledTerrainCount++;
 
-		d3d11DevCon->IASetInputLayout(inputLayout);
 		d3d11DevCon->IASetIndexBuffer(indexBuffers[i], DXGI_FORMAT_R32_UINT, 0);
 
 		UINT stride = sizeof(TerrainVertex), offset = 0;
@@ -284,11 +299,24 @@ FrustumBitset Terrain::Draw(const FreeCamera& camera)
 	return frustumSet;
 }
 
+void Terrain::DrawForShadow(const glm::vec4& OrthoMinMax) { // for cascading shadow
+	// shadowShader->Bind();
+	// Shadow::SetShadowMatrix(XMMatrixIdentity(), 0);
+	// d3d11DevCon->IASetInputLayout(inputLayout);
+	// for (uint8_t i = 0; i < vertexBuffers.size(); ++i) {
+	// 	if (!CheckAABBInFrustum(AABBs[i], OrthoMinMax)) continue;
+	// 	d3d11DevCon->IASetIndexBuffer(indexBuffers[i], DXGI_FORMAT_R32_UINT, 0);
+	// 	d3d11DevCon->IASetVertexBuffers(0, 1, &vertexBuffers[i], &stride, &offset);
+	// 	d3d11DevCon->DrawIndexed(t_indexCount, 0, 0);
+	// }
+}
+
 #ifndef NEDITOR
 void Terrain::OnEditor()
 {
 	if (ImGui::CollapsingHeader("Terrain", ImGuiTreeNodeFlags_Bullet)) 
 	{
+
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.8f);
 		ImGui::PushStyleColor(ImGuiCol_Border, HEADER_COLOR);
 		

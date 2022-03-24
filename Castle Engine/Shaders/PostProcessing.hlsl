@@ -191,6 +191,7 @@ cbuffer ScreenSizeCB : register(b0)
 
 float4 PS(PostProcessVertex i) : SV_Target
 {
+	i.texCoord.y = 1 - i.texCoord.y;
 	float3 color = Saturation(_texture.Sample(textureSampler, i.texCoord).xyz * 0.82, saturation);
 	float3 tonemapped = color;
 	switch (mode)

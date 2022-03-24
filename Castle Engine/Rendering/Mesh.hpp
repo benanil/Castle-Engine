@@ -29,7 +29,7 @@
 
 #define MAXIMUM_MESH 1024
 
-typedef std::bitset<MAXIMUM_MESH> CullingBitset;
+typedef std::bitset<2048> CullingBitset;
 
 struct DrawResult {
 	int CulledMeshCount = 0;
@@ -66,17 +66,23 @@ public:
 	}
 #endif
 	
-	void CalculateCullingBitset(CullingBitset& bitset, uint32_t& startIndex, CMath::AABBCullData& cullData) const
+	int CalculateCullingBitset(
+		CullingBitset& bitset,
+		uint32_t& startIndex, 
+		const std::array<CMath::OrthographicPlane, 4>& planes,
+		const XMMATRIX& viewProjection) const
 	{
+		int totalCulledMeshes = 0;
 		constexpr int MinimumVertexForCulling = 64;
-		XMMATRIX copy = entity->transform->GetMatrix();
-		cullData.matrix = &copy; // we coppy once instead of coppying every submesh
+		XMMATRIX matrix = entity->transform->GetMatrix();
 
 		for (uint16_t i = 0; i < subMeshCount; ++i)
 		{
-			cullData.aabb = &subMeshes[i].aabb;
-			bitset[startIndex++] = subMeshes[i].vertexCount > MinimumVertexForCulling && !CMath::CheckAABBCulled(cullData);
+			bitset[startIndex++] = !CMath::CheckAABBCulled(CMath::BoundingFrustum(viewProjection), subMeshes[i].aabb, matrix);
+			bitset[startIndex + 1023] = CMath::CheckAABBInFrustum(subMeshes[i].aabb, planes, matrix);
+			totalCulledMeshes += bitset[startIndex-1];
 		}			
+		return totalCulledMeshes;
 	}
 
 	void Draw(DXDeviceContext* deviceContext, CullingBitset& cullData, uint32_t& startIndex)
@@ -94,12 +100,19 @@ public:
 		}
 	}
 
-	void RenderForShadows(DXDeviceContext* deviceContext)
+	int RenderForShadows(DXDeviceContext* deviceContext, CullingBitset& bitset, uint32_t& startIndex)
 	{
-		Shadow::SetShadowMatrix(entity->transform->GetMatrix(), 0);
-		for (uint16_t i = 0; i < subMeshCount; ++i) {
+		int culledCount = 0;
+		const XMMATRIX& matrix = entity->transform->GetMatrix();
+		Shadow::SetShadowMatrix(matrix, 0);
+		
+		for (uint16_t i = 0; i < subMeshCount; ++i) 
+		{
+			if (!bitset[startIndex++]) continue;
+			culledCount++;
 			subMeshes[i].Draw(deviceContext);
 		}
+		return culledCount;
 	}
 	
 	void Dispose()
@@ -250,6 +263,49 @@ struct PointsAndIndices32 {
 		free(vertices); free(indices);
 	}
 };
+
+static __forceinline void CSSet3Uint(uint32_t* ptr, const std::array<int, 3>& data)
+{
+	ptr[0] = data[0];
+	ptr[1] = data[1];
+	ptr[2] = data[2];
+}
+
+static inline
+PointsAndIndices32 CSCreateCube(float scale)
+{
+	PointsAndIndices32 result {
+		(glm::vec3*)malloc(sizeof(glm::vec3) * 8),
+		(uint32_t*)malloc(sizeof(uint32_t) * 36),
+		8,36
+	};
+
+	const float halfScale = scale * 0.5f;
+
+	result.vertices[0] = glm::vec3(-halfScale,  halfScale,  halfScale);
+	result.vertices[1] = glm::vec3( halfScale,  halfScale,  halfScale);
+	result.vertices[2] = glm::vec3(-halfScale, -halfScale,  halfScale);
+	result.vertices[3] = glm::vec3( halfScale, -halfScale,  halfScale);
+	result.vertices[4] = glm::vec3(-halfScale,  halfScale, -halfScale);
+	result.vertices[5] = glm::vec3( halfScale,  halfScale, -halfScale);
+	result.vertices[6] = glm::vec3(-halfScale, -halfScale, -halfScale);
+	result.vertices[7] = glm::vec3( halfScale, -halfScale, -halfScale);
+
+	CSSet3Uint(result.indices + 0 , { 0, 1, 2 });
+	CSSet3Uint(result.indices + 3 , { 2, 1, 3 });
+	CSSet3Uint(result.indices + 6 , { 4, 0, 6 });
+	CSSet3Uint(result.indices + 9 , { 6, 0, 2 });
+	CSSet3Uint(result.indices + 12, { 7, 5, 6 });
+	CSSet3Uint(result.indices + 15, { 6, 5, 4 });
+	CSSet3Uint(result.indices + 18, { 3, 1, 7 });
+	CSSet3Uint(result.indices + 21, { 7, 1, 5 });
+	CSSet3Uint(result.indices + 24, { 4, 5, 0 });
+	CSSet3Uint(result.indices + 27, { 0, 5, 1 });
+	CSSet3Uint(result.indices + 30, { 3, 7, 2 });
+	CSSet3Uint(result.indices + 33, { 2, 7, 6 });
+
+	return result;
+}
 
 // todo: make constexpr
 static inline PointsAndIndices32 

@@ -32,6 +32,8 @@
 #include "Editor/Gizmo.hpp"
 #include "Rendering/Line2D.hpp"
 #include "Extern/stb_image.h"
+#include "Structures/LinkedList.hpp"
+#include "CE_Common.hpp"
 
 using namespace ECS;
 
@@ -161,6 +163,7 @@ SDL_Surface* Engine::LoadLogo()
 
 void Engine::Start()
 {
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         printf("Error: %s\n", SDL_GetError());
         assert(1, "stl initialization failed");

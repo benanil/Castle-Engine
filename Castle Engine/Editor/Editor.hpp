@@ -45,7 +45,16 @@ namespace Editor
 		void Header(const char* title);
 		void TextureField(const char* name, DXShaderResourceView* texture);
 		void TextureField(const char* name, DXShaderResourceView* texture);
-		bool ImageButton(DXShaderResourceView* texture, const float& size = filesize);
+		
+		inline bool ImageButton(DXShaderResourceView* texture, const float& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1))
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.30f, 0.30f, 0.65f));
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+			bool clicked = ImGui::ImageButton((void*)texture, { size , size }, uv0, uv1);
+			ImGui::PopStyleColor(1);
+			ImGui::PopStyleVar(1); 
+			return clicked;
+		}
 
 		bool EnumField(int& value, const char** names, const int& count, const char* label,
 		const Action& onSellect = NULL, const ImGuiComboFlags& flags = 0);
@@ -59,6 +68,20 @@ namespace Editor
 		bool DragUIElement(const T* file, const char* type, DXShaderResourceView* texture);
 		template<typename T>
 		void DropUIElement(const char* type, const std::function<T>& callback);
+		
+		inline bool IconButton(const char* name, const ImVec2& size = ImVec2(0, 0))
+		{
+			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.15f, 1));
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.16f, 0.16f, 0.18f));
+
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.3f);
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+			bool clicked = ImGui::Button(name, size);
+			ImGui::PopStyleVar(2);
+			ImGui::PopStyleColor(2);
+
+			return clicked;
+		}
 	}
 
 	struct GameViewWindowData

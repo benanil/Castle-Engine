@@ -14,7 +14,7 @@ namespace Gizmo
 	constexpr int NoIntersection = -1;
 	constexpr float ScaleByDistance = 0.23f;
 
-	enum struct Axis : int { Forward, Up, Right, Red = 0, Green = 1, Blue = 2 };
+	enum struct Axis  { Forward, Up, Right, Red = 0, Green = 1, Blue = 2 };
 	
 	struct ArrowResult {
 		union { // using one integer as: index, intersection, axis, axis color

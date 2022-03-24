@@ -52,7 +52,7 @@ bool Input::GetKeyDown(KeyCode keycode) { return keyboard[(int)keycode] ; }
 bool Input::GetKeyUp(KeyCode keycode)   { return !keyboard[(int)keycode]; }
                                                                      
 bool Input::GetMouseButtonDown(MouseButton buttonName) LAMBDAR(mouse[(int)buttonName])
-bool Input::GetMouseButtonUp(MouseButton buttonName) LAMBDAR(mouse[(int)buttonName])
+bool Input::GetMouseButtonUp(MouseButton buttonName) LAMBDAR(!mouse[(int)buttonName])
 
 void Input::SetCursor(SDL_Cursor* _cursor) { cursor = _cursor; }
 SDL_Cursor* Input::GetCursor() LAMBDAR(cursor);

@@ -35,6 +35,9 @@ namespace ECS
 
 	static Entity* currEntity = nullptr;
 	
+	Entity* Scene::GetCurrentEntity() { return currEntity; };
+	
+
 	static void AddComponent()
 	{
 		if (!currEntity) return;
@@ -50,7 +53,8 @@ namespace ECS
 		static int PushID = 0;
 
 		ImGui::Begin("Hierarchy");
-		
+		ImGui::Indent();
+
 		for (auto& entity : entities)
 		{
 			static auto flags = currEntity == entity ? ImGuiTreeNodeFlags_Selected : ImGuiTreeNodeFlags_OpenOnArrow;
@@ -76,6 +80,7 @@ namespace ECS
 		};
 		
 		Editor::GUI::RightClickPopUp("Add Object", hierarchyActions, 2);
+		ImGui::Unindent();
 
 		ImGui::End();
 

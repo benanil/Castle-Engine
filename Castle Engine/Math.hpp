@@ -1,4 +1,14 @@
 #pragma once
+#include "CE_Common.hpp"
+
+#include <windows.h>
+#include <xnamath.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <cstdlib>
+#include <array>
+
 // NE means no except
 #define NELAMBDA(x) noexcept { x;  }
 #define NELAMBDAR(x) noexcept { return x;  }
@@ -9,18 +19,16 @@
 #define GLM_SET_XY(vec, _x, _y) vec.x = _x; vec.y = _y; 
 #define GLM_SET_XYZ(vec, _x, _y, _z) vec.x = _x; vec.y = _y; vec.z = _y;
 
-#define DX_INLINE [[nodiscard]] static __forceinline
+#ifndef DX_INLINE 
+#	ifndef _MSC_VER 
+#		define DX_INLINE [[nodiscard]] static inline
+#	else
+#		define DX_INLINE [[nodiscard]] static __forceinline
+#	endif
+#endif 
 
 #define CMathNamespace namespace CMath {
 #define CMathNamespaceEnd }
-
-#include <windows.h>
-#include <xnamath.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <cstdlib>
-#include <array>
 
 constexpr float DX_RAD_TO_DEG = 57.2958f;
 constexpr float DX_DEG_TO_RAD = 0.017453f;
@@ -54,12 +62,12 @@ DX_INLINE float& XMSETZ(xmVector& vector) noexcept { return vector.f[2]; }
 DX_INLINE float& XMSETW(xmVector& vector) noexcept { return vector.f[3]; }
 DX_INLINE float XM_RadToDeg(const float& radians) noexcept { return radians* DX_RAD_TO_DEG;}
 DX_INLINE float XM_DegToRad(const float& degree)  noexcept { return degree * DX_DEG_TO_RAD; }
-DX_INLINE void GLM_DegToRad(const glm::vec3& radians, glm::vec3& degree) noexcept { degree = radians * DX_DEG_TO_RAD; }
+DX_INLINE void GLM_DegToRad(const glm::vec3& degree, glm::vec3& radians) noexcept { radians = degree * DX_DEG_TO_RAD; }
 DX_INLINE void GLM_RadToDeg(const glm::vec3& radians, glm::vec3& degree) noexcept { degree = radians * DX_RAD_TO_DEG; }
 DX_INLINE glm::vec3 GLM_RadToDeg(const glm::vec3& radians) noexcept { return radians * DX_RAD_TO_DEG; }
 DX_INLINE glm::vec3 GLM_DegToRad(const glm::vec3& radians) noexcept { return radians * DX_DEG_TO_RAD; }
 
-DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3&euler) noexcept // yaw (Z), pitch (Y), roll (X)
+DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3 euler) noexcept // yaw (Z), pitch (Y), roll (X)
 {
 	// Abbreviations for the various angular functions
 	euler *= 0.5f;
@@ -74,6 +82,7 @@ DX_INLINE xmQuaternion xmEulerToQuaternion(glm::vec3&euler) noexcept // yaw (Z),
 	XMSETX(q) = (s1 * c2 * c3) + (c1 * s2 * s3);
 	XMSETY(q) = (c1 * s2 * c3) - (s1 * c2 * s3);
 	XMSETZ(q) = (c1 * c2 * s3) + (s1 * s2 * c3);
+
 	return q;
 }
 
@@ -221,14 +230,14 @@ DX_INLINE xmQuaternion xmExtractRotation(const XMMATRIX& matrix, bool rowNormali
 #undef NELAMBDAR
 #undef NELAMBDA
 
-DX_INLINE void GetVec3(glm::vec3* vec, const XMVECTOR& vector) noexcept
+DX_INLINE void GetVec3(glm::vec3*__restrict  vec, const XMVECTOR& vector) noexcept
 {
-	_mm_store_ss(&vec->x, vector);
-	_mm_store_ss(&vec->y, _mm_shuffle_ps(vector, vector, _MM_SHUFFLE(1, 1, 1, 1)));
-	_mm_store_ss(&vec->z, _mm_shuffle_ps(vector, vector, _MM_SHUFFLE(2, 2, 2, 2)));
+	vec->x = XMVectorGetX(vector);
+	vec->y = XMVectorGetY(vector);
+	vec->z = XMVectorGetZ(vector);
 }
 
-DX_INLINE void GetVec4(glm::vec4* vec, const XMVECTOR& vector) noexcept
+DX_INLINE void GetVec4(glm::vec4*__restrict vec, const XMVECTOR& vector) noexcept
 {
 	_mm_store_ps(&vec->x, vector);
 }
@@ -290,13 +299,11 @@ struct AABB {
 			glm::vec3(max.x, min.y, min.z),
 			glm::vec3(min.x, max.y, max.z)
 		};
-
 		for (auto& corner : corners) {
 			XMVECTOR V = XMVector3Transform(_mm_load_ps(&corner.x), matrix);
-			_mm_store_ss(&corner.x, V);
-			_mm_store_ss(&corner.y, _mm_shuffle_ps(V, V, _MM_SHUFFLE(1, 1, 1, 1)));
-			_mm_store_ss(&corner.z, _mm_shuffle_ps(V, V, _MM_SHUFFLE(2, 2, 2, 2)));
+			GetVec3(&corner, V);
 		}
+
 		return corners;
 	}
 	/// for terrain: returns center point aditionaly
@@ -332,11 +339,16 @@ struct AABB {
 	}
 };
 
+DX_INLINE float AngleBetween2D(glm::vec2 a, glm::vec2 b)
+{
+	return acosf((a.x * a.y) + (b.x * b.y) / 
+		(sqrtf((a.x * a.x) + (b.x * b.x )) * sqrtf((b.x * b.x) + (b.y * b.y))));
+}
 /// <summary> this doesnt check y axis
 /// for optimization before we send camForward 
 ///	ve must use a crossproduct for it (camright cross unitY) we dont want to calculate it for every aabb<summary/>
 /// <param name="fov">radians</param>
-static __forceinline
+DX_INLINE 
 bool isTerrainCulled(const AABB& aabb, const glm::vec3& camPos, const glm::vec3& camForward, float fov)
 {
 	if (aabb.IsPointInside_XZ(camPos)) return true; // player on terrain
@@ -352,45 +364,83 @@ bool isTerrainCulled(const AABB& aabb, const glm::vec3& camPos, const glm::vec3&
 	return false;
 }
 
+// frustum code from here: https://github.com/matt77hias/MAGE/blob/master/MAGE/Code/Engine/Math/geometry/bounding_volume.cpp
+struct BoundingFrustum
+{
+	XMVECTOR m_planes[6];
+	BoundingFrustum(const CXMMATRIX& viewProjection) noexcept {
+		const auto C = XMMatrixTranspose(viewProjection);
 
-struct AABBCullData {
-	AABB* aabb;
-	const glm::vec3& camPos;
-	const glm::vec3& camForward;
-	const float fov;
-	const XMMATRIX* matrix;
+		m_planes[0] = C.r[3] + C.r[0]; // m_left_plane  
+		m_planes[1] = C.r[3] - C.r[0]; // m_right_plane 
+		m_planes[2] = C.r[3] + C.r[1]; // m_bottom_plane
+		m_planes[3] = C.r[3] - C.r[1]; // m_top_plane   
+		m_planes[4] = C.r[2];		   // m_near_plane  
+		m_planes[5] = C.r[3] - C.r[2]; // m_far_plane   
+
+		for (std::size_t i = 0u; i < std::size(m_planes); ++i) {
+			m_planes[i] = XMPlaneNormalize(m_planes[i]);
+		}
+	}
 };
 
-static __forceinline
-bool CheckAABBCulled(const AABBCullData& data)
+DX_INLINE const XMVECTOR MaxPointAlongNormal(const XMVECTOR& min, const XMVECTOR& max, const FXMVECTOR& n) noexcept {
+
+	const auto control = XMVectorGreaterOrEqual(n, XMVectorZero());
+	return XMVectorSelect(min, max, control);
+}
+
+DX_INLINE
+bool CheckAABBCulled(const BoundingFrustum& frustum, const AABB& aabb, const XMMATRIX& matrix)
 {
-	if (data.aabb->IsPointInside_XZ(data.camPos, *data.matrix)) return true; // player in|on box
+	XMVECTOR min = XMVector3Transform(GlmToXM(aabb.min), matrix);
+	XMVECTOR max = XMVector3Transform(GlmToXM(aabb.max), matrix);
 
-	// maximum fov value is pi so we are mapping fovpercent 0-1 range for dot product
-	float fovPercent = data.fov + 0.023f / glm::pi<float>();
-
-	for (const glm::vec3& edge : data.aabb->GetXYZEdges(*data.matrix))
-	{
-		glm::vec3 edge_to_cam = glm::normalize(glm::vec3(edge.x, 0, edge.y) - glm::vec3(data.camPos.x, 0, data.camPos.z));
-		if (glm::dot(edge_to_cam, data.camForward) + glm::abs(data.camForward.y * 0.1f) > 1.0f - fovPercent) return true;
-		// some circumstances you can delete this line but in sponza and interior buildings you gona need this line belove
-		if (glm::distance(edge, data.camPos) < 6) return true;
+	for (std::size_t i = 0u; i < std::size(frustum.m_planes); ++i) {
+		const auto p = MaxPointAlongNormal(min, max, frustum.m_planes[i]);
+		const auto result = XMPlaneDotCoord(frustum.m_planes[i], p);
+		if (XMVectorGetX(result) < 0.0f) {
+			return false;
+		}
 	}
-	return false;
+	return true;
 }
 
-/// <param name="fov">radians</param>
-static __forceinline
-bool isPointCulled(const glm::vec3& pos, const glm::vec3& camPos, const glm::vec3& camRight, float fov)
+DX_INLINE
+bool isPointCulled(const BoundingFrustum& frustum, const glm::vec3& _point, const XMMATRIX& matrix)
 {
-	// maximum fov value is pi so we are mapping fovpercent 0-1 range for dot product
-	float fovPercent = fov / glm::pi<float>();
-	// for ignoring y axis ve are taking cross product of right vector (we only want xz)
-	// if you want to optimize you can send precalculated forward vector 
-	glm::vec3 camForward = glm::cross(camRight, glm::vec3(0, 1, 0));
-	glm::vec3 point_to_cam = glm::normalize(glm::vec3(pos.x, 0, pos.y) - glm::vec3(camPos.x, 0, camPos.z));
-	return glm::dot(point_to_cam, camForward) > 1.0 - fovPercent;
+	XMVECTOR point = XMVector3Transform(GlmToXM(_point), matrix);
+
+	for (std::size_t i = 0u; i < std::size(frustum.m_planes); ++i) {
+		const auto result = XMPlaneDotCoord(frustum.m_planes[i], point);
+		if (XMVectorGetX(result) < 0.0f) {
+			return false;
+		}
+	}
+	return true;
 }
+
+struct OrthographicPlane
+{
+	glm::vec3 position, direction;
+};
+
+// for meshes
+// <param name="planes"> center positions all4 planes </param>
+static __forceinline
+bool CheckAABBInFrustum(const CMath::AABB& aabb, const std::array<OrthographicPlane, 4>& planes, const XMMATRIX& matrix)
+{
+	for (glm::vec3& edge : aabb.GetXYZEdges(matrix))
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			glm::vec3 direction = glm::normalize(edge - planes[i].position);
+			if (glm::dot(direction, planes[i].direction) < 0.1f) return false;
+		}
+	}
+	return true;
+}
+
 
 //                     RAYCASTING
 

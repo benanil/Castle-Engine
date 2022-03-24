@@ -179,6 +179,7 @@
     <ClCompile Include="Editor\Gizmo.cpp" />
     <ClCompile Include="Editor\HierarchyWindow.cpp" />
     <ClCompile Include="Editor\ResourcesWindow.cpp" />
+    <ClCompile Include="Extern\ImGuizmo.cpp" />
     <ClCompile Include="Rendering\FXAA.cpp" />
     <ClCompile Include="Helper.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
@@ -212,6 +213,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AngleCulling.hpp" />
+    <ClInclude Include="CE_Common.hpp" />
     <ClInclude Include="DirectxBackend.hpp" />
     <ClInclude Include="ECS\Component.hpp" />
     <ClInclude Include="ECS\ECS.hpp" />
@@ -252,6 +254,7 @@
     <ClInclude Include="Rendering\Terrain.hpp" />
     <ClInclude Include="Main\Time.hpp" />
     <ClInclude Include="Rendering\TesellatedMesh.hpp" />
+    <ClInclude Include="Structures\LinkedList.hpp" />
     <ClInclude Include="Timer.hpp" />
     <ClInclude Include="Transform.hpp" />
   </ItemGroup>

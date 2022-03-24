@@ -163,7 +163,6 @@ struct SubMesh
 	
 	void Draw(DXDeviceContext* d3d11DevCon)
 	{
-		// LineDrawer::DrawAABB(aabb, true);
 		d3d11DevCon->IASetIndexBuffer(indexBuffer, indiceFormat , 0);
 		//Set the vertex buffer
 		UINT stride = sizeof(Vertex), offset = 0;

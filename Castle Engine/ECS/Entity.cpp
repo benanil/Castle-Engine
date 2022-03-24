@@ -2,18 +2,19 @@
 
 namespace ECS
 {
-	Entity::~Entity() 
+	Entity::~Entity()
 	{
 		OnDestroy();
-		for (auto& comp : components) comp->~Component();
+		components.Iterate([](Component* comp) { comp->~Component(); });
 	};
 
 	void Entity::Update(const float& deltaTime) {
-		for (auto& comp : components) comp->Update(deltaTime);
+		static float DeltaTime = deltaTime;
+		components.Iterate([](Component* comp) { comp->Update(DeltaTime); });
 	}
 
 #ifndef NEDITOR
-	void Entity::UpdateEditor() 
+	void Entity::UpdateEditor()
 	{
 		ImGui::TextColored(HEADER_COLOR, name.c_str());
 		if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_Bullet))
@@ -21,8 +22,7 @@ namespace ECS
 			transform->OnEditor();
 		}
 		static int PushID = 0;
-
-		for (auto& comp : components)
+		components.Iterate([](Component* comp) 
 		{
 			ImGui::PushID(PushID++);
 			if (ImGui::CollapsingHeader(comp->name.c_str(), ImGuiTreeNodeFlags_Bullet))
@@ -31,104 +31,55 @@ namespace ECS
 			}
 
 			ImGui::PopID();
-		}
+		});
+
 		PushID = 0;
 	}
 #endif
 
 	Component* Entity::GetComponent(uint16_t index)
 	{
-		auto begin = components.begin();
-		for (uint16_t i = 0; i < index; i++, ++begin);
-		return *begin;
+		return components[index];
 	}
-	
+
 	template<typename TComp> TComp* Entity::GetComponent()
 	{
-		for (auto& component : components)
-			if (dynamic_cast<TComp>(component))
-				return component;
-		return nullptr;
+		return components.FindNodeByType<TComp>();
 	}
-	
+
 	void Entity::AddComponent(Component* component)
 	{
-		components.push_back(component);
+		components.AddFront(component);
 	}
 
 	void Entity::RemoveComponent(Component* component)
 	{
 		if (component == nullptr) return;
 		if (!HasComponent(component)) return;
-		components.remove(component);
+		components.Remove(component);
 		delete component;
 	}
 
-	void Entity::RemoveComponent(uint16_t index)
-	{
-		if (index > components.size()) return;
-
-		Component* component;
-		auto iter = components.begin();
-
-		for (uint16_t i = 0; i < index; i++, ++iter)
-		{
-			if (i == index)
-			{
-				component = *iter;
-				break;
- 			}
-		}
-		components.remove(component);
-		component->~Component();
-		delete component;
-	}
-	
 	template<typename TComp> void Entity::RemoveComponent()
 	{
-		Component* component;
-		
-		for (auto& iter : components)
-		{
-			if (dynamic_cast<TComp>(*iter))
-			{
-				*component = *iter;
-				break;
-			}
-		}
-		if (component != nullptr)
-		components.remove(component);
+		TComp* component = components.Remove<TComp>(components.FindNodeByType<TComp>());
+		component->~Component();
 		delete component;
 	}
 
 	bool Entity::HasComponent(Component* component)
 	{
-		for (auto& comp : components)
-			if (comp == component)
-				return true;
-		return false;
+		return components.FindNodeFromPtr(component) != nullptr;
 	}
 
 	template<typename TComp> bool Entity::HasComponent()
 	{
-		for (auto& component : components)
-			if (dynamic_cast<TComp>(component))
-				return true;
-		return false;
+		return components.FindNodeByType<TComp>() != nullptr;
 	}
 
 	template<typename TComp>
 	bool Entity::TryGetComponent(TComp** component)
 	{
-		for (auto& comp : components)
-		{
-			if (comp == component)
-			{
-				*component = comp;
-				return true;
-			}
-		}
-		return false;
+		return components.TryGetData<TComp>(component);
 	}
 }
-

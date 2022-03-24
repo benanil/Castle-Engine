@@ -52,7 +52,7 @@ namespace ECS
 	void Transform::SetEulerDegree(const glm::vec3& _euler, bool notify) noexcept
 	{
 		eulerDegree = _euler;
-		GLM_DegToRad(_euler, euler);
+		euler = glm::radians(_euler);
 		quaternion = xmEulerToQuaternion(euler);
 		if (notify) UpdateTransform();
 	}

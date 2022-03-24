@@ -19,10 +19,13 @@
 #include "Line2D.hpp"
 #include "GFSDK_SSAO.h"
 #include "Shadow.hpp"
+#include "../Math.hpp"
 
 #ifndef NEDITOR
 #	include "../Editor/Editor.hpp"
 #endif
+
+using namespace CMath;
 
 namespace Renderer3D
 {
@@ -171,6 +174,7 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	tessMeshCreateResult.Clear();
 
 	renderTexture = new RenderTexture(Engine::Width(), Engine::Height(), DirectxBackend::GetMSAASamples(), RenderTextureCreateFlags::Depth | RenderTextureCreateFlags::Linear);
+	Shadow::UpdateShadows();
 }
 
 void Renderer3D::InvalidateRenderTexture(int width, int height)
@@ -187,7 +191,7 @@ void Renderer3D::CreateBuffers()
 	cbGlobalData.ambientColor = glm::vec3(0.8f, 0.8f, 0.65f);
 	cbGlobalData.sunColor = glm::vec3(1.0f, 1.0f, 1.0f);
 	cbGlobalData.ambientStength = .120f;
-	cbGlobalData.sunAngle = 120;
+	cbGlobalData.sunAngle = 98;
 
 	cbPerObj.MVP = XMMatrixTranspose(freeCamera->GetViewProjection());
 	cbPerObj.Model = XMMatrixIdentity();
@@ -217,13 +221,10 @@ void Renderer3D::DrawTerrain()
 {
 	Terrain::BindShader();
 
-	SetModelMatrix(XMMatrixIdentity());
-
 	cbGlobalData.additionalData = Terrain::GetTextureScale();
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
-
-	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
-	terrainCullBitset = Terrain::Draw(*freeCamera);
+	DeviceContext->PSSetConstantBuffers(1, 1, &uniformGlobalBuffer);
+	terrainCullBitset = Terrain::Draw(*freeCamera, freeCamera->GetViewProjection());
 	
 	// 600k grass in 0.07 seconds depends on sea level framerate can increase %20
 	GrassRenderer::SetShader(freeCamera->GetViewProjection());
@@ -233,24 +234,32 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->RSSetState(rasterizerState);
 }
 
+
+static int CULL_MESH_COUNT;
 void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
 {
+	CULL_MESH_COUNT = 0;
+
 	if(!cullingThread.valid()) return;
-
-	// todo: orthographic frustum culling for shadowmap. it will improve performance a lot
-	// render shadowmap
-	Shadow::BeginRenderShadowmap();
-	DeviceContext->IASetInputLayout(PBRVertLayout);
-
-	for (auto& renderer : meshRenderers) {
-		renderer->RenderForShadows(DeviceContext);
-	}
-
-	Shadow::EndRenderShadowmap(viewPort);
 
 	// get MeshCull data from async thread
 	cullingThread.wait();
 	CullingBitset PBR_MeshCullBitset = cullingThread.get();
+
+	// todo: orthographic frustum culling for shadowmap. it will improve performance a lot
+	// render shadowmap
+	Shadow::BeginRenderShadowmap();
+	uint32_t cullStartIndex = 1024;
+
+	DeviceContext->IASetInputLayout(PBRVertLayout);
+
+	for (auto& renderer : meshRenderers) {
+		CULL_MESH_COUNT += renderer->RenderForShadows(DeviceContext, PBR_MeshCullBitset, cullStartIndex);
+	}
+
+	Terrain::DrawForShadow(Shadow::GetFrustumMinMax());
+	
+	Shadow::EndRenderShadowmap(viewPort); // only sets viewport
 	
 	// render pbr scene 
 	PBRshader->Bind(); 
@@ -258,11 +267,12 @@ void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
 	Shadow::BindShadowTexture(3);
 	DeviceContext->IASetInputLayout(PBRVertLayout);
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
+	cullStartIndex = 0;
 
-	uint32_t cullStartIndex = 0;
 	for (auto& renderer : meshRenderers) {
 		renderer->Draw(DeviceContext, PBR_MeshCullBitset, cullStartIndex);
 	}
+	LineDrawer::SetMatrix(XMMatrixIdentity());
 }
 
 void Renderer3D::DrawScene()
@@ -338,23 +348,20 @@ void Renderer3D::DrawScene()
 	freeCamera->Update();
 	cullingThread = std::async(std::launch::async, CalculateCulls);
 }
+static int totalCalculatedMeshes;
 
 // this tooks 0.23ms-0.7ms runs asyncrusly on seperate thread
 CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum culling)
 {
 	CullingBitset bitset {};
-	CMath::AABBCullData cullData {
-		nullptr,
-		freeCamera->transform.GetPosition(),
-		freeCamera->transform.GetForward(),
-		freeCamera->fov
-	};
 	
 	uint32_t startIndex = 0;
+	XMMATRIX viewProjection = freeCamera->GetViewProjection();
 
 	for (auto& renderer : meshRenderers)
 	{
-		renderer->CalculateCullingBitset(bitset, startIndex, cullData);
+		totalCalculatedMeshes +=
+		renderer->CalculateCullingBitset(bitset, startIndex, Shadow::GetFrustumPlanes(), viewProjection);
 	}
 	return bitset;
 }
@@ -368,9 +375,11 @@ void Renderer3D::Dispose()
 #ifndef NEDITOR
 void Renderer3D::OnEditor()
 {
-	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
+	ImGui::Text(("culled mesh count: " + std::to_string(totalCalculatedMeshes)).c_str());
+	totalCalculatedMeshes = 0;
+	// ImGui::Text(("Shadow_Culled_Mesh_COUNT: " + std::to_string(CULL_MESH_COUNT)).c_str());
 
-	ImGui::Text(("CulledMeshCount: " + std::to_string(culledMeshCount)).c_str());
+	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
 
 	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_Bullet))
 	{

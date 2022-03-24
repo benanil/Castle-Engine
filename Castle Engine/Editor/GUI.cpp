@@ -24,11 +24,6 @@ namespace Editor
 		DropUIElementString("Texture", callback);
 	}
 
-	bool GUI::ImageButton(DXShaderResourceView* texture, const float& size)
-	{
-		return ImGui::ImageButton((void*)texture, { size , size }, { 1, 0 }, { 0, 1 });
-	}
-
 	// Usage:
 	// static int value = 0;
 	// const char* names[3]{ "enum0", "enum1", "enum2" };

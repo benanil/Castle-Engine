@@ -58,7 +58,7 @@ public:
 		DXTexture2D* SMTexture = 0;
 
 		DX_CHECK(
-		D3DX11CreateTextureFromFile(d3d11Device, L"skymap.dds", &loadSMInfo, 0, (ID3D11Resource**)&SMTexture, 0), "skybox texture importing failed!")
+		D3DX11CreateTextureFromFile(d3d11Device, L"Textures/skymap.dds", &loadSMInfo, 0, (ID3D11Resource**)&SMTexture, 0), "skybox texture importing failed!")
 		
 		D3D11_TEXTURE2D_DESC SMTextureDesc;
 		SMTexture->GetDesc(&SMTextureDesc);

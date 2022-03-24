@@ -56,7 +56,9 @@ namespace Terrain
 	void Initialize();
 
 	/// <returns> frustum culling bitset for chunks culled or not <returns/>
-	FrustumBitset Draw(const FreeCamera& camera);
+	FrustumBitset Draw(const FreeCamera& camera, const XMMATRIX& ViewProjection);
+	void DrawForShadow(const glm::vec4& TerrainOrthoAABB_MinMax);
+
 	void DrawGrasses(const FrustumBitset& frustumSet);
 	void Dispose();
 	void OnEditor();

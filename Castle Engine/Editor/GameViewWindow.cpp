@@ -5,8 +5,15 @@
 #include "../Rendering/Mesh.hpp"
 #include "../Rendering/Renderer3D.hpp"
 #include "../ECS/ECS.hpp"
+#include "ImGuizmo.h"
+#include "../Rendering/Renderer3D.hpp"
+#include "../Input.hpp"
+#include "../Main/Time.hpp"
+#include "spdlog/spdlog.h"
 
 #ifndef NEDITOR
+
+using namespace ECS;
 
 namespace Editor
 {
@@ -17,6 +24,7 @@ namespace Editor
 		GameViewWindowData& GetData() LAMBDAR(data)
 
 		ImVec2 newScale, newPosition;
+		ImGuizmo::OPERATION operation;
 
 		void ChangeScale()
 		{
@@ -59,8 +67,44 @@ namespace Editor
 			
 			if (!first)
 			{
-				ImGui::Image(data.texture, data.WindowScale, { 1, 1 }, {0, 0});
+				ImGui::Image(data.texture, data.WindowScale);
 				GUI::DropUIElementString("MESH", FileCallback);
+			}
+
+			const FreeCamera* freeCamera = Renderer3D::GetCamera();
+			Entity* currEntity = SceneManager::GetCurrentScene()->GetCurrentEntity();
+			if (currEntity)
+			{
+				if (ImGui::IsWindowHovered())
+				{
+					if (Input::GetKeyDown(KeyCode::W)) operation = ImGuizmo::OPERATION::TRANSLATE;
+					if (Input::GetKeyDown(KeyCode::Q)) operation = ImGuizmo::OPERATION::ROTATE;
+					if (Input::GetKeyDown(KeyCode::R)) operation = ImGuizmo::OPERATION::SCALE;
+				}
+				float recomposed[16];
+				glm::vec3 position = currEntity->transform->GetPosition();
+				glm::vec3 scale = currEntity->transform->GetScale();
+				glm::vec3 rotation = currEntity->transform->GetEulerDegree();
+			
+				ImGuizmo::RecomposeMatrixFromComponents(&position.x, &rotation.x, &scale.x, recomposed);
+			
+				ImVec2 panelSize = ImGui::GetWindowSize();
+			
+				ImGuiIO& io = ImGui::GetIO();
+				ImGuizmo::Enable(true);
+				ImGuizmo::SetOrthographic(false);
+				ImGuizmo::SetDrawlist();
+				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, panelSize.x, panelSize.y);
+			
+				if (ImGuizmo::Manipulate(&freeCamera->GetView()._11, &freeCamera->GetProjection()._11,
+					operation, ImGuizmo::MODE::LOCAL, recomposed))
+				{
+					ImGuizmo::DecomposeMatrixToComponents(recomposed, &position.x, &rotation.x, &scale.x);
+					
+					currEntity->transform->SetScale(scale, false);
+					currEntity->transform->SetPosition(position, false);
+					currEntity->transform->SetEulerDegree(rotation, true);
+				}
 			}
 
 			first = false;

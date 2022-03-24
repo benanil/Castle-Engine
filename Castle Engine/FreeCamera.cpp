@@ -86,7 +86,7 @@ void FreeCamera::Update()
 	if (dir.x + dir.y < 150)
 	{
 		pitch += dir.y * senstivity * 0.01f;
-		yaw += dir.x * senstivity * 0.01f;
+		yaw -= dir.x * senstivity * 0.01f;
 	}
 
 	if (pitch > 89.0f)  pitch = 89.0f;
@@ -102,15 +102,11 @@ void FreeCamera::Update()
 	if (Input::GetKeyDown(KeyCode::S)) transform.position += transform.GetForward() * velocity;
 	if (Input::GetKeyDown(KeyCode::Q)) transform.position += transform.GetUP() * velocity;
 	if (Input::GetKeyDown(KeyCode::E)) transform.position -= transform.GetUP() * velocity;
-#ifndef NEDITOR
-	if (Input::GetKeyDown(KeyCode::A)) transform.position -= transform.GetRight() * velocity;
-	if (Input::GetKeyDown(KeyCode::D)) transform.position += transform.GetRight() * velocity;
-#else
-	if (Input::GetKeyDown(KeyCode::I)) speed += 1;
-	if (Input::GetKeyDown(KeyCode::C)) speed -= 1;
-
 	if (Input::GetKeyDown(KeyCode::A)) transform.position += transform.GetRight() * velocity;
 	if (Input::GetKeyDown(KeyCode::D)) transform.position -= transform.GetRight() * velocity;
+#ifdef NEDITOR
+	if (Input::GetKeyDown(KeyCode::I)) speed += 1;
+	if (Input::GetKeyDown(KeyCode::C)) speed -= 1;
 #endif
 
 	transform.UpdateTransform();

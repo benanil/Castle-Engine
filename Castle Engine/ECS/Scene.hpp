@@ -16,6 +16,7 @@ namespace ECS
 		Scene() : name(std::string("New Scene")) {};
 		Scene(const std::string& _name) : name(_name) {};
 		~Scene();
+		Entity* GetCurrentEntity();
 		void Update(const float& deltaTime);
 		void Unload();
 		void Load()   {};

@@ -1,5 +1,6 @@
 #include "Editor.hpp"
 #include <iostream>
+#include "ImGuizmo.h"
 
 #ifndef NEDITOR
 namespace Editor
@@ -16,8 +17,8 @@ namespace Editor
     void Initialize(SDL_Window* window, ID3D11Device* d3d11Device, ID3D11DeviceContext* d3d11DevCon)
     {
         IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-    
+        ImGuizmo::SetImGuiContext(ImGui::CreateContext());
+
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
@@ -26,12 +27,13 @@ namespace Editor
         ResourcesWindow::Initialize();
 
         io.Fonts->Clear();
-        LiberationSans = io.Fonts->AddFontFromFileTTF("LiberationSans-Regular.ttf", 13);
+        LiberationSans = io.Fonts->AddFontFromFileTTF("Fonts/LiberationSans-Regular.ttf", 13);
         static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-        ImFontConfig icons_config; icons_config.MergeMode = true; 
-        icons_config.PixelSnapH = true;
-        IconFont = io.Fonts->AddFontFromFileTTF(FONT_ICON_FILE_NAME_FAS, 16.0f, &icons_config, icons_ranges);
-
+        ImFontConfig icons_config; 
+        icons_config.MergeMode = true; 
+        // icons_config.PixelSnapH = true;
+		IconFont = io.Fonts->AddFontFromFileTTF("Fonts/" FONT_ICON_FILE_NAME_FAS, 13.0f, &icons_config, icons_ranges);
+        io.Fonts->Build();
         //io.Fonts->AddFontFromFileTTF("JetBrainsMono-Medium.ttf", 14);
     }
     
