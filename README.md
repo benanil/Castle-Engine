@@ -1,5 +1,5 @@
 # Castle-Engine
-directx11 game engine that inspired by Braynzarsoft, Rastertek, and Frank Luna's Introduction to 3D Game Programing with Directx11 book
+directx11 game engine. inspired from Braynzarsoft, Rastertek, and Frank Luna's Introduction to 3D Game Programing with Directx11 book
 
 Features:
 * shadows
