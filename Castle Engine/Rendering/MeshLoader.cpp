@@ -39,10 +39,11 @@ namespace MeshLoader
 
 	MeshRenderer* LoadMesh(const std::string& path)
 	{
+		CSTIMER("mesh loading time: "); // 5444.6ms
 		if (!std::filesystem::exists(path))
 		{
 			std::cout << path;
-			assert(0, "mesh file is not exist");
+			assert(0, "mesh file is not exist!");
 		}
 
 		if (firstImport)
@@ -56,8 +57,12 @@ namespace MeshLoader
 		MeshRenderer* mesh = new MeshRenderer();
 
 		Assimp::Importer importer;
-		static const uint32_t flags = aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_ConvertToLeftHanded;
-		const aiScene* scene = importer.ReadFile(path, flags);
+		static const uint32_t flags = aiProcessPreset_TargetRealtime_Fast | aiProcess_ConvertToLeftHanded;
+		
+		const aiScene* scene = nullptr;
+		{
+			scene = importer.ReadFile(path, flags);
+		}
 		
 		if (!scene)
 		{

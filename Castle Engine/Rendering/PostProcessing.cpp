@@ -75,8 +75,8 @@ void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _Dev
 
 	for (int i = 0; i < downSampleRTS.size(); i++)
 	{
-		downSampleRTS[i] = new RenderTexture(WindowSize.x / (1 << i), WindowSize.y / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
-		upSampleRTS[i] = new RenderTexture(WindowSize.x / (1 << i), WindowSize.y / (1 << i), MSAASamples, RenderTextureCreateFlags::Linear);
+		downSampleRTS[i] = new RenderTexture(WindowSize.x >> i, WindowSize.y >> i, MSAASamples, RenderTextureCreateFlags::Linear);
+		upSampleRTS[i] = new RenderTexture(WindowSize.x >> i, WindowSize.y >> i, MSAASamples, RenderTextureCreateFlags::Linear);
 	}
 
 	// create screen size buffer
@@ -114,17 +114,17 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 	postCbuffer.treshold = treshold;
 
 	// proceed bloom
-	RenderToQuad(downSampleRTS[0], FragPrefilter13, rt.textureView, rt.sampler, 1 << 0);
-	RenderToQuad(downSampleRTS[1], FragPrefilter4, downSampleRTS[0], 1 << 1);
+	RenderToQuad(downSampleRTS[0], FragPrefilter13 , rt.textureView, rt.sampler, 1 << 0);
+	RenderToQuad(downSampleRTS[1], FragPrefilter4  , downSampleRTS[0], 1 << 1);
 	RenderToQuad(downSampleRTS[2], FragDownsample13, downSampleRTS[1], 1 << 2);
-	RenderToQuad(downSampleRTS[3], FragDownsample4, downSampleRTS[2], 1 << 3);
+	RenderToQuad(downSampleRTS[3], FragDownsample4 , downSampleRTS[2], 1 << 3);
 	RenderToQuad(downSampleRTS[4], FragDownsample13, downSampleRTS[3], 1 << 4);
-	RenderToQuad(downSampleRTS[5], FragDownsample4, downSampleRTS[4], 1 << 5);
+	RenderToQuad(downSampleRTS[5], FragDownsample4 , downSampleRTS[4], 1 << 5);
 
 	RenderToQuadUpsample(upSampleRTS[4], FragUpsampleTent, downSampleRTS[5], downSampleRTS[4], 1 << 4);
-	RenderToQuadUpsample(upSampleRTS[3], FragUpsampleBox, upSampleRTS[4], downSampleRTS[3], 1 << 3);
+	RenderToQuadUpsample(upSampleRTS[3], FragUpsampleBox , upSampleRTS[4], downSampleRTS[3], 1 << 3);
 	RenderToQuadUpsample(upSampleRTS[2], FragUpsampleTent, upSampleRTS[3], downSampleRTS[2], 1 << 2);
-	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox, upSampleRTS[2], downSampleRTS[1], 1 << 1);
+	RenderToQuadUpsample(upSampleRTS[1], FragUpsampleBox , upSampleRTS[2], downSampleRTS[1], 1 << 1);
 	RenderToQuadUpsample(upSampleRTS[0], FragUpsampleTent, upSampleRTS[1], downSampleRTS[0], 1 << 0);
 	
 	// proceed Nvidia HBAO+
@@ -226,8 +226,8 @@ void PostProcessing::WindowScaleEvent(const int& _width, const int& _height)
 
 	for (int i = 0; i < downSampleRTS.size(); i++)
 	{
-		downSampleRTS[i]->Invalidate(_width / (1 << i), _height / (1 << i));
-		upSampleRTS[i]->Invalidate(_width / (1 << i), _height / (1 << i));
+		downSampleRTS[i]->Invalidate(_width >> i, _height >> i);
+		upSampleRTS[i]->Invalidate(_width >> i, _height >> i);
 	}
 }
 

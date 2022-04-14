@@ -85,8 +85,7 @@ public:
 template<typename ReturnType, typename... ArgsTypes>
 class FunctionDelegate : public IDelegate<ReturnType, ArgsTypes...>
 {
-public:
-	typedef typename FunctionAction<ReturnType, ArgsTypes...>::Type FunctionPtr;
+public:	typedef typename FunctionAction<ReturnType, ArgsTypes...>::Type FunctionPtr;
 private:
 	FunctionPtr m_Function;
 public:

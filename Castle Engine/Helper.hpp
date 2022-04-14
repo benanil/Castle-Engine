@@ -40,17 +40,6 @@ static inline constexpr uint KnuthHash(uint a, uint shift)
 	return ((a * knuth_hash) >> shift);
 }
 
-// very fast hash function + compile time
-static inline constexpr uint StringToHash(const char* string)
-{
-	uint hash = 0;
-	for (uint i = 0; i < __builtin_strlen(string); ++i)
-	{
-		hash ^= KnuthHash(uint(string[i]), i);
-	}
-	return hash;
-}
-
 template <class T>
 inline T* GetPackedPointer(T* p)
 {
@@ -78,8 +67,32 @@ inline void SetPackedPointerBit(T*& p, bool value)
 }
 
 template <class T>
-inline void hash_combine(std::size_t& s, const T& v)
+inline constexpr void hash_combine(T& s, const T& v)
 {
 	std::hash<T> h;
 	s ^= h(v) + 0x9e3779b9 + (s << 6) + (s >> 2);
+}
+
+// very fast hash function + compile time
+static inline constexpr uint StringToHash(const char* string)
+{
+	if (!__builtin_strlen(string)) return 0;
+
+	uint hash = KnuthHash(uint(string[0]), 1);
+	for (uint i = 1; i < __builtin_strlen(string); ++i)
+	{
+		hash ^= KnuthHash(uint(string[i]), i + 1) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+	}
+	return hash;
+}
+
+static inline constexpr uint StringToHashN(const char* string, int n)
+{
+	if (!n) return 0;
+	uint hash = KnuthHash(uint(string[0]), 1);
+	for (uint i = 1; i < n; ++i)
+	{
+		hash ^= KnuthHash(uint(string[i]), i + 1) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+	}
+	return hash;
 }

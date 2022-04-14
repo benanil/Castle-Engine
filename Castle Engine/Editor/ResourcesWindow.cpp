@@ -7,56 +7,113 @@
 #include "../Input.hpp"
 #include "../Rendering/Texture.hpp"
 #include "../Helper.hpp"
-
-// custom hashmap example
-// namespace Editor::ResourcesWindow
-// {
-// 	struct IconAndFile
-// 	{
-// 		 icon;
-// 		std::string file;
-// 	};
-// }
-// namespace std
-// {
-// 	template <>
-// 	struct hash<Editor::ResourcesWindow::IconAndFile>
-// 	{
-// 		std::size_t operator()(const Editor::ResourcesWindow::IconAndFile& c) const
-// 		{
-// 			std::size_t result = 0;
-// 			hash_combine(result, c.icon);
-// 			hash_combine(result, c.file);
-// 			return result;
-// 		}
-// 	};
-// }
+#include <atomic>
+#include <future>
+#include <thread>
 
 namespace Editor::ResourcesWindow
 {
+	class FileRecord
+	{
+	public:
+		mutable std::string path;
+		mutable std::string name;
+		mutable const char* extension;
+		DXShaderResourceView* texture = nullptr;
+		FileRecord(std::string _path, std::string _name, const char* _extension) 
+			: path(std::move(_path)), 
+			  name(std::move(_name)),
+			  extension(_extension) {}
+	};
+	
+	class FolderTree
+	{
+	public:
+		FolderTree(std::filesystem::path _path, std::string _name) : path(_path), name(std::move(_name)) {}
+	public:
+		std::filesystem::path  path;
+		FolderTree* parent;
+		mutable std::string name;
+		std::vector<FolderTree*> folders; // < -- subfolders
+		std::vector<FileRecord*> files;
+	};
+
 	constexpr uint CppHash  = StringToHash(".cpp");
 	constexpr uint HlslHash = StringToHash(".hlsl");
 	constexpr uint HppHash  = StringToHash(".hpp");
 	constexpr uint MatHash  = StringToHash(".mat");
-	
+	constexpr uint blendHash = StringToHash(".blend");
+	constexpr uint fbxHash   = StringToHash(".fbx");
+	constexpr uint objHash   = StringToHash(".obj");
+
 	std::filesystem::path currentPath;
 
 	DXShaderResourceView* fileIcon, * folderIcon,
 					    * meshIcon, * cppIcon   ,
 						* hlslIcon, * hppIcon   , * materialIcon;
 
-	std::unordered_map<uint, DXShaderResourceView*> image_map;
+	FolderTree* rootTree;
+	FolderTree* currentTree;
 
-	std::filesystem::path GetCurrentPath()
+	std::filesystem::path GetCurrentPath() { return currentPath; }
+
+	inline DXShaderResourceView* ExtensionToIcon(std::string& extension)
 	{
-		return currentPath;
+		switch (StringToHash(extension.c_str())) // StringToHash Function is located in Helper.hpp
+		{
+		case CppHash:  extension = "CPP";  return cppIcon;
+		case HlslHash: extension = "HLSL";  return hlslIcon;
+		case HppHash:  extension = "HPP";  return hppIcon;
+		case MatHash:  extension = "MAT";  return materialIcon;
+		case fbxHash: case objHash: case blendHash: {
+			extension = "MESH";
+			return materialIcon;
+		}
+		default: fileIcon;
+		}
+		return fileIcon;
+	}
+
+	FolderTree* CreateTreeRec(FolderTree* parent, const std::filesystem::path& path)
+	{
+		std::string folderName = path.filename().u8string();
+		FolderTree* tree = new FolderTree(path, folderName);
+		for (auto& directory : std::filesystem::directory_iterator(path))
+		{
+			if (directory.is_directory()) continue;
+			std::string fileName = directory.path().filename().u8string();
+			std::string filePath = directory.path().u8string();
+			std::string extension = directory.path().extension().u8string();
+			DXShaderResourceView* icon = ExtensionToIcon(extension);
+			
+			std::string;
+
+			if (extension == ".png" or extension == ".jpg") {
+				icon = (new Texture(filePath.c_str()))->resourceView;
+				extension = "TEXTURE";
+			}
+			
+			FileRecord* record = new FileRecord(filePath, fileName, extension.c_str());
+			record->texture = icon;
+			tree->files.push_back(record);
+		}
+		for (auto& directory : std::filesystem::directory_iterator(path))
+		{
+			if (!directory.is_directory()) continue;
+			tree->folders.push_back(CreateTreeRec(tree, directory.path()));
+		}
+		tree->parent = parent;
+		return tree;
 	}
 
 	void Initialize()
 	{
-		fileIcon   = Texture("Textures/Icons/file.png").resourceView;
-		folderIcon = Texture("Textures/Icons/folder.png").resourceView;
-		meshIcon   = Texture("Textures/Icons/mesh.png").resourceView;
+		fileIcon = folderIcon =  meshIcon =  cppIcon =  hlslIcon =  hppIcon = 
+		materialIcon = fileIcon;
+	
+		fileIcon     = Texture("Textures/Icons/file.png").resourceView;
+		folderIcon   = Texture("Textures/Icons/folder.png").resourceView;
+		meshIcon     = Texture("Textures/Icons/mesh.png").resourceView;
 
 		cppIcon      = Texture("Textures/Icons/cpp_icon.png").resourceView;
 		hlslIcon     = Texture("Textures/Icons/hlsl_file_icon.png").resourceView;
@@ -64,25 +121,167 @@ namespace Editor::ResourcesWindow
 		materialIcon = Texture("Textures/Icons/Material_Icon.png").resourceView;
 
 		currentPath = std::filesystem::current_path();
+		
+		rootTree = CreateTreeRec(nullptr, currentPath);
+		currentTree = rootTree;
+	}
+
+	void TreeDrawRec(FolderTree* tree, int& id)
+	{
+		static auto flags = ImGuiTreeNodeFlags_OpenOnArrow;//: ImGuiTreeNodeFlags_OpenOnArrow;
+		
+		ImGui::PushID(id++);
+		if (ImGui::TreeNodeEx(tree->name.c_str(), flags))
+		{
+			for (auto& folder : tree->folders)
+			{
+				TreeDrawRec(folder, id);
+			}
+			ImGui::TreePop();
+		}
+		if (ImGui::IsItemClicked()) { currentTree = tree; }
+		ImGui::PopID();
+	}
+
+	void TreeWindowDraw(int& id)
+	{
+		static bool Open = true;
+
+		ImGui::Begin("ResourcesTree", &Open, ImGuiWindowFlags_NoTitleBar);
+
+		TreeDrawRec(rootTree, id);
+
+		ImGui::End();
+	}
+
+	std::vector<FolderTree*> searchFolders;
+	std::vector<FileRecord*> searchFiles  ;
+	
+	void RecursiveSearch(const char* key, const int len, FolderTree* tree)
+	{
+		for (auto& folder : tree->folders)
+		{
+			for (int i = 0; i + len <= folder->name.size(); ++i)
+			{
+				for (int j = 0; j < len; ++j)
+					if (tolower(key[j]) != tolower(folder->name[i + j]))
+						goto next_index_folder;
+				searchFolders.push_back(folder);
+				break;
+			next_index_folder: {}
+			}
+			RecursiveSearch(key, len, folder);
+		}
+
+		for (auto& file : tree->files)
+		{
+			for (int i = 0; i + len <= file->name.size(); ++i)
+			{
+				for (int j = 0; j < len; ++j)
+					if (tolower(key[j]) != tolower(file->name[i + j]))
+						goto next_index_file;
+				searchFiles.push_back(file);
+				break;
+			next_index_file: {}
+			}
+		}
+	}
+
+	void SearchProcess(const char* SearchText)
+	{
+		const int len = strlen(SearchText);
+		searchFolders.clear();
+		searchFiles  .clear();
+		RecursiveSearch(SearchText, len, rootTree);
+	}
+
+	void SearchWindow()
+	{
+		int id = 0;
+
+		for (auto& folder : searchFolders)
+		{
+			ImGui::PushID(id++);
+
+			if (GUI::ImageButton(folderIcon, Editor::filesize))
+			{
+				spdlog::info("clicked {0}", folder->name);
+				currentPath = folder->path;
+				currentTree = folder;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text(folder->name.c_str());
+				ImGui::EndTooltip();
+			}
+
+			ImGui::TextWrapped("%s", folder->name.c_str());
+
+			ImGui::PopID();
+		}
+
+		for (auto& file : searchFiles)
+		{
+			ImGui::PushID(id++);
+
+			DXShaderResourceView* icon = file->texture;
+
+			GUI::ImageButton(file->texture, Editor::filesize, { 0, 0 }, { 1, 1 });
+
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				ShellExecute(0, 0, std::wstring(file->path.begin(), file->path.end()).c_str(), 0, 0, SW_SHOW);
+			}
+
+			GUI::DragUIElementString(file->path.c_str(), file->extension, file->texture);
+
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text(file->name.c_str());
+				ImGui::EndTooltip();
+			}
+
+			ImGui::TextWrapped("%s", file->name.c_str());
+
+			ImGui::PopID();
+			ImGui::NextColumn();
+		}
+
+		ImGui::NextColumn();
+		ImGui::Columns(1);
+		ImGui::End();
 	}
 
 	void DrawWindow()
 	{
+		int id = 0; // for imgui push id
+		static bool searching = false;
+		
+		TreeWindowDraw(id);
+
 		ImGui::Begin("Resources");
 
-		if (GUI::IconButton(ICON_FA_ARROW_LEFT)) {
+		if (GUI::IconButton(ICON_FA_ARROW_LEFT) && currentTree->parent) {
 			currentPath = currentPath.parent_path();
+			currentTree = currentTree->parent;
 		}
 		ImGui::SameLine();
 		ImGui::Text(ICON_FA_SEARCH);
 		ImGui::SameLine();
-		static char SearchText[32];
-		ImGui::InputText("Search", SearchText, 32);
+		static char SearchText[128];
+		
+		if (ImGui::InputText("Search", SearchText, 128))
+		{
+			SearchProcess(SearchText);
+		}
+		
+		ImGui::Text(currentPath.u8string().c_str());
 
-		// todo: make path static & add oppen close folders & back button & dragg and drop
-		int id = 0; // for imgui push id
+		searching = strlen(SearchText);
 
-		ImGui::Separator();
+		ImGui::Text(searching ? "searching" : "not searching");
 
 		static float padding = 3.14f;
 		static float thumbnailSize = 64.0f;
@@ -91,103 +290,64 @@ namespace Editor::ResourcesWindow
 		int columnCount = std::max(1, (int)floor(panelWidth / cellSize)) ;
 		ImGui::Columns(columnCount, "resources-columns", false);
 
-		// todo scroll and zoom in and out
-
-		for (auto& directory : std::filesystem::directory_iterator(currentPath))
+		if (searching)
 		{
-			std::string fileName = directory.path().filename().u8string();
-
-			if (directory.is_directory()) {
-				ImGui::PushID(id++);
-
-				if (GUI::ImageButton(folderIcon, Editor::filesize))
-				{
-					spdlog::info("clicked {0}", fileName);
-					currentPath = directory;
-				}
-				if (ImGui::IsItemHovered())
-				{
-					ImGui::BeginTooltip();
-					ImGui::Text(fileName.c_str());
-					ImGui::EndTooltip();
-				}
-			
-				ImGui::TextWrapped("%s", fileName.substr(0, std::min<int>(10, fileName.length())).c_str());
-
-				ImGui::PopID();
-				ImGui::NextColumn();
-			}
+			SearchWindow();
+			return;
 		}
 
-		for (auto& directory : std::filesystem::directory_iterator(currentPath))
+		FolderTree* folderRec = currentTree;
+		// todo scroll and zoom in and out
+		for (auto& folder : currentTree->folders)
 		{
-			std::string fileName = directory.path().filename().u8string();
-
-			if (directory.is_directory()) continue;
-			
 			ImGui::PushID(id++);
-			
-			DXShaderResourceView* icon = fileIcon;
-			
-			std::string extension = directory.path().extension().u8string();
-			
-			static std::string meshExtensions[]
+
+			if (GUI::ImageButton(folderIcon, Editor::filesize))
 			{
-				".blend", ".fbx", ".obj"
-			};
-			
-			for (int i = 0; i < 3; ++i) {
-				if (meshExtensions[i] == extension) {
-					icon = meshIcon;
-					extension = "MESH";
-					break;
-				}
+				spdlog::info("clicked {0}", folder->name);
+				currentPath = folder->path;
+				folderRec = folder;
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text(folder->name.c_str());
+				ImGui::EndTooltip();
 			}
 
-			switch (StringToHash(extension.c_str())) // StringToHash Function is located in Helper.hpp
-			{
-				case CppHash  : icon = cppIcon;      extension = "CPP";  break;
-				case HlslHash : icon = hlslIcon;     extension = "HLSL"; break;
-				case HppHash  : icon = hppIcon;      extension = "HPP";  break;
-				case MatHash  : icon = materialIcon; extension = "MAT" ; break;
-				default: break;
-			}
+			ImGui::TextWrapped("%s", folder->name.c_str());
 
-			if (extension == ".png" || extension == ".jpg")
-			{
-				std::string file = currentPath.u8string() + "\\" + fileName;
-				const uint FileHash = StringToHash((file).c_str());
-				
-				if (image_map.count(FileHash) != 0) { // most of the time this will work so we optimize little bit here
-					icon = image_map[FileHash];
-				}
-				else {// if key is not exist
-					std::string file = currentPath.u8string() + "\\" + fileName;
-					Texture* newIcon = new Texture(file.c_str());
-					image_map.insert(std::make_pair(FileHash, newIcon->resourceView));
-					icon = newIcon->resourceView;
-				}
-			}
+			ImGui::PopID();
+			ImGui::NextColumn();
+		}
 
-			GUI::ImageButton(icon, Editor::filesize, { 0, 0 }, { 1, 1 });
-			
+		currentTree = folderRec;
+		
+		for (int i = 0; i < currentTree->files.size(); ++i)
+		{
+			auto& file = currentTree->files[i];
+			ImGui::PushID(id++);
+
+			DXShaderResourceView* icon = file->texture;
+
+			GUI::ImageButton(file->texture, Editor::filesize, { 0, 0 }, { 1, 1 });
+
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
 			{
-				std::string file = currentPath.u8string() + "\\" + fileName;
-				ShellExecute(0, 0, std::wstring(file.begin(), file.end()).c_str(), 0, 0, SW_SHOW);
+				ShellExecute(0, 0, std::wstring(file->path.begin(), file->path.end()).c_str(), 0, 0, SW_SHOW);
 			}
 
-			GUI::DragUIElementString(directory.path().u8string().c_str(), extension.c_str(), icon);
+			GUI::DragUIElementString(file->path.c_str(), file->extension, file->texture);
 
 			if (ImGui::IsItemHovered())
 			{
 				ImGui::BeginTooltip();
-				ImGui::Text(fileName.c_str());
+				ImGui::Text(file->name.c_str());
 				ImGui::EndTooltip();
 			}
 
-			ImGui::TextWrapped("%s", fileName.substr(0, std::min<int>(15, fileName.length())).c_str());
-			
+			ImGui::TextWrapped("%s", file->name.c_str());
+
 			ImGui::PopID();
 			ImGui::NextColumn();
 		}

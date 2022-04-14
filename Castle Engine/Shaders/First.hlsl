@@ -178,7 +178,7 @@ float ShadowCalculation(float4 lpos, float ndl)
 		for (int y = -1; y <= 1; ++y)
 		{
 			float pcfDepth = ShadowTexture.Sample(ShadowSampler, lpos.xy + float2(x, y) * texelSize).r;
-			shadow += currentDepth - realBias > pcfDepth ? .24 : 1;
+			shadow += currentDepth - realBias > pcfDepth ? .32 : 1;
 		}
 	}
 	return shadow / 6.0;

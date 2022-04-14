@@ -235,11 +235,8 @@ void Renderer3D::DrawTerrain()
 }
 
 
-static int CULL_MESH_COUNT;
 void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
 {
-	CULL_MESH_COUNT = 0;
-
 	if(!cullingThread.valid()) return;
 
 	// get MeshCull data from async thread
@@ -254,7 +251,7 @@ void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
 	DeviceContext->IASetInputLayout(PBRVertLayout);
 
 	for (auto& renderer : meshRenderers) {
-		CULL_MESH_COUNT += renderer->RenderForShadows(DeviceContext, PBR_MeshCullBitset, cullStartIndex);
+		renderer->RenderForShadows(DeviceContext, PBR_MeshCullBitset, cullStartIndex);
 	}
 
 	Terrain::DrawForShadow(Shadow::GetFrustumMinMax());
@@ -348,7 +345,6 @@ void Renderer3D::DrawScene()
 	freeCamera->Update();
 	cullingThread = std::async(std::launch::async, CalculateCulls);
 }
-static int totalCalculatedMeshes;
 
 // this tooks 0.23ms-0.7ms runs asyncrusly on seperate thread
 CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum culling)
@@ -360,7 +356,6 @@ CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum cullin
 
 	for (auto& renderer : meshRenderers)
 	{
-		totalCalculatedMeshes +=
 		renderer->CalculateCullingBitset(bitset, startIndex, Shadow::GetFrustumPlanes(), viewProjection);
 	}
 	return bitset;
@@ -375,9 +370,6 @@ void Renderer3D::Dispose()
 #ifndef NEDITOR
 void Renderer3D::OnEditor()
 {
-	ImGui::Text(("culled mesh count: " + std::to_string(totalCalculatedMeshes)).c_str());
-	totalCalculatedMeshes = 0;
-	// ImGui::Text(("Shadow_Culled_Mesh_COUNT: " + std::to_string(CULL_MESH_COUNT)).c_str());
 
 	if (ImGui::RadioButton("Vsync", Vsync)) { Vsync = !Vsync; }
 

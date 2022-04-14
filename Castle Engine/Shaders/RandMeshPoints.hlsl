@@ -1,10 +1,10 @@
 #define NOISE_SIMPLEX_1_DIV_289 0.00346020761245674740484429065744f
 
 // noise from fadookie: https://gist.github.com/fadookie/25adf86ae7e2753d717c
-float2 mod289(float2 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
-float3 mod289(float3 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
-float3 permute(float3 x) { return mod289(x * x * 34.0 + x); }
-float snoise(float2 v) {
+inline float2 mod289(float2 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
+inline float3 mod289(float3 x) { return x - floor(x * NOISE_SIMPLEX_1_DIV_289) * 289.0; }
+inline float3 permute(float3 x) { return mod289(x * x * 34.0 + x); }
+inline float snoise(float2 v) {
 	const float4 C = float4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
 	float2 i = floor(v + dot(v, C.yy));
 	float2 x0 = v - i + dot(i, C.xx);
@@ -25,10 +25,11 @@ float snoise(float2 v) {
 	return 130.0 * dot(m, g);
 }
 
-struct Vertex
-{
-	float3 pos; float pad;
-	float3 normal; float pad1;
+struct Vertex {
+	float3 pos; 
+	float pad;
+	float3 normal; 
+	float pad1;
 };
 
 StructuredBuffer<Vertex> vertices;
@@ -89,7 +90,7 @@ static const float4x4 Identity = {
 	0, 0, 0, 1
 };
 
-float4x4 Rotate(float angle, float3 axis) {
+inline float4x4 Rotate(float angle, float3 axis) {
 	float c, s;
 	sincos(angle, s, c);
 
@@ -109,9 +110,8 @@ float4x4 Rotate(float angle, float3 axis) {
 
 inline float3 CalculateSurfaceNormal(in float3 p1, in float3 p2, in float3 p3)
 {
-	float3 u = p2 - p1;
+	float3 u = p2 - p1; 
 	float3 v = p3 - p1;
-
 	float3 result = float3(0, 0, 0);
 	result.x = (u.y * v.z) - (u.z * v.y);
 	result.y = (u.z * v.x) - (u.x * v.z);
@@ -122,16 +122,17 @@ inline float3 CalculateSurfaceNormal(in float3 p1, in float3 p2, in float3 p3)
 [numthreads(64, 1, 1)]
 void CS(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_DispatchThreadID)
 {
-	const float3 v0 = vertices[indices[dispatchThreadID.x * 3 + 0]].pos;
-	const float3 v1 = vertices[indices[dispatchThreadID.x * 3 + 1]].pos;
-	const float3 v2 = vertices[indices[dispatchThreadID.x * 3 + 2]].pos;
+	const int indexCoord = dispatchThreadID.x * 3;
 
-	const float3 centerPoint = (v0 + v1 + v2) * 0.33;
-	const uint2 randOffset = groupThreadID.xy * dispatchThreadID.xx;
+	const float3 v0 = vertices[indices[indexCoord + 0]].pos;
+	const float3 v1 = vertices[indices[indexCoord + 1]].pos;
+	const float3 v2 = vertices[indices[indexCoord + 2]].pos;
 
-	const float3 normalCenter = CalculateSurfaceNormal(vertices[indices[dispatchThreadID.x * 3 + 0]].pos,
-										               vertices[indices[dispatchThreadID.x * 3 + 1]].pos,
-										               vertices[indices[dispatchThreadID.x * 3 + 2]].pos);
+	const uint2 randOffset = groupThreadID.xy * dispatchThreadID.xy;
+
+	const float3 normalCenter = CalculateSurfaceNormal(vertices[indices[indexCoord + 0]].pos,
+												       vertices[indices[indexCoord + 1]].pos,
+												       vertices[indices[indexCoord + 2]].pos);
 	culledTriangles[dispatchThreadID.x] = 0;
 	// we dont want to draw grass everywhere so we are reducing some grass with simpliex noise here
 	if (snoise(v1.xz / 10) > 0.5 || v1.y < 0) return;
@@ -140,9 +141,9 @@ void CS(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Dispat
 
 	for (int i = 0; i < GRASS_PER_TRIANGLE; ++i)
 	{
-		float r1 = rand(randOffset.xy + 33.55 * i + (i * 0.55));
-		float r2 = rand(randOffset.yx + 66.66 * i + (i * 0.66));
-		float r3 = rand(randOffset.yx + 83.66 * i + (i * 0.72));
+		float r1 = rand(randOffset.xy + 33.55 * i);
+		float r2 = rand(randOffset.yx + 66.66 * i);
+		float r3 = rand(randOffset.yx + 83.66 * i);
 		
 		if (r1 + r2 > 1) {
 			r1 = 1.0f - r1;
@@ -156,6 +157,6 @@ void CS(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Dispat
 		float4x4 scale = Scale(float3(1.15, 1.15, 1.15) + (float3(r1,r2,r3) * 1.7));
 
 		results[dispatchThreadID.x * GRASS_PER_TRIANGLE + i] =
-			mul(mul(mul(Identity, rotation), scale), CreatePosMatrix(lerp2));
+			mul(mul(rotation, scale), CreatePosMatrix(lerp2));
 	}
 }

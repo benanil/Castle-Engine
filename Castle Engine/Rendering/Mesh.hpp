@@ -100,19 +100,16 @@ public:
 		}
 	}
 
-	int RenderForShadows(DXDeviceContext* deviceContext, CullingBitset& bitset, uint32_t& startIndex)
+	void RenderForShadows(DXDeviceContext* deviceContext, CullingBitset& bitset, uint32_t& startIndex)
 	{
-		int culledCount = 0;
 		const XMMATRIX& matrix = entity->transform->GetMatrix();
 		Shadow::SetShadowMatrix(matrix, 0);
 		
 		for (uint16_t i = 0; i < subMeshCount; ++i) 
 		{
 			if (!bitset[startIndex++]) continue;
-			culledCount++;
 			subMeshes[i].Draw(deviceContext);
 		}
-		return culledCount;
 	}
 	
 	void Dispose()

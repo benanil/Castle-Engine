@@ -122,7 +122,7 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices,
 	{
 		XMVECTOR normalSum = XMVectorReplicate(0.0f);
 		//Check which triangles use this vertex
-		for (uint16_t j = 0; j < t_indexCount / 3; ++j)
+		for (int32_t j = 0; j < t_indexCount / 3; ++j)
 		{
 			if(_mm_movemask_epi8(_mm_cmpeq_epi32(_mm_set1_epi32(i), _mm_loadu_epi32(indices + (j * 3))))) {
 				normalSum += tempNormal[j];
@@ -133,6 +133,7 @@ void Terrain::CalculateNormals(TerrainVertex* vertices, const uint32_t* indices,
 		vertices[i].normal.y = glm::max(vertices[i].normal.y, 0.2f);
 	}
 }
+
 void Terrain::CalculateGrassPoints(const TerrainVertex* vertices, const uint32_t* indices)
 {
 	auto vertexMapResult = computeShader->MapStructuredBuffer(grassVertexHandle);
@@ -179,16 +180,20 @@ void Terrain::CreateChunk(
 	}
 
 	// calculate indices
-	for (uint32_t ti = 0, vi = 0, y = 0; y < t_height; y++, vi++)
+	for (int32_t ti = 0, vi = 0, y = 0; y < t_height; y++, vi++)
 	{
-		for (uint32_t x = 0; x < t_width; x++, ti += 6, vi++)
+		for (int32_t x = 0; x < t_width; x++, ti += 6, vi++)
 		{
-			indices[ti] = vi;
-			indices[ti + 1] = vi + t_width + 1;
-			indices[ti + 2] = vi + 1;
+			indices[ti]     = vi;
 
-			indices[ti + 3] = vi + 1;
-			indices[ti + 4] = vi + t_width + 1;
+			indices[ti + 1] = t_width + 1;
+			indices[ti + 2] = 1;
+			indices[ti + 3] = 1;
+			indices[ti + 4] = t_width + 1;
+			// adds vi to all these 4 indices above
+			_mm_storeu_epi32(&indices[ti+1], 
+				_mm_add_epi32(_mm_loadu_epi32(&indices[ti + 1]), _mm_set1_epi32(vi)));
+
 			indices[ti + 5] = vi + t_width + 2;
 		}
 	}
@@ -204,7 +209,7 @@ void Terrain::CalculateAABB(const TerrainVertex* vertices)
 	aabb.max.x = aabb.min.x + (t_width * scale);
 	aabb.max.y = -20;
 	aabb.max.z = aabb.min.z + (t_width * scale);
-	AABBs.push_back(aabb);
+	AABBs.push_back(std::move(aabb));
 }
 
 void Terrain::GenerateNoise(FastNoise::SmartNode<> generator, float* noise, glm::ivec2 offset)
