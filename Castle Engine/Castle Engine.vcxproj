@@ -132,7 +132,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)libs;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>spdlogd.lib;FastNoise.lib;GFSDK_SSAO_D3D11.win64.lib;GFSDK_ShadowLib_DX11.win64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>spdlogd.lib;FastNoise.lib;GFSDK_SSAO_D3D11.win64.lib;GFSDK_ShadowLib_DX11.win64.lib;zlibd.lib;mono-2.0-sgen.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <FxCompile>
       <EntryPointName>VS</EntryPointName>
@@ -162,7 +162,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)libs;C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>spdlogd.lib;FastNoise.lib;GFSDK_SSAO_D3D11.win64.lib;GFSDK_ShadowLib_DX11.win64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>spdlogd.lib;FastNoise.lib;GFSDK_SSAO_D3D11.win64.lib;GFSDK_ShadowLib_DX11.win64.lib;zlibd.lib;mono-2.0-sgen.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <FxCompile>
       <EntryPointName>VS</EntryPointName>
@@ -171,92 +171,108 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DirectxBackend.cpp" />
-    <ClCompile Include="ECS\Entity.cpp" />
-    <ClCompile Include="ECS\Scene.cpp" />
-    <ClCompile Include="Editor\Editor.cpp" />
-    <ClCompile Include="Editor\GameViewWindow.cpp" />
-    <ClCompile Include="Editor\Gizmo.cpp" />
-    <ClCompile Include="Editor\HierarchyWindow.cpp" />
-    <ClCompile Include="Editor\ResourcesWindow.cpp" />
-    <ClCompile Include="Extern\ImGuizmo.cpp" />
-    <ClCompile Include="Rendering\FXAA.cpp" />
-    <ClCompile Include="Helper.cpp" />
-    <ClCompile Include="ImGui\imgui.cpp" />
-    <ClCompile Include="ImGui\imgui_demo.cpp" />
-    <ClCompile Include="ImGui\imgui_draw.cpp" />
-    <ClCompile Include="ImGui\imgui_impl_dx11.cpp" />
-    <ClCompile Include="ImGui\imgui_impl_sdl.cpp" />
-    <ClCompile Include="ImGui\imgui_tables.cpp" />
-    <ClCompile Include="ImGui\imgui_widgets.cpp" />
-    <ClCompile Include="Engine.cpp" />
-    <ClCompile Include="Editor\GUI.cpp" />
-    <ClCompile Include="Input.cpp" />
-    <ClCompile Include="Rendering\GrassRenderer.cpp" />
-    <ClCompile Include="Rendering\Line2D.cpp" />
-    <ClCompile Include="Rendering\LineDrawer.cpp" />
-    <ClCompile Include="Rendering\PostProcessing.cpp" />
-    <ClCompile Include="Rendering\ComputeShader.cpp" />
-    <ClCompile Include="Rendering\MeshLoader.cpp" />
-    <ClCompile Include="Rendering\AssetManager.cpp" />
-    <ClCompile Include="Rendering\Renderer3D.cpp" />
-    <ClCompile Include="Rendering\RenderTexture.cpp" />
-    <ClCompile Include="Rendering\Shadow.cpp" />
-    <ClCompile Include="Rendering\Terrain.cpp" />
-    <ClCompile Include="Main\Time.cpp" />
-    <ClCompile Include="Rendering\TesellatedMesh.cpp" />
-    <ClCompile Include="FreeCamera.cpp" />
-    <ClCompile Include="Transform.cpp" />
+    <ClCompile Include="src\DirectxBackend.cpp" />
+    <ClCompile Include="src\ECS\Entity.cpp" />
+    <ClCompile Include="src\ECS\Scene.cpp" />
+    <ClCompile Include="src\Editor\Editor.cpp" />
+    <ClCompile Include="src\Editor\GameViewWindow.cpp" />
+    <ClCompile Include="src\Editor\Gizmo.cpp" />
+    <ClCompile Include="src\Editor\ResourcesWindow.cpp" />
+    <ClCompile Include="src\Extern\ImGuizmo.cpp" />
+    <ClCompile Include="src\Extern\Quicklz\quicklz.c" />
+    <ClCompile Include="src\Physics\Physics.cpp" />
+    <ClCompile Include="src\Rendering\FXAA.cpp" />
+    <ClCompile Include="src\Helper.cpp" />
+    <ClCompile Include="src\ImGui\imgui.cpp" />
+    <ClCompile Include="src\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="src\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="src\ImGui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="src\ImGui\imgui_impl_sdl.cpp" />
+    <ClCompile Include="src\ImGui\imgui_tables.cpp" />
+    <ClCompile Include="src\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Editor\GUI.cpp" />
+    <ClCompile Include="src\Input.cpp" />
+    <ClCompile Include="src\Rendering\GrassRenderer.cpp" />
+    <ClCompile Include="src\Rendering\Line2D.cpp" />
+    <ClCompile Include="src\Rendering\LineDrawer.cpp" />
+    <ClCompile Include="src\Rendering\Material.cpp" />
+    <ClCompile Include="src\Rendering\Mesh.cpp" />
+    <ClCompile Include="src\Rendering\PostProcessing.cpp" />
+    <ClCompile Include="src\Rendering\ComputeShader.cpp" />
+    <ClCompile Include="src\Rendering\MeshLoader.cpp" />
+    <ClCompile Include="src\Rendering\AssetManager.cpp" />
+    <ClCompile Include="src\Rendering\Renderer3D.cpp" />
+    <ClCompile Include="src\Rendering\RenderTexture.cpp" />
+    <ClCompile Include="src\Rendering\Shadow.cpp" />
+    <ClCompile Include="src\Rendering\Terrain.cpp" />
+    <ClCompile Include="src\Main\Time.cpp" />
+    <ClCompile Include="src\Rendering\TesellatedMesh.cpp" />
+    <ClCompile Include="src\FreeCamera.cpp" />
+    <ClCompile Include="src\ScriptingEngine.cpp" />
+    <ClCompile Include="src\Serializer.cpp" />
+    <ClCompile Include="src\Transform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AngleCulling.hpp" />
-    <ClInclude Include="CE_Common.hpp" />
-    <ClInclude Include="DirectxBackend.hpp" />
-    <ClInclude Include="ECS\Component.hpp" />
-    <ClInclude Include="ECS\ECS.hpp" />
-    <ClInclude Include="ECS\Entity.hpp" />
-    <ClInclude Include="ECS\Scene.hpp" />
-    <ClInclude Include="Editor\Editor.hpp" />
-    <ClInclude Include="Editor\FontAwesome4.hpp" />
-    <ClInclude Include="Editor\Gizmo.hpp" />
-    <ClInclude Include="Extern\SDL_stbimage.h" />
-    <ClInclude Include="Extern\stb_image.h" />
-    <ClInclude Include="FreeCamera.hpp" />
-    <ClInclude Include="Rendering\FXAA.hpp" />
-    <ClInclude Include="Rendering\GrassGroup.hpp" />
-    <ClInclude Include="Helper.hpp" />
-    <ClInclude Include="Input.hpp" />
-    <ClInclude Include="Math.hpp" />
-    <ClInclude Include="Main\Event.hpp" />
-    <ClInclude Include="Engine.hpp" />
-    <ClInclude Include="Rendering\Grassrenderer.hpp" />
-    <ClInclude Include="Rendering\Line2D.hpp" />
-    <ClInclude Include="Rendering\LineDrawer.hpp" />
-    <ClInclude Include="Rendering\PostProcessing.hpp" />
-    <ClInclude Include="Rendering\All.hpp" />
-    <ClInclude Include="Rendering\ComputeShader.hpp" />
-    <ClInclude Include="Rendering\Material.hpp" />
-    <ClInclude Include="Rendering\AssetManager.hpp" />
-    <ClInclude Include="Rendering\Mesh.hpp" />
+    <ClInclude Include="src\AngleCulling.hpp" />
+    <ClInclude Include="src\CE_Common.hpp" />
+    <ClInclude Include="src\DirectxBackend.hpp" />
+    <ClInclude Include="src\ECS\Component.hpp" />
+    <ClInclude Include="src\ECS\ECS.hpp" />
+    <ClInclude Include="src\ECS\Entity.hpp" />
+    <ClInclude Include="src\ECS\Scene.hpp" />
+    <ClInclude Include="src\Editor\Editor.hpp" />
+    <ClInclude Include="src\Editor\FontAwesome4.hpp" />
+    <ClInclude Include="src\Editor\Gizmo.hpp" />
+    <ClInclude Include="src\Extern\Quicklz\quicklz.h" />
+    <ClInclude Include="src\Extern\SDL_stbimage.h" />
+    <ClInclude Include="src\Extern\stb_image.h" />
+    <ClInclude Include="src\Extern\String.hpp" />
+    <ClInclude Include="src\FreeCamera.hpp" />
+    <ClInclude Include="src\Physics\Physics.hpp" />
+    <ClInclude Include="src\Rendering\FXAA.hpp" />
+    <ClInclude Include="src\Rendering\GrassGroup.hpp" />
+    <ClInclude Include="src\Helper.hpp" />
+    <ClInclude Include="src\Input.hpp" />
+    <ClInclude Include="src\Math.hpp" />
+    <ClInclude Include="src\Main\Event.hpp" />
+    <ClInclude Include="src\Engine.hpp" />
+    <ClInclude Include="src\Rendering\Grassrenderer.hpp" />
+    <ClInclude Include="src\Rendering\Line2D.hpp" />
+    <ClInclude Include="src\Rendering\LineDrawer.hpp" />
+    <ClInclude Include="src\Rendering\PostProcessing.hpp" />
+    <ClInclude Include="src\Rendering\All.hpp" />
+    <ClInclude Include="src\Rendering\ComputeShader.hpp" />
+    <ClInclude Include="src\Rendering\Material.hpp" />
+    <ClInclude Include="src\Rendering\AssetManager.hpp" />
+    <ClInclude Include="src\Rendering\Mesh.hpp" />
     <ClInclude Include="Rendering\MeshRenderer.hpp" />
-    <ClInclude Include="Rendering\Primitives.hpp" />
-    <ClInclude Include="Rendering\Renderer3D.hpp" />
-    <ClInclude Include="Rendering.hpp" />
-    <ClInclude Include="Rendering\Shader.hpp" />
-    <ClInclude Include="Rendering\Shadow.hpp" />
-    <ClInclude Include="Rendering\Skybox.hpp" />
-    <ClInclude Include="Rendering\TesellationShader.hpp" />
-    <ClInclude Include="Rendering\Texture.hpp" />
-    <ClInclude Include="Rendering\RenderTexture.hpp" />
-    <ClInclude Include="Rendering\Terrain.hpp" />
-    <ClInclude Include="Main\Time.hpp" />
-    <ClInclude Include="Rendering\TesellatedMesh.hpp" />
-    <ClInclude Include="Structures\LinkedList.hpp" />
-    <ClInclude Include="Timer.hpp" />
-    <ClInclude Include="Transform.hpp" />
+    <ClInclude Include="src\Rendering\Primitives.hpp" />
+    <ClInclude Include="src\Rendering\Renderer3D.hpp" />
+    <ClInclude Include="src\Rendering.hpp" />
+    <ClInclude Include="src\Rendering\Shader.hpp" />
+    <ClInclude Include="src\Rendering\Shadow.hpp" />
+    <ClInclude Include="src\Rendering\Skybox.hpp" />
+    <ClInclude Include="src\Rendering\TesellationShader.hpp" />
+    <ClInclude Include="src\Rendering\Texture.hpp" />
+    <ClInclude Include="src\Rendering\RenderTexture.hpp" />
+    <ClInclude Include="src\Rendering\Terrain.hpp" />
+    <ClInclude Include="src\Main\Time.hpp" />
+    <ClInclude Include="src\Rendering\TesellatedMesh.hpp" />
+    <ClInclude Include="src\ScriptingEngine.hpp" />
+    <ClInclude Include="src\Serializer.hpp" />
+    <ClInclude Include="src\Structures\Core.hpp" />
+    <ClInclude Include="src\Structures\HContainers.hpp" />
+    <ClInclude Include="src\Structures\HString.hpp" />
+    <ClInclude Include="src\Structures\LinkedList.hpp" />
+    <ClInclude Include="src\Timer.hpp" />
+    <ClInclude Include="src\Transform.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\HustleEngine\Assets\Icons\HustleIcon.jpg" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
@@ -266,6 +282,7 @@
     <Import Project="..\packages\sdl2.2.0.5\build\native\sdl2.targets" Condition="Exists('..\packages\sdl2.2.0.5\build\native\sdl2.targets')" />
     <Import Project="..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets" Condition="Exists('..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets')" />
     <Import Project="..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets" Condition="Exists('..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets')" />
+    <Import Project="..\packages\directxtk_uwp.2022.3.24.2\build\native\directxtk_uwp.targets" Condition="Exists('..\packages\directxtk_uwp.2022.3.24.2\build\native\directxtk_uwp.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -277,5 +294,6 @@
     <Error Condition="!Exists('..\packages\sdl2.2.0.5\build\native\sdl2.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.2.0.5\build\native\sdl2.targets'))" />
     <Error Condition="!Exists('..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.nuget.redist.2.0.20\build\native\sdl2.nuget.redist.targets'))" />
     <Error Condition="!Exists('..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\sdl2.nuget.2.0.20\build\native\sdl2.nuget.targets'))" />
+    <Error Condition="!Exists('..\packages\directxtk_uwp.2022.3.24.2\build\native\directxtk_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\directxtk_uwp.2022.3.24.2\build\native\directxtk_uwp.targets'))" />
   </Target>
 </Project>
