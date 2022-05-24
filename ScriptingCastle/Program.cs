@@ -1,24 +1,54 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace ScriptingCastle
 {
-    public class Program
+    public unsafe class Program
     {
-        // [DllImport("__Internal", EntryPoint = "PrintHelloCsharp")]
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        public extern static string PrintHelloCsharp();
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void PrintHelloCsharp();
+		
+		public struct Birki
+		{
+			public int bir, iki;
+		}
+	
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		public extern static Birki RefTest(Birki birki);
 
-        public static void Tick(float deltaTime)
+		public static void Tick(float deltaTime)
         { 
             
         }
 
-        public static void Main()
+		public static void Initialize()
+		{
+            
+		}
+
+        internal static int ConvertToInt(float* ptr)
         {
-            Console.WriteLine("adfasdfasdfasdf");
+            return *(int*)ptr;
+        }
+
+        public static int Main()
+        {
+			float test = 3.0f;
+            int[] array = new int[4] { 1, 2, 3, 4 };
+
             PrintHelloCsharp();
+
+			Birki birki = new Birki();
+			
+			birki.bir = 1;
+			birki.iki = 2;
+		
+            birki = RefTest(birki);
+
+            Console.WriteLine("csharp: " + birki.bir.ToString() + birki.iki);
+
+            Console.WriteLine(test);
+			return 33;
         }
     }
 }

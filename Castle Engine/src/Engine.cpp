@@ -36,7 +36,7 @@
 #include "Serializer.hpp"
 #include "AngleCulling.hpp",
 #include "Structures/HString.hpp"
-#include "ScriptingEngine.hpp"
+// #include "Scripting/ScriptingEngine.hpp"
 
 using namespace ECS;
 
@@ -164,9 +164,9 @@ SDL_Surface* Engine::LoadLogo()
     return SDL_CreateRGBSurfaceFrom((void*)data, width, height, 32, 4 * width, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 }
 
-void Engine::Start()
+__declspec(dllexport) void Engine::Start()
 {
-    ScriptingEngine::Initialize();
+    //ScriptingEngine::Initialize();
 
     XMFLOAT3 a = XMFLOAT3(1, 1, 1);
 	XMFLOAT3 b = XMFLOAT3(1, 1, 1);

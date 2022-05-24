@@ -33,6 +33,7 @@ namespace Engine
 
 	void AddEndOfFrameEvent(Action action);
 	void AddWindowScaleEvent(FunctionAction<void, int, int>::Type act);
+	__declspec(dllexport) void Start();
 	glm::ivec2 GetWindowScale();
 	glm::ivec2 GetMainMonitorScale();
 

@@ -2,7 +2,6 @@
 
 #include "Editor.hpp"
 #include <spdlog/spdlog.h>
-#include <unordered_map>
 #include <SDL.h>
 #include "../Input.hpp"
 #include "../Rendering/Texture.hpp"
@@ -18,9 +17,9 @@ namespace Editor::ResourcesWindow
 	class FileRecord
 	{
 	public:
-		mutable std::string path;
-		mutable std::string name;
-		mutable std::string extension;
+		std::string path;
+		std::string name;
+		std::string extension;
 		DXShaderResourceView* texture = nullptr;
 		FileRecord(std::string _path, std::string _name, std::string _extension)
 			: path(std::move(_path)),
@@ -35,7 +34,7 @@ namespace Editor::ResourcesWindow
 	public:
 		std::filesystem::path  path;
 		FolderTree* parent;
-		mutable std::string name;
+		std::string name;
 		std::vector<FolderTree*> folders; // < -- subfolders
 		std::vector<FileRecord*> files;
 	};
@@ -53,11 +52,14 @@ namespace Editor::ResourcesWindow
 	std::filesystem::path currentPath;
 
 	DXShaderResourceView* fileIcon, * folderIcon,
-		* meshIcon, * cppIcon,
-		* hlslIcon, * hppIcon, * materialIcon;
+			            * meshIcon, * cppIcon,
+			            * hlslIcon, * hppIcon, * materialIcon;
 
 	FolderTree* rootTree;
 	FolderTree* currentTree;
+
+	std::vector<FolderTree*> searchFolders;
+	std::vector<FileRecord*> searchFiles;
 
 	std::filesystem::path GetCurrentPath() { return currentPath; }
 
@@ -223,8 +225,6 @@ namespace Editor::ResourcesWindow
 		}
 	}
 
-	std::vector<FolderTree*> searchFolders;
-	std::vector<FileRecord*> searchFiles;
 
 	void RecursiveSearch(const char* key, const int len, FolderTree* tree)
 	{

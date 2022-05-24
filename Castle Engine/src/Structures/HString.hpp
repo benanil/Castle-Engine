@@ -586,7 +586,7 @@ namespace HS
 		return WString(buffer);
 	}
 
-	static inline wchar_t* ToWChar(const char* string)
+	static inline wchar_t* ToWCharArray(const char* string)
 	{
 		const int len = std::strlen(string);
 		wchar_t* buffer = (wchar_t*)std::malloc(len + 1 * sizeof(wchar_t));
@@ -595,7 +595,7 @@ namespace HS
 		return buffer;
 	}
 
-	static inline char* ToChar(const wchar_t* string)
+	static inline char* ToCharArray(const wchar_t* string)
 	{
 		const int len = std::wcslen(string);
 		char* buffer = (char*)std::malloc(len + 1);
