@@ -67,15 +67,20 @@ namespace Editor::ResourcesWindow
 	{
 		switch (StringToHash(extension.c_str())) // StringToHash Function is located in Helper.hpp
 		{
-		case CppHash:  extension = "CPP";  return cppIcon;
-		case HlslHash: extension = "HLSL";  return hlslIcon;
-		case HppHash:  extension = "HPP";  return hppIcon;
-		case MatHash:  extension = "MAT";  return materialIcon;
-		case fbxHash: case objHash: case blendHash: case cmeshHash: {
-			extension = "MESH";
-			return meshIcon;
-		}
-		default: fileIcon;
+			case CppHash:  extension = "CPP";  return cppIcon;
+			case HlslHash: extension = "HLSL"; return hlslIcon;
+			case HppHash:  extension = "HPP";  return hppIcon;
+			case MatHash:  extension = "MAT";  return materialIcon;
+			// is mesh ?
+			case fbxHash: 
+			case objHash: 
+			case blendHash: 
+			case cmeshHash:
+			{
+				extension = "MESH";
+				return meshIcon;
+			}
+			default: fileIcon;
 		}
 		return fileIcon;
 	}

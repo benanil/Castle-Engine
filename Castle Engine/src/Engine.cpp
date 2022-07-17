@@ -164,15 +164,19 @@ SDL_Surface* Engine::LoadLogo()
     return SDL_CreateRGBSurfaceFrom((void*)data, width, height, 32, 4 * width, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
 }
 
+
+#ifndef AXGLOBALCONST
+#	if _MSC_VER
+#		define AXGLOBALCONST extern const __declspec(selectany)
+#	elif defined(__GNUC__) && !defined(__MINGW32__)
+#		define AXGLOBALCONST extern const __attribute__((weak))
+#	endif
+#endif
+
+
 __declspec(dllexport) void Engine::Start()
 {
     //ScriptingEngine::Initialize();
-
-    XMFLOAT3 a = XMFLOAT3(1, 1, 1);
-	XMFLOAT3 b = XMFLOAT3(1, 1, 1);
-    
-	XMFLOAT3 c = a + b;
-	std::cout << c.x << c.y << c.z << std::endl; 
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         printf("Error: %s\n", SDL_GetError());

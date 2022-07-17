@@ -7,11 +7,11 @@
 class GrassGroup
 {
 public:
-	ID3D11ShaderResourceView* srv;
-	ID3D11Buffer* structuredBuffer;
-	uint32_t cullledMatrixCount;
-public:
-	~GrassGroup() { DX_RELEASE(structuredBuffer); DX_RELEASE(srv);  }
+	~GrassGroup() 
+	{
+		DX_RELEASE(structuredBuffer); 
+		DX_RELEASE(srv);  
+	}
 
     // https://stackoverflow.com/questions/60108658/fastest-method-to-calculate-sum-of-all-packed-32-bit-integers-using-avx512-or-av
 	static __forceinline int hsum_epi32_sse2(__m128i x) {
@@ -68,4 +68,9 @@ public:
 		
 		free(culledMatrices);
 	}
+
+public:
+	ID3D11ShaderResourceView* srv;
+	ID3D11Buffer* structuredBuffer;
+	uint32_t cullledMatrixCount;
 };

@@ -13,6 +13,7 @@ Features:
 * pbr rendering
 * Nvidia HBAO+ SSAO
 * frustum culling + custom culling system for terrain chunks
+* God Rays (Sun Shafts)
 
 api's that I use in this engine
 * Assimp

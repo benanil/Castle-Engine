@@ -59,8 +59,9 @@ public:
 	
 	MeshRenderer(Mesh* _mesh);
 
-	ECS::Entity* GetEntity();
-	void SetEntity(ECS::Entity* _entity);
+	ECS::Entity* GetEntityConst() const;
+	ECS::Entity* GetEntity() ;
+	void SetEntity(ECS::Entity* _entity) ;
 	const ECS::Transform* GetTransform() const;
 
 	void Update(const float& deltaTime);

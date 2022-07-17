@@ -311,10 +311,13 @@ struct AABB {
 		{
 			glm::vec3(min.x, min.y, min.z),
 			glm::vec3(max.x, max.y, max.z),
+			
 			glm::vec3(max.x, max.y, min.z),
 			glm::vec3(min.x, min.y, max.z),
+			
 			glm::vec3(min.x, max.y, min.z),
 			glm::vec3(max.x, min.y, max.z),
+
 			glm::vec3(max.x, min.y, min.z),
 			glm::vec3(min.x, max.y, max.z)
 		};
@@ -330,10 +333,10 @@ struct AABB {
 	{
 		std::array<glm::vec2, 5> result
 		{
-			glm::vec2{min.x, min.z},
-			{max.x, max.z},
-			{max.x, min.z},
-			{min.x, max.z},
+			glm::vec2{ min.x, min.z },
+			glm::vec2{ max.x, max.z },
+			glm::vec2{ max.x, min.z },
+			glm::vec2{ min.x, max.z },
 			glm::mix(result[1], result[0], 0.5f)
 		};
 		return result;
@@ -358,11 +361,6 @@ struct AABB {
 	}
 };
 
-DX_INLINE float AngleBetween2D(glm::vec2 a, glm::vec2 b)
-{
-	return acosf((a.x * a.y) + (b.x * b.y) / 
-		(sqrtf((a.x * a.x) + (b.x * b.x )) * sqrtf((b.x * b.x) + (b.y * b.y))));
-}
 /// <summary> this doesnt check y axis
 /// for optimization before we send camForward 
 ///	ve must use a crossproduct for it (camright cross unitY) we dont want to calculate it for every aabb<summary/>
@@ -397,13 +395,13 @@ struct BoundingFrustum
 		m_planes[4] = C.r[2];		   // m_near_plane  
 		m_planes[5] = C.r[3] - C.r[2]; // m_far_plane   
 
-		for (std::size_t i = 0u; i < std::size(m_planes); ++i) {
+		for (int i = 0; i < 6; ++i) {
 			m_planes[i] = XMPlaneNormalize(m_planes[i]);
 		}
 	}
 };
 
-DX_INLINE const XMVECTOR MaxPointAlongNormal(const XMVECTOR& min, const XMVECTOR& max, const FXMVECTOR& n) noexcept {
+DX_INLINE const XMVECTOR __vectorcall MaxPointAlongNormal(const XMVECTOR min, const XMVECTOR max, const FXMVECTOR n) noexcept {
 
 	const auto control = XMVectorGreaterOrEqual(n, XMVectorZero());
 	return XMVectorSelect(min, max, control);

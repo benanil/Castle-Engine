@@ -9,10 +9,12 @@ struct PostProcessVertex
 Texture2D _texture     : register(t0);
 Texture2D bloomTexture : register(t1);
 Texture2D ssaoTexture  : register(t2);
+Texture2D depthTexture : register(t3);
 
 SamplerState textureSampler  : register(s0);
 SamplerState textureSampler1 : register(s1);
 SamplerState textureSampler2 : register(s2);
+SamplerState depthSampler    : register(s3);
 
 PostProcessVertex VS(uint id : SV_VERTEXID)
 {
@@ -56,7 +58,7 @@ PostProcessVertex VS(uint id : SV_VERTEXID)
 // AMD Tonemapper
 //--------------------------------------------------------------------------------------
 // General tonemapping operator, build 'b' term.
-float ColToneB(in float hdrMax, in float contrast, in float shoulder, in float midIn, in float midOut)
+float ColToneB(float hdrMax, float contrast, float shoulder, float midIn, float midOut)
 {
 	return
 		-((-pow(midIn, contrast) + (midOut * (pow(hdrMax, contrast * shoulder) * pow(midIn, contrast) -
@@ -66,14 +68,14 @@ float ColToneB(in float hdrMax, in float contrast, in float shoulder, in float m
 }
 
 // General tonemapping operator, build 'c' term.
-float ColToneC(in float hdrMax, in float contrast, in float shoulder, in float midIn, in float midOut)
+float ColToneC(float hdrMax, float contrast, float shoulder, float midIn, float midOut)
 {
 	return (pow(hdrMax, contrast * shoulder) * pow(midIn, contrast) - pow(hdrMax, contrast) * pow(midIn, contrast * shoulder) * midOut) /
 		(pow(hdrMax, contrast * shoulder) * midOut - pow(midIn, contrast * shoulder) * midOut);
 }
 
 // General tonemapping operator, p := {contrast,shoulder,b,c}.
-float ColTone(in float x, in float4 p)
+float ColTone(float x, float4 p)
 {
 	float z = pow(x, p.r);
 	return z / (pow(z, p.g) * p.b + p.a);
@@ -186,14 +188,24 @@ float3 ACESFilm(float3 x)
 
 cbuffer ScreenSizeCB : register(b0)
 {
-	int2 screenSize; int mode; float saturation;
+	int2 screenSize;
+	int mode;
+	float saturation;
+	float2 sunPos;
 };
+
+// god rays samples
+#define NUM_SAMPLES 80
 
 float4 PS(PostProcessVertex i) : SV_Target
 {
 	i.texCoord.y = 1 - i.texCoord.y;
-	float3 color = Saturation(_texture.Sample(textureSampler, i.texCoord).xyz * 0.82, saturation);
+	
+	float3 color = _texture.Sample(textureSampler, i.texCoord).xyz * 0.82;
+	color = Saturation(color, saturation);
+	
 	float3 tonemapped = color;
+	
 	switch (mode)
 	{
 		case 0: tonemapped = ACESFilm(color);  			break;
@@ -202,12 +214,49 @@ float4 PS(PostProcessVertex i) : SV_Target
 		case 3: tonemapped = Reinhard(color);  			break;
 		case 4: tonemapped = DX11DSK(color);  			break;
 	}
-
-#define GAMMA 1.4f
-	tonemapped = pow(tonemapped, float3(1.0f,1.0f,1.0f) / float3(GAMMA,GAMMA,GAMMA));
+	
+	const float Exposure = 0.3f;
+	const float Decay    = 0.96815;
+	const float Density  = 0.926;
+	const float Weight   = 0.587;
+	
+	float2 texCoord = i.texCoord;
+	// Calculate vector from pixel to light source in screen space.
+	float2 deltaTexCoord = (i.texCoord - sunPos);
+	// Divide by number of samples and scale by control factor.
+	deltaTexCoord *= 1.0f / NUM_SAMPLES * Density;
+	// Store initial sample.
+	float3 godRaysColor = float3(0.0, 0.0, 0.0); // tex2D(frameSampler, texCoord);
+	// Set up illumination decay factor.
+	float illuminationDecay = 1.0f;
+	// Evaluate summation from Equation 3 NUM_SAMPLES iterations.
+	for (int j = 0; j < NUM_SAMPLES; j++) 
+	{     
+		// Step sample location along ray.
+		texCoord -= deltaTexCoord;
+		// Retrieve sample at new location.
+		float hasSun = distance(texCoord, sunPos) < 0.038 ? 0.85 : 0;
+		
+		float3 _sample = depthTexture.Sample(depthSampler, texCoord).r > .9992 ?
+				       float3(0.08 + hasSun, 0.065 + hasSun, 0.05 + hasSun) : 
+				       float3(0.0, 0.0, 0.0); 
+	
+		// Apply sample attenuation scale/decay factors.
+		_sample *= illuminationDecay * Weight;
+		// Accumulate combined color.
+		godRaysColor += _sample;     
+		// Update exponential decay factor.
+		illuminationDecay *= Decay;
+	}
+	
+	#define GAMMA 1.4f
+	tonemapped = pow(tonemapped, float3(1.0f, 1.0f, 1.0f) / float3(GAMMA, GAMMA, GAMMA));
 	//tonemapped = sqrt(tonemapped); // gamma 2.0
 	float3 ssao = ssaoTexture.Sample(textureSampler2, i.texCoord).xyz;
 	tonemapped *= ssao;
 	float4 bloom = bloomTexture.Sample(textureSampler1, i.texCoord);
-	return float4(tonemapped.xyz, 1.0f) + bloom;
+
+	return float4(tonemapped.xyz + (godRaysColor * Exposure * 0.5f), 1.0f) + bloom;
+	// float hasSun = distance(i.texCoord, sunPos) < 0.058 ? 0.90 : 0;
+	// return float4(color.x, color.y, color.z, 1.0) + float4(hasSun, 0.0, 0.0, 0.0);
 }

@@ -125,9 +125,13 @@ float3 CalculatePointLight(in float3 normal, in float3 fragPos, in float3 specTe
 	// calculate first light
 	float3 direction = float3(-950, 300, 0) - fragPos;
 	float lightDist = length(direction);
+	
+	// 500 metter light distance for sponza scene but you can 
+	// reduce this to 20 if you have normal scene
+	static const float MaxLightDist = 500;
 
 	float diffuseFactor = dot(normal, normalize(direction));
-	float lightFactor = diffuseFactor * (max(500 - lightDist, 0) / 500);
+	float lightFactor = diffuseFactor * (max(MaxLightDist - lightDist, 0) / MaxLightDist);
 	float3 firstLight = float3(0.5, 0.3, 0.25) * lightFactor;
 	float3 viewDirection = normalize(fragPos - viewPos);
 

@@ -16,6 +16,7 @@ namespace PostProcessing
 			struct { float saturation; };
 			struct { float treshold; };
 		};
+		glm::vec2 sunPos;
 	};
 
 	void RenderToQuad(RenderTexture* renderTexture, Shader* shader, DXShaderResourceView* srv, DXTexSampler* sampler, int scale);
@@ -107,7 +108,7 @@ void PostProcessing::Initialize(ID3D11Device* _Device, ID3D11DeviceContext* _Dev
 	SSAOParams.Blur.Sharpness = 6.f;
 }
 
-void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
+void PostProcessing::Proceed(RenderTexture& rt, FreeCamera* camera)
 {
 	int startMode = postCbuffer.mode;
 	float startSaturation = postCbuffer.saturation;
@@ -133,7 +134,7 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 		GFSDK_SSAO_InputData_D3D11 Input{};
 		Input.DepthData.DepthTextureType = GFSDK_SSAO_HARDWARE_DEPTHS;
 		Input.DepthData.pFullResDepthTextureSRV = rt.depthSRV;
-		Input.DepthData.ProjectionMatrix.Data = *(const GFSDK_SSAO_Float4x4*)&projection;
+		Input.DepthData.ProjectionMatrix.Data = *(const GFSDK_SSAO_Float4x4*)&camera->GetProjection();
 		Input.DepthData.ProjectionMatrix.Layout = GFSDK_SSAO_ROW_MAJOR_ORDER;
 		Input.DepthData.MetersToViewSpaceUnits = SSAOMetersToViewSpaceUnits;
 
@@ -159,12 +160,18 @@ void PostProcessing::Proceed(RenderTexture& rt, const XMMATRIX& projection)
 	// render post processing
 	postProcessShader->Bind();
 
+	float sunAngle = Renderer3D::GetGlobalCbuffer().sunAngle;
+	glm::vec2 clipCoords = camera->WorldToNDC(glm::vec3(0, -sin(sunAngle * DX_DEG_TO_RAD) * 10000.0f, -cos(sunAngle * DX_DEG_TO_RAD) * 10000.0f), XMMatrixIdentity());
+
 	postCbuffer.mode = startMode;
 	postCbuffer.saturation = startSaturation;
+	postCbuffer.sunPos.x = (clipCoords.x + 1.0f) / 2.0f;
+	postCbuffer.sunPos.y = 1.0f - ((clipCoords.y + 1.0f) / 2.0f);
+
 	DeviceContext->UpdateSubresource(ScreenSizeCB, 0, NULL, &postCbuffer, 0, 0);
 
-	std::array<DXShaderResourceView*, 3> SRVs = { rt.textureView , upSampleRTS[0]->textureView, SSAORenderTexture->textureView };
-	std::array<DXTexSampler*, 3> samplers = { rt.sampler, upSampleRTS[0]->sampler, SSAORenderTexture->sampler};
+	std::array<DXShaderResourceView*, 4> SRVs = { rt.textureView , upSampleRTS[0]->textureView, SSAORenderTexture->textureView, rt.depthSRV };
+	std::array<DXTexSampler*, 4> samplers     = { rt.sampler, upSampleRTS[0]->sampler, SSAORenderTexture->sampler, SSAORenderTexture->sampler };
 
 	DeviceContext->PSSetShaderResources(0, SRVs.size(), SRVs.data());
 	DeviceContext->PSSetSamplers(0, samplers.size(), samplers.data());

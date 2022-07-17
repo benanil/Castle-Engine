@@ -102,6 +102,7 @@ void Mesh::LoadMesh(const std::string& path)
 MeshRenderer::MeshRenderer() : ECS::Component() {}
 MeshRenderer::MeshRenderer(Mesh* _mesh) : mesh(_mesh), ECS::Component() {}
 
+ECS::Entity* MeshRenderer::GetEntityConst() const { return entity; }
 ECS::Entity* MeshRenderer::GetEntity() { return entity; }
 void MeshRenderer::SetEntity(ECS::Entity* _entity) { entity = _entity; }
 const ECS::Transform* MeshRenderer::GetTransform() const { return transform; }
@@ -133,12 +134,13 @@ int MeshRenderer::CalculateCullingBitset(
 	int totalCulledMeshes = 0;
 	constexpr int MinimumVertexForCulling = 64;
 	XMMATRIX matrix = entity->transform->GetMatrix();
+	CMath::BoundingFrustum frustum = CMath::BoundingFrustum(viewProjection);
 
 	for (uint16_t i = 0; i < mesh->subMeshCount; ++i)
 	{
-		bitset[startIndex++] = !CMath::CheckAABBCulled(CMath::BoundingFrustum(viewProjection), mesh->subMeshes[i].aabb, matrix);
-		bitset[startIndex + 1023] = CMath::CheckAABBInFrustum(mesh->subMeshes[i].aabb, planes, matrix);
-		totalCulledMeshes += bitset[startIndex - 1];
+		bitset[startIndex++] = CMath::CheckAABBCulled(frustum, mesh->subMeshes[i].aabb, matrix);
+		bitset[startIndex + 1023ull] = CMath::CheckAABBInFrustum(mesh->subMeshes[i].aabb, planes, matrix);
+		totalCulledMeshes += bitset[startIndex + 1023ull];
 	}
 	return totalCulledMeshes;
 }
@@ -152,7 +154,7 @@ void MeshRenderer::Draw(DXDeviceContext* deviceContext, CullingBitset& cullData,
 
 	for (uint16_t i = 0; i < mesh->subMeshCount; ++i)
 	{
-		if (cullData[startIndex++]) continue;
+		if (!cullData[startIndex++]) continue;
 		mesh->materials[std::min<uint16_t>(mesh->subMeshes[i].materialIndex, mesh->materials.size() - 1)]->Bind();
 		mesh->subMeshes[i].Draw(deviceContext);
 	}

@@ -40,13 +40,13 @@ namespace Renderer3D
 
 	DrawIndexedInfo drawInfo;
 	unsigned int MSAASamples;
-	
+
 	DXInputLayout* PBRVertLayout;
 	cbGlobal cbGlobalData;
 	cbPerObject cbPerObj;
 
-	DXBuffer* constantBuffer, *uniformGlobalBuffer;
-	
+	DXBuffer* constantBuffer, * uniformGlobalBuffer;
+
 	RenderTexture* renderTexture;
 	Skybox* skybox;
 	Shader* PBRshader;
@@ -59,7 +59,7 @@ namespace Renderer3D
 
 	bool Vsync = true;
 	int culledMeshCount = 0;
-	
+
 	GFSDK_SSAO_Context_D3D11* pAOContext;
 
 	// forward declarations
@@ -153,7 +153,7 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	rasterizerDesc.MultisampleEnable = true;
 
 	DX_CHECK(
-	Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
+		Device->CreateRasterizerState(&rasterizerDesc, &rasterizerState), "rasterizer creation failed");
 
 	memset(&rasterizerDesc, 0, sizeof(D3D11_RASTERIZER_DESC));
 	rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
@@ -163,13 +163,13 @@ void Renderer3D::Initialize(FreeCamera* camera)
 	DeviceContext->RSSetState(rasterizerState);
 
 	DX_CHECK(
-	Device->CreateRasterizerState(&rasterizerDesc, &WireframeRasterizerState), "rasterizer creation failed");
+		Device->CreateRasterizerState(&rasterizerDesc, &WireframeRasterizerState), "rasterizer creation failed");
 
 	skybox = new Skybox(10, 10, MSAASamples);
 	std::cout << "skybox created" << std::endl;
 	Terrain::Initialize();
 
-	PointsAndIndices32  tessMeshCreateResult = CSCreatePlanePoints(100, 100, {0,0});
+	PointsAndIndices32  tessMeshCreateResult = CSCreatePlanePoints(100, 100, { 0,0 });
 	tessMesh = new TesellatedMesh(Device, tessMeshCreateResult);
 	tessMeshCreateResult.Clear();
 
@@ -179,7 +179,7 @@ void Renderer3D::Initialize(FreeCamera* camera)
 
 void Renderer3D::InvalidateRenderTexture(int width, int height)
 {
-	if (!renderTexture) return; 
+	if (!renderTexture) return;
 	renderTexture->Invalidate(width, height);
 	freeCamera->aspectRatio = static_cast<float>(width) / height;
 	freeCamera->UpdateProjection();
@@ -198,7 +198,7 @@ void Renderer3D::CreateBuffers()
 
 	DXCreateConstantBuffer(Device, uniformGlobalBuffer, &cbGlobalData);
 	DXCreateConstantBuffer(Device, constantBuffer, &cbPerObj);
-	
+
 	DeviceContext->VSSetConstantBuffers(0, 1, &constantBuffer);
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 
@@ -207,13 +207,13 @@ void Renderer3D::CreateBuffers()
 
 	auto& viewWindowdata = Editor::GameViewWindow::GetData();
 	viewWindowdata.OnScaleChanged.Bind(new StaticMethodDel<void, float, float>([](float w, float h)
-	{
-		freeCamera->aspectRatio = w / h;
-		freeCamera->UpdateProjection(freeCamera->aspectRatio);
-		renderTexture->Invalidate((int)w, (int)h);
-		PostProcessing::WindowScaleEvent((int)w, (int)h);
-		Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
-	}));
+		{
+			freeCamera->aspectRatio = w / h;
+			freeCamera->UpdateProjection(freeCamera->aspectRatio);
+			renderTexture->Invalidate((int)w, (int)h);
+			PostProcessing::WindowScaleEvent((int)w, (int)h);
+			Editor::GameViewWindow::GetData().texture = Renderer3D::GetPostRenderTexture()->textureView;
+		}));
 #endif
 }
 
@@ -225,7 +225,7 @@ void Renderer3D::DrawTerrain()
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
 	DeviceContext->PSSetConstantBuffers(1, 1, &uniformGlobalBuffer);
 	terrainCullBitset = Terrain::Draw(*freeCamera, freeCamera->GetViewProjection());
-	
+
 	// 600k grass in 0.07 seconds depends on sea level framerate can increase %20
 	GrassRenderer::SetShader(freeCamera->GetViewProjection());
 	Terrain::DrawGrasses(terrainCullBitset);
@@ -237,7 +237,7 @@ void Renderer3D::DrawTerrain()
 
 void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
 {
-	if(!cullingThread.valid()) return;
+	if (!cullingThread.valid()) return;
 
 	// get MeshCull data from async thread
 	cullingThread.wait();
@@ -255,11 +255,11 @@ void Renderer3D::RenderMeshes(D3D11_VIEWPORT* viewPort)
 	}
 
 	Terrain::DrawForShadow(Shadow::GetFrustumMinMax());
-	
+
 	Shadow::EndRenderShadowmap(viewPort); // only sets viewport
-	
+
 	// render pbr scene 
-	PBRshader->Bind(); 
+	PBRshader->Bind();
 	renderTexture->SetAsRendererTarget();
 	Shadow::BindShadowTexture(3);
 	DeviceContext->IASetInputLayout(PBRVertLayout);
@@ -285,8 +285,8 @@ void Renderer3D::DrawScene()
 	DeviceContext->UpdateSubresource(uniformGlobalBuffer, 0, NULL, &cbGlobalData, 0, 0);
 	DeviceContext->PSSetConstantBuffers(2, 1, &uniformGlobalBuffer);
 
-#ifndef NEDITOR
 	D3D11_VIEWPORT viewPort = DirectxBackend::GetViewPort();
+#ifndef NEDITOR
 	auto& gameVindowdata = Editor::GameViewWindow::GetData();
 	viewPort.Width = gameVindowdata.WindowScale.x;
 	viewPort.Height = gameVindowdata.WindowScale.y;
@@ -317,13 +317,13 @@ void Renderer3D::DrawScene()
 	LineDrawer2D::Render();
 
 	DrawTerrain();
-	
+
 	skybox->Draw(cbPerObj, DeviceContext, constantBuffer, freeCamera);
 
 #ifndef NEDITOR
-	PostProcessing::Proceed(*renderTexture, freeCamera->GetProjection());
+	PostProcessing::Proceed(*renderTexture, freeCamera);
 #else
-	PostProcessing::Proceed(*renderTexture, freeCamera->GetProjection());
+	PostProcessing::Proceed(*renderTexture, freeCamera);
 #endif
 	// set default render buffers again
 	DeviceContext->OMSetDepthStencilState(nullptr, 0);
@@ -346,18 +346,102 @@ void Renderer3D::DrawScene()
 	cullingThread = std::async(std::launch::async, CalculateCulls);
 }
 
+__forceinline float __vectorcall Dot(__m128 a, __m128 b)
+{
+	__m128 r1 = _mm_mul_ps(a, b);
+	__m128 shuf = _mm_shuffle_ps(r1, r1, _MM_SHUFFLE(2, 3, 0, 1));
+	__m128 sums = _mm_add_ps(r1, shuf);
+	shuf = _mm_movehl_ps(shuf, sums);
+	sums = _mm_add_ss(sums, shuf);
+	return _mm_cvtss_f32(sums);
+}
+__forceinline __m128 __vectorcall Normalize(__m128 V)
+{
+	__m128 vDot = _mm_mul_ps(V, V);
+	__m128 vTemp = _mm_shuffle_ps(vDot, vDot, _MM_SHUFFLE(2, 1, 2, 1));
+	vDot = _mm_add_ss(vDot, vTemp);
+	vTemp = _mm_shuffle_ps(vTemp, vTemp, _MM_SHUFFLE(1, 1, 1, 1));
+	vDot = _mm_add_ss(vDot, vTemp);
+	vDot = _mm_shuffle_ps(vDot, vDot, _MM_SHUFFLE(0, 0, 0, 0));
+	return _mm_mul_ps(_mm_rsqrt_ps(vDot), V);
+}
+
+XMGLOBALCONST XMVECTORI32 g_XMSelect0010 = { XM_SELECT_0, XM_SELECT_0, XM_SELECT_1, XM_SELECT_0 };
+XMGLOBALCONST XMVECTORI32 g_XMSelect0100 = { XM_SELECT_0, XM_SELECT_1, XM_SELECT_0, XM_SELECT_0 };
+XMGLOBALCONST XMVECTORI32 g_XMSelect0110 = { XM_SELECT_0, XM_SELECT_1, XM_SELECT_1, XM_SELECT_0 };
+
 // this tooks 0.23ms-0.7ms runs asyncrusly on seperate thread
 CullingBitset Renderer3D::CalculateCulls() // angle culling (like frustum culling)
 {
-	CullingBitset bitset {};
-	
-	uint32_t startIndex = 0;
-	XMMATRIX viewProjection = freeCamera->GetViewProjection();
+	CullingBitset bitset{};
 
-	for (auto& renderer : meshRenderers)
+	const XMMATRIX viewProjection = freeCamera->GetViewProjection();
+	const std::array<OrthographicPlane, 4> shadowFrustum = Shadow::GetFrustumPlanes();
+	const CMath::BoundingFrustum frustum = CMath::BoundingFrustum(viewProjection);
+	
+	struct SSEPlane { __m128 position, direction; } planeSSE[4];
+	
+	for (int i = 0; i < 4; ++i)
 	{
-		renderer->CalculateCullingBitset(bitset, startIndex, Shadow::GetFrustumPlanes(), viewProjection);
+		planeSSE[i].position  = _mm_loadu_ps(&shadowFrustum[i].position.x);
+		planeSSE[i].direction = _mm_loadu_ps(&shadowFrustum[i].direction.x);
 	}
+	
+	static const __m128 const edgeIndices[8] =
+	{
+		g_XMSelect1110, _mm_setzero_ps(), g_XMSelect1100, g_XMSelect0010,
+		g_XMSelect1010, g_XMSelect0100, g_XMSelect1000, g_XMSelect0110
+	};
+	
+	int count = 0, bi = 0; // bitset index
+	
+	for (const MeshRenderer* meshRenderer : meshRenderers)
+	{
+		for (const SubMesh& submesh : meshRenderer->mesh->subMeshes)
+		{
+			const CMath::AABB& aabb = submesh.aabb;
+	
+			const XMMATRIX& enttMatrix = meshRenderer->GetEntityConst()->transform->GetMatrix();
+	
+			__m128 min = XMVector3Transform(_mm_loadu_ps(&aabb.min.x), enttMatrix);
+			__m128 max = XMVector3Transform(_mm_loadu_ps(&aabb.max.x), enttMatrix);
+			// control points after transformed min and max values can change
+			min = _mm_min_ps(min, max);
+			max = _mm_max_ps(min, max);
+	
+			for (int i = 0; i < 6; ++i) {
+				const __m128 p = MaxPointAlongNormal(min, max, frustum.m_planes[i]);
+				const __m128 result = XMPlaneDotCoord(frustum.m_planes[i], p);
+				if (XMVectorGetX(result) < 0.0f) goto frustum_intersection_missed;
+			}
+			bitset[bi] = true;
+		frustum_intersection_missed:
+	
+			for (int ei = 0; ei < 8; ei++)
+			{
+				const __m128 blend = _mm_blendv_ps(min, max, edgeIndices[ei]);
+				for (int j = 0; j < 4; j++)
+				{
+					const __m128 direction = Normalize(_mm_sub_ps(blend, planeSSE[j].position));
+					if (Dot(direction, planeSSE[j].direction) < 0.1f) goto shadow_intersection_missed;
+				}
+			}
+	
+			bitset[1023ull + bi] = true;
+		shadow_intersection_missed:
+			count += bitset[1023ull + bi];
+			++bi;
+		}
+	}
+	// std::cout << count << std::endl;
+	// uint32_t startIndex = 0;
+	// int totalShadowed = 0;
+	// for (auto& renderer : meshRenderers)
+	// {
+	// 	totalShadowed +=
+	// 	renderer->CalculateCullingBitset(bitset, startIndex, Shadow::GetFrustumPlanes(), viewProjection);
+	// }
+	// std::cout << totalShadowed << std::endl;
 	return bitset;
 }
 
@@ -380,7 +464,7 @@ void Renderer3D::OnEditor()
 
 		ImGui::ColorEdit3("ambient Color", &cbGlobalData.ambientColor.x);
 		ImGui::ColorEdit4("sun Color", &cbGlobalData.sunColor.x);
-		if(ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle)) Shadow::UpdateShadows();
+		if (ImGui::DragFloat("sun angle", &cbGlobalData.sunAngle)) Shadow::UpdateShadows();
 		ImGui::DragFloat("ambientStrength", &cbGlobalData.ambientStength, 0.01f);
 
 		ImGui::PopStyleColor();

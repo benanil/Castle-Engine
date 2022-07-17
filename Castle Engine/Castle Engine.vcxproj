@@ -209,7 +209,8 @@
     <ClCompile Include="src\Main\Time.cpp" />
     <ClCompile Include="src\Rendering\TesellatedMesh.cpp" />
     <ClCompile Include="src\FreeCamera.cpp" />
-    <ClCompile Include="src\ScriptingEngine.cpp" />
+    <ClCompile Include="src\Scripting\ImGuiWrapper.cpp" />
+    <ClCompile Include="src\Scripting\ScriptingEngine.cpp" />
     <ClCompile Include="src\Serializer.cpp" />
     <ClCompile Include="src\Transform.cpp" />
   </ItemGroup>
@@ -262,7 +263,9 @@
     <ClInclude Include="src\Rendering\Terrain.hpp" />
     <ClInclude Include="src\Main\Time.hpp" />
     <ClInclude Include="src\Rendering\TesellatedMesh.hpp" />
-    <ClInclude Include="src\ScriptingEngine.hpp" />
+    <ClInclude Include="src\Scripting\ECSBindings.hpp" />
+    <ClInclude Include="src\Scripting\ImGuiWrapper.hpp" />
+    <ClInclude Include="src\Scripting\ScriptingEngine.hpp" />
     <ClInclude Include="src\Serializer.hpp" />
     <ClInclude Include="src\Structures\Core.hpp" />
     <ClInclude Include="src\Structures\HContainers.hpp" />

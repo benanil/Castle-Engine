@@ -135,7 +135,10 @@
     <ClCompile Include="src\Extern\Quicklz\quicklz.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ScriptingEngine.cpp">
+    <ClCompile Include="src\Scripting\ScriptingEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scripting\ImGuiWrapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -299,7 +302,13 @@
     <ClInclude Include="src\Extern\Quicklz\quicklz.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\ScriptingEngine.hpp">
+    <ClInclude Include="src\Scripting\ScriptingEngine.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scripting\ECSBindings.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scripting\ImGuiWrapper.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
