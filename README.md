@@ -1,6 +1,6 @@
 # Castle-Engine
 directx11 game engine. inspired from Braynzarsoft, Rastertek, and Frank Luna's Introduction to 3D Game Programing with Directx11 book
-
+![Sponza](https://cdn.discordapp.com/attachments/639449278913445888/998326745927274598/DX11Shadow.png)
 ![Terrain with grass](https://cdn.discordapp.com/attachments/639449278913445888/998326146544447539/Castle_Engine_terrain_with_grass.png)
 
 Features:
